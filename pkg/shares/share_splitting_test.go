@@ -2,39 +2,39 @@ package shares
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"reflect"
 	"testing"
 
-	"github.com/celestiaorg/celestia-app/pkg/appconsts"
-	appns "github.com/celestiaorg/celestia-app/pkg/namespace"
+	"github.com/celestiaorg/go-square/pkg/blob"
+	"github.com/celestiaorg/go-square/pkg/namespace"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	coretypes "github.com/tendermint/tendermint/types"
 )
 
 func TestSplitTxs_forTxShares(t *testing.T) {
-	smallTransactionA := coretypes.Tx{0xa}
-	smallTransactionB := coretypes.Tx{0xb}
+	smallTransactionA := []byte{0xa}
+	smallTransactionB := []byte{0xb}
 	largeTransaction := bytes.Repeat([]byte{0xc}, 512)
 
 	type testCase struct {
 		name string
-		txs  coretypes.Txs
+		txs  [][]byte
 		want []Share
 	}
 	testCases := []testCase{
 		{
 			name: "empty txs",
-			txs:  coretypes.Txs{},
+			txs:  [][]byte{},
 			want: []Share{},
 		},
 		{
 			name: "one small tx",
-			txs:  coretypes.Txs{smallTransactionA},
+			txs:  [][]byte{smallTransactionA},
 			want: []Share{
 				padShare(Share{
 					data: append(
-						appns.TxNamespace.Bytes(),
+						namespace.TxNamespace.Bytes(),
 						[]byte{
 							0x1,                // info byte
 							0x0, 0x0, 0x0, 0x2, // 1 byte (unit) + 1 byte (unit length) = 2 bytes sequence length
@@ -49,11 +49,11 @@ func TestSplitTxs_forTxShares(t *testing.T) {
 		},
 		{
 			name: "two small txs",
-			txs:  coretypes.Txs{smallTransactionA, smallTransactionB},
+			txs:  [][]byte{smallTransactionA, smallTransactionB},
 			want: []Share{
 				padShare(Share{
 					data: append(
-						appns.TxNamespace.Bytes(),
+						namespace.TxNamespace.Bytes(),
 						[]byte{
 							0x1,                // info byte
 							0x0, 0x0, 0x0, 0x4, // 2 bytes (first transaction) + 2 bytes (second transaction) = 4 bytes sequence length
@@ -70,11 +70,11 @@ func TestSplitTxs_forTxShares(t *testing.T) {
 		},
 		{
 			name: "one large tx that spans two shares",
-			txs:  coretypes.Txs{largeTransaction},
+			txs:  [][]byte{largeTransaction},
 			want: []Share{
 				fillShare(Share{
 					data: append(
-						appns.TxNamespace.Bytes(),
+						namespace.TxNamespace.Bytes(),
 						[]byte{
 							0x1,                // info byte
 							0x0, 0x0, 0x2, 0x2, // 512 (unit) + 2 (unit length) = 514 sequence length
@@ -88,7 +88,7 @@ func TestSplitTxs_forTxShares(t *testing.T) {
 				padShare(Share{
 					data: append(
 						append(
-							appns.TxNamespace.Bytes(),
+							namespace.TxNamespace.Bytes(),
 							[]byte{
 								0x0,                // info byte
 								0x0, 0x0, 0x0, 0x0, // reserved bytes
@@ -102,11 +102,11 @@ func TestSplitTxs_forTxShares(t *testing.T) {
 		},
 		{
 			name: "one small tx then one large tx that spans two shares",
-			txs:  coretypes.Txs{smallTransactionA, largeTransaction},
+			txs:  [][]byte{smallTransactionA, largeTransaction},
 			want: []Share{
 				fillShare(Share{
 					data: append(
-						appns.TxNamespace.Bytes(),
+						namespace.TxNamespace.Bytes(),
 						[]byte{
 							0x1,                // info byte
 							0x0, 0x0, 0x2, 0x4, // 2 bytes (first transaction) + 514 bytes (second transaction) = 516 bytes sequence length
@@ -122,7 +122,7 @@ func TestSplitTxs_forTxShares(t *testing.T) {
 				padShare(Share{
 					data: append(
 						append(
-							appns.TxNamespace.Bytes(),
+							namespace.TxNamespace.Bytes(),
 							[]byte{
 								0x0,                // info byte
 								0x0, 0x0, 0x0, 0x0, // reserved bytes
@@ -136,11 +136,11 @@ func TestSplitTxs_forTxShares(t *testing.T) {
 		},
 		{
 			name: "one large tx that spans two shares then one small tx",
-			txs:  coretypes.Txs{largeTransaction, smallTransactionA},
+			txs:  [][]byte{largeTransaction, smallTransactionA},
 			want: []Share{
 				fillShare(Share{
 					data: append(
-						appns.TxNamespace.Bytes(),
+						namespace.TxNamespace.Bytes(),
 						[]byte{
 							0x1,                // info byte
 							0x0, 0x0, 0x2, 0x4, // 514 bytes (first transaction) + 2 bytes (second transaction) = 516 bytes sequence length
@@ -153,7 +153,7 @@ func TestSplitTxs_forTxShares(t *testing.T) {
 				),
 				padShare(Share{
 					data: append(
-						appns.TxNamespace.Bytes(),
+						namespace.TxNamespace.Bytes(),
 						[]byte{
 							0x0,                 // info byte
 							0x0, 0x0, 0x0, 0x4a, // reserved bytes
@@ -183,16 +183,16 @@ func TestSplitTxs_forTxShares(t *testing.T) {
 func TestSplitTxs(t *testing.T) {
 	type testCase struct {
 		name          string
-		txs           coretypes.Txs
+		txs           [][]byte
 		wantTxShares  []Share
 		wantPfbShares []Share
-		wantMap       map[coretypes.TxKey]Range
+		wantMap       map[[sha256.Size]byte]Range
 	}
 
-	smallTx := coretypes.Tx{0xa} // spans one share
+	smallTx := []byte{0xa} // spans one share
 	smallTxShares := []Share{
 		padShare(Share{
-			data: append(appns.TxNamespace.Bytes(),
+			data: append(namespace.TxNamespace.Bytes(),
 				[]byte{
 					0x1,                // info byte
 					0x0, 0x0, 0x0, 0x2, // 1 byte (unit) + 1 byte (unit length) = 2 bytes sequence length
@@ -205,12 +205,12 @@ func TestSplitTxs(t *testing.T) {
 		),
 	}
 
-	pfbTx, err := coretypes.MarshalIndexWrapper(coretypes.Tx{0xb}, 10) // spans one share
+	pfbTx, err := blob.MarshalIndexWrapper([]byte{0xb}, 10) // spans one share
 	require.NoError(t, err)
 	pfbTxShares := []Share{
 		padShare(Share{
 			data: append(
-				appns.PayForBlobNamespace.Bytes(),
+				namespace.PayForBlobNamespace.Bytes(),
 				[]uint8{
 					0x1,               // info byte
 					0x0, 0x0, 0x0, 13, // 1 byte (unit) + 1 byte (unit length) = 2 bytes sequence length
@@ -223,10 +223,10 @@ func TestSplitTxs(t *testing.T) {
 		),
 	}
 
-	largeTx := coretypes.Tx(bytes.Repeat([]byte{0xc}, appconsts.ShareSize)) // spans two shares
+	largeTx := []byte(bytes.Repeat([]byte{0xc}, ShareSize)) // spans two shares
 	largeTxShares := []Share{
 		fillShare(Share{
-			data: append(appns.TxNamespace.Bytes(),
+			data: append(namespace.TxNamespace.Bytes(),
 				[]uint8{
 					0x1,                // info byte
 					0x0, 0x0, 0x2, 0x2, // 512 (unit) + 2 (unit length) = 514 sequence length
@@ -239,7 +239,7 @@ func TestSplitTxs(t *testing.T) {
 		padShare(Share{
 			data: append(
 				append(
-					appns.TxNamespace.Bytes(),
+					namespace.TxNamespace.Bytes(),
 					[]uint8{
 						0x0,                // info byte
 						0x0, 0x0, 0x0, 0x0, // reserved bytes
@@ -254,46 +254,46 @@ func TestSplitTxs(t *testing.T) {
 	testCases := []testCase{
 		{
 			name:          "empty",
-			txs:           coretypes.Txs{},
+			txs:           [][]byte{},
 			wantTxShares:  []Share{},
 			wantPfbShares: []Share{},
-			wantMap:       map[coretypes.TxKey]Range{},
+			wantMap:       map[[sha256.Size]byte]Range{},
 		},
 		{
 			name:          "smallTx",
-			txs:           coretypes.Txs{smallTx},
+			txs:           [][]byte{smallTx},
 			wantTxShares:  smallTxShares,
 			wantPfbShares: []Share{},
-			wantMap: map[coretypes.TxKey]Range{
-				smallTx.Key(): {0, 1},
+			wantMap: map[[sha256.Size]byte]Range{
+				sha256.Sum256(smallTx): {0, 1},
 			},
 		},
 		{
 			name:          "largeTx",
-			txs:           coretypes.Txs{largeTx},
+			txs:           [][]byte{largeTx},
 			wantTxShares:  largeTxShares,
 			wantPfbShares: []Share{},
-			wantMap: map[coretypes.TxKey]Range{
-				largeTx.Key(): {0, 2},
+			wantMap: map[[sha256.Size]byte]Range{
+				sha256.Sum256(largeTx): {0, 2},
 			},
 		},
 		{
 			name:          "pfbTx",
-			txs:           coretypes.Txs{pfbTx},
+			txs:           [][]byte{pfbTx},
 			wantTxShares:  []Share{},
 			wantPfbShares: pfbTxShares,
-			wantMap: map[coretypes.TxKey]Range{
-				pfbTx.Key(): {0, 1},
+			wantMap: map[[sha256.Size]byte]Range{
+				sha256.Sum256(pfbTx): {0, 1},
 			},
 		},
 		{
 			name:          "largeTx then pfbTx",
-			txs:           coretypes.Txs{largeTx, pfbTx},
+			txs:           [][]byte{largeTx, pfbTx},
 			wantTxShares:  largeTxShares,
 			wantPfbShares: pfbTxShares,
-			wantMap: map[coretypes.TxKey]Range{
-				largeTx.Key(): {0, 2},
-				pfbTx.Key():   {2, 3},
+			wantMap: map[[sha256.Size]byte]Range{
+				sha256.Sum256(largeTx): {0, 2},
+				sha256.Sum256(pfbTx):   {2, 3},
 			},
 		},
 	}
@@ -315,49 +315,49 @@ func padShare(share Share) (paddedShare Share) {
 }
 
 // fillShare returns a share filled with filler so that the share length
-// is equal to appconsts.ShareSize.
+// is equal to ShareSize.
 func fillShare(share Share, filler byte) (paddedShare Share) {
-	return Share{data: append(share.data, bytes.Repeat([]byte{filler}, appconsts.ShareSize-len(share.data))...)}
+	return Share{data: append(share.data, bytes.Repeat([]byte{filler}, ShareSize-len(share.data))...)}
 }
 
 func Test_mergeMaps(t *testing.T) {
 	type testCase struct {
 		name   string
-		mapOne map[coretypes.TxKey]Range
-		mapTwo map[coretypes.TxKey]Range
-		want   map[coretypes.TxKey]Range
+		mapOne map[[sha256.Size]byte]Range
+		mapTwo map[[sha256.Size]byte]Range
+		want   map[[sha256.Size]byte]Range
 	}
 	testCases := []testCase{
 		{
 			name:   "empty maps",
-			mapOne: map[coretypes.TxKey]Range{},
-			mapTwo: map[coretypes.TxKey]Range{},
-			want:   map[coretypes.TxKey]Range{},
+			mapOne: map[[sha256.Size]byte]Range{},
+			mapTwo: map[[sha256.Size]byte]Range{},
+			want:   map[[sha256.Size]byte]Range{},
 		},
 		{
 			name: "merges maps with one key each",
-			mapOne: map[coretypes.TxKey]Range{
+			mapOne: map[[sha256.Size]byte]Range{
 				{0x1}: {0, 1},
 			},
-			mapTwo: map[coretypes.TxKey]Range{
+			mapTwo: map[[sha256.Size]byte]Range{
 				{0x2}: {2, 3},
 			},
-			want: map[coretypes.TxKey]Range{
+			want: map[[sha256.Size]byte]Range{
 				{0x1}: {0, 1},
 				{0x2}: {2, 3},
 			},
 		},
 		{
 			name: "merges maps with multiple keys each",
-			mapOne: map[coretypes.TxKey]Range{
+			mapOne: map[[sha256.Size]byte]Range{
 				{0x1}: {0, 1},
 				{0x2}: {2, 3},
 			},
-			mapTwo: map[coretypes.TxKey]Range{
+			mapTwo: map[[sha256.Size]byte]Range{
 				{0x3}: {3, 3},
 				{0x4}: {4, 4},
 			},
-			want: map[coretypes.TxKey]Range{
+			want: map[[sha256.Size]byte]Range{
 				{0x1}: {0, 1},
 				{0x2}: {2, 3},
 				{0x3}: {3, 3},
@@ -366,13 +366,13 @@ func Test_mergeMaps(t *testing.T) {
 		},
 		{
 			name: "merges maps with a duplicate key and the second map's value takes precedence",
-			mapOne: map[coretypes.TxKey]Range{
+			mapOne: map[[sha256.Size]byte]Range{
 				{0x1}: {0, 0},
 			},
-			mapTwo: map[coretypes.TxKey]Range{
+			mapTwo: map[[sha256.Size]byte]Range{
 				{0x1}: {1, 1},
 			},
-			want: map[coretypes.TxKey]Range{
+			want: map[[sha256.Size]byte]Range{
 				{0x1}: {1, 1},
 			},
 		},

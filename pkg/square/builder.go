@@ -6,24 +6,22 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/celestiaorg/celestia-app/pkg/appconsts"
-	"github.com/celestiaorg/celestia-app/pkg/blob"
-	"github.com/celestiaorg/celestia-app/pkg/inclusion"
-	"github.com/celestiaorg/celestia-app/pkg/namespace"
-	"github.com/celestiaorg/celestia-app/pkg/shares"
-	"github.com/tendermint/tendermint/pkg/consts"
-	coretypes "github.com/tendermint/tendermint/proto/tendermint/types"
+	"github.com/celestiaorg/go-square/pkg/blob"
+	"github.com/celestiaorg/go-square/pkg/inclusion"
+	"github.com/celestiaorg/go-square/pkg/namespace"
+	"github.com/celestiaorg/go-square/pkg/shares"
+	"google.golang.org/protobuf/proto"
 )
 
 type Builder struct {
-	// maxCapacity is an upper bound on the total amount of shares that could fit in the biggest square
-	maxCapacity int
+	// maxSquareSize is an upper bound on the total amount of shares that could fit in the biggest square
+	maxSquareSize int
 	// currentSize is an overestimate for the number of shares used by this builder.
 	currentSize int
 
 	// here we keep track of the pending data to go in a square
 	Txs   [][]byte
-	Pfbs  []*coretypes.IndexWrapper
+	Pfbs  []*blob.IndexWrapper
 	Blobs []*Element
 
 	// for compact shares we use a counter to track the amount of shares needed
@@ -32,10 +30,9 @@ type Builder struct {
 
 	done                 bool
 	subtreeRootThreshold int
-	appVersion           uint64
 }
 
-func NewBuilder(maxSquareSize int, appVersion uint64, txs ...[]byte) (*Builder, error) {
+func NewBuilder(maxSquareSize int, subtreeRootThreshold int, txs ...[]byte) (*Builder, error) {
 	if maxSquareSize <= 0 {
 		return nil, errors.New("max square size must be strictly positive")
 	}
@@ -43,14 +40,13 @@ func NewBuilder(maxSquareSize int, appVersion uint64, txs ...[]byte) (*Builder, 
 		return nil, errors.New("max square size must be a power of two")
 	}
 	builder := &Builder{
-		maxCapacity:          maxSquareSize * maxSquareSize,
-		subtreeRootThreshold: appconsts.SubtreeRootThreshold(appVersion),
+		maxSquareSize:        maxSquareSize,
+		subtreeRootThreshold: subtreeRootThreshold,
 		Blobs:                make([]*Element, 0),
-		Pfbs:                 make([]*coretypes.IndexWrapper, 0),
+		Pfbs:                 make([]*blob.IndexWrapper, 0),
 		Txs:                  make([][]byte, 0),
 		TxCounter:            shares.NewCompactShareCounter(),
 		PfbCounter:           shares.NewCompactShareCounter(),
-		appVersion:           appVersion,
 	}
 	seenFirstBlobTx := false
 	for idx, tx := range txs {
@@ -88,13 +84,13 @@ func (b *Builder) AppendTx(tx []byte) bool {
 
 // AppendBlobTx attempts to allocate the blob transaction to the square. It returns false if there is not
 // enough space in the square to fit the transaction.
-func (b *Builder) AppendBlobTx(blobTx blob.BlobTx) bool {
-	iw := &coretypes.IndexWrapper{
+func (b *Builder) AppendBlobTx(blobTx *blob.BlobTx) bool {
+	iw := &blob.IndexWrapper{
 		Tx:           blobTx.Tx,
-		TypeId:       consts.ProtoIndexWrapperTypeID,
-		ShareIndexes: worstCaseShareIndexes(len(blobTx.Blobs), b.appVersion),
+		TypeId:       blob.ProtoIndexWrapperTypeID,
+		ShareIndexes: worstCaseShareIndexes(len(blobTx.Blobs), b.maxSquareSize),
 	}
-	size := iw.Size()
+	size := proto.Size(iw)
 	pfbShareDiff := b.PfbCounter.Add(size)
 
 	// create a new blob element for each blob and track the worst-case share count
@@ -136,7 +132,7 @@ func (b *Builder) Export() (Square, error) {
 	})
 
 	// write all the regular transactions into compact shares
-	txWriter := shares.NewCompactShareSplitter(namespace.TxNamespace, appconsts.ShareVersionZero)
+	txWriter := shares.NewCompactShareSplitter(namespace.TxNamespace, shares.ShareVersionZero)
 	for _, tx := range b.Txs {
 		if err := txWriter.WriteTx(tx); err != nil {
 			return nil, fmt.Errorf("writing tx into compact shares: %w", err)
@@ -182,9 +178,9 @@ func (b *Builder) Export() (Square, error) {
 
 	// write all the pay for blob transactions into compact shares. We need to do this after allocating the blobs to their
 	// appropriate shares as the starting index of each blob needs to be included in the PFB transaction
-	pfbWriter := shares.NewCompactShareSplitter(namespace.PayForBlobNamespace, appconsts.ShareVersionZero)
+	pfbWriter := shares.NewCompactShareSplitter(namespace.PayForBlobNamespace, shares.ShareVersionZero)
 	for _, iw := range b.Pfbs {
-		iwBytes, err := iw.Marshal()
+		iwBytes, err := proto.Marshal(iw)
 		if err != nil {
 			return nil, fmt.Errorf("marshaling pay for blob tx: %w", err)
 		}
@@ -289,7 +285,8 @@ func (b *Builder) FindTxShareRange(txIndex int) (shares.Range, error) {
 		if i < len(b.Txs) {
 			_ = txWriter.Add(len(b.Txs[i]))
 		} else {
-			_ = pfbWriter.Add(b.Pfbs[i-len(b.Txs)].Size())
+			size := proto.Size(b.Pfbs[i-len(b.Txs)])
+			_ = pfbWriter.Add(size)
 		}
 	}
 
@@ -309,14 +306,15 @@ func (b *Builder) FindTxShareRange(txIndex int) (shares.Range, error) {
 		if pfbWriter.Remainder() == 0 {
 			start++
 		}
-		_ = pfbWriter.Add(b.Pfbs[txIndex-len(b.Txs)].Size())
+		size := proto.Size(b.Pfbs[txIndex-len(b.Txs)])
+		_ = pfbWriter.Add(size)
 	}
 	end := txWriter.Size() + pfbWriter.Size()
 
 	return shares.NewRange(start, end), nil
 }
 
-func (b *Builder) GetWrappedPFB(txIndex int) (*coretypes.IndexWrapper, error) {
+func (b *Builder) GetWrappedPFB(txIndex int) (*blob.IndexWrapper, error) {
 	if txIndex < 0 {
 		return nil, fmt.Errorf("txIndex %d must not be negative", txIndex)
 	}
@@ -356,7 +354,7 @@ func (b *Builder) NumTxs() int {
 }
 
 func (b *Builder) canFit(shareNum int) bool {
-	return b.currentSize+shareNum <= b.maxCapacity
+	return b.currentSize+shareNum <= (b.maxSquareSize * b.maxSquareSize)
 }
 
 func (b *Builder) IsEmpty() bool {
@@ -413,8 +411,7 @@ func (e Element) maxShareOffset() int {
 // of blobs at a given appversion. Largest possible is "worst" in that protobuf
 // uses varints to encode integers, so larger integers can require more bytes to
 // encode.
-func worstCaseShareIndexes(blobs int, appVersion uint64) []uint32 {
-	maxSquareSize := appconsts.SquareSizeUpperBound(appVersion)
+func worstCaseShareIndexes(blobs, maxSquareSize int) []uint32 {
 	shareIndexes := make([]uint32, blobs)
 	for i := range shareIndexes {
 		shareIndexes[i] = uint32(maxSquareSize * maxSquareSize)

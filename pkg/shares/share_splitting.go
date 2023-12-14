@@ -1,13 +1,11 @@
 package shares
 
 import (
+	"crypto/sha256"
 	"errors"
 
-	"github.com/celestiaorg/celestia-app/pkg/appconsts"
-	"github.com/celestiaorg/celestia-app/pkg/blob"
-	appns "github.com/celestiaorg/celestia-app/pkg/namespace"
-	coretypes "github.com/tendermint/tendermint/types"
-	"golang.org/x/exp/maps"
+	"github.com/celestiaorg/go-square/pkg/blob"
+	"github.com/celestiaorg/go-square/pkg/namespace"
 )
 
 var (
@@ -22,10 +20,10 @@ var (
 // ExtractShareIndexes iterates over the transactions and extracts the share
 // indexes from wrapped transactions. It returns nil if the transactions are
 // from an old block that did not have share indexes in the wrapped txs.
-func ExtractShareIndexes(txs coretypes.Txs) []uint32 {
+func ExtractShareIndexes(txs [][]byte) []uint32 {
 	var shareIndexes []uint32
 	for _, rawTx := range txs {
-		if indexWrappedTxs, isIndexWrapped := coretypes.UnmarshalIndexWrapper(rawTx); isIndexWrapped {
+		if indexWrappedTxs, isIndexWrapped := blob.UnmarshalIndexWrapper(rawTx); isIndexWrapped {
 			// Since share index == 0 is invalid, it indicates that we are
 			// attempting to extract share indexes from txs that do not have any
 			// due to them being old. here we return nil to indicate that we are
@@ -43,12 +41,12 @@ func ExtractShareIndexes(txs coretypes.Txs) []uint32 {
 	return shareIndexes
 }
 
-func SplitTxs(txs coretypes.Txs) (txShares []Share, pfbShares []Share, shareRanges map[coretypes.TxKey]Range, err error) {
-	txWriter := NewCompactShareSplitter(appns.TxNamespace, appconsts.ShareVersionZero)
-	pfbTxWriter := NewCompactShareSplitter(appns.PayForBlobNamespace, appconsts.ShareVersionZero)
+func SplitTxs(txs [][]byte) (txShares []Share, pfbShares []Share, shareRanges map[[sha256.Size]byte]Range, err error) {
+	txWriter := NewCompactShareSplitter(namespace.TxNamespace, ShareVersionZero)
+	pfbTxWriter := NewCompactShareSplitter(namespace.PayForBlobNamespace, ShareVersionZero)
 
 	for _, tx := range txs {
-		if _, isIndexWrapper := coretypes.UnmarshalIndexWrapper(tx); isIndexWrapper {
+		if _, isIndexWrapper := blob.UnmarshalIndexWrapper(tx); isIndexWrapper {
 			err = pfbTxWriter.WriteTx(tx)
 		} else {
 			err = txWriter.WriteTx(tx)
@@ -86,9 +84,13 @@ func SplitBlobs(blobs ...*blob.Blob) ([]Share, error) {
 
 // mergeMaps merges two maps into a new map. If there are any duplicate keys,
 // the value in the second map takes precedence.
-func mergeMaps(mapOne, mapTwo map[coretypes.TxKey]Range) map[coretypes.TxKey]Range {
-	merged := make(map[coretypes.TxKey]Range, len(mapOne)+len(mapTwo))
-	maps.Copy(merged, mapOne)
-	maps.Copy(merged, mapTwo)
+func mergeMaps(mapOne, mapTwo map[[sha256.Size]byte]Range) map[[sha256.Size]byte]Range {
+	merged := make(map[[sha256.Size]byte]Range, len(mapOne)+len(mapTwo))
+	for k, v := range mapOne {
+		merged[k] = v
+	}
+	for k, v := range mapTwo {
+		merged[k] = v
+	}
 	return merged
 }

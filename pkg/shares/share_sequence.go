@@ -3,15 +3,14 @@ package shares
 import (
 	"fmt"
 
-	"github.com/celestiaorg/celestia-app/pkg/appconsts"
-	appns "github.com/celestiaorg/celestia-app/pkg/namespace"
+	"github.com/celestiaorg/go-square/pkg/namespace"
 )
 
 // ShareSequence represents a contiguous sequence of shares that are part of the
 // same namespace and blob. For compact shares, one share sequence exists per
 // reserved namespace. For sparse shares, one share sequence exists per blob.
 type ShareSequence struct {
-	Namespace appns.Namespace
+	Namespace namespace.Namespace
 	Shares    []Share
 }
 
@@ -108,14 +107,14 @@ func CompactSharesNeeded(sequenceLen int) (sharesNeeded int) {
 		return 0
 	}
 
-	if sequenceLen < appconsts.FirstCompactShareContentSize {
+	if sequenceLen < FirstCompactShareContentSize {
 		return 1
 	}
 
-	bytesAvailable := appconsts.FirstCompactShareContentSize
+	bytesAvailable := FirstCompactShareContentSize
 	sharesNeeded++
 	for bytesAvailable < sequenceLen {
-		bytesAvailable += appconsts.ContinuationCompactShareContentSize
+		bytesAvailable += ContinuationCompactShareContentSize
 		sharesNeeded++
 	}
 	return sharesNeeded
@@ -128,14 +127,14 @@ func SparseSharesNeeded(sequenceLen uint32) (sharesNeeded int) {
 		return 0
 	}
 
-	if sequenceLen < appconsts.FirstSparseShareContentSize {
+	if sequenceLen < FirstSparseShareContentSize {
 		return 1
 	}
 
-	bytesAvailable := appconsts.FirstSparseShareContentSize
+	bytesAvailable := FirstSparseShareContentSize
 	sharesNeeded++
 	for uint32(bytesAvailable) < sequenceLen {
-		bytesAvailable += appconsts.ContinuationSparseShareContentSize
+		bytesAvailable += ContinuationSparseShareContentSize
 		sharesNeeded++
 	}
 	return sharesNeeded

@@ -7,18 +7,14 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/celestiaorg/celestia-app/pkg/appconsts"
-	"github.com/celestiaorg/celestia-app/pkg/blob"
-	appns "github.com/celestiaorg/celestia-app/pkg/namespace"
+	"github.com/celestiaorg/go-square/pkg/namespace"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	tmrand "github.com/tendermint/tendermint/libs/rand"
-	"github.com/tendermint/tendermint/types"
 )
 
 func TestParseShares(t *testing.T) {
-	ns1 := appns.MustNewV0(bytes.Repeat([]byte{1}, appns.NamespaceVersionZeroIDSize))
-	ns2 := appns.MustNewV0(bytes.Repeat([]byte{2}, appns.NamespaceVersionZeroIDSize))
+	ns1 := namespace.MustNewV0(bytes.Repeat([]byte{1}, namespace.NamespaceVersionZeroIDSize))
+	ns2 := namespace.MustNewV0(bytes.Repeat([]byte{2}, namespace.NamespaceVersionZeroIDSize))
 
 	txShares, _, _, err := SplitTxs(generateRandomTxs(2, 1000))
 	require.NoError(t, err)
@@ -42,7 +38,7 @@ func TestParseShares(t *testing.T) {
 	// because it takes more than one share to store a sequence of 1000 bytes
 	tooLargeSequenceLen := generateRawShare(t, ns1, true, uint32(1000))
 
-	ns1Padding, err := NamespacePaddingShare(ns1, appconsts.ShareVersionZero)
+	ns1Padding, err := NamespacePaddingShare(ns1, ShareVersionZero)
 	require.NoError(t, err)
 
 	type testCase struct {
@@ -65,14 +61,14 @@ func TestParseShares(t *testing.T) {
 			name:          "one transaction share",
 			shares:        []Share{txShareStart},
 			ignorePadding: false,
-			want:          []ShareSequence{{Namespace: appns.TxNamespace, Shares: []Share{txShareStart}}},
+			want:          []ShareSequence{{Namespace: namespace.TxNamespace, Shares: []Share{txShareStart}}},
 			expectErr:     false,
 		},
 		{
 			name:          "two transaction shares",
 			shares:        []Share{txShareStart, txShareContinuation},
 			ignorePadding: false,
-			want:          []ShareSequence{{Namespace: appns.TxNamespace, Shares: []Share{txShareStart, txShareContinuation}}},
+			want:          []ShareSequence{{Namespace: namespace.TxNamespace, Shares: []Share{txShareStart, txShareContinuation}}},
 			expectErr:     false,
 		},
 		{
@@ -104,7 +100,7 @@ func TestParseShares(t *testing.T) {
 			shares:        []Share{txShareStart, blobOneStart},
 			ignorePadding: false,
 			want: []ShareSequence{
-				{Namespace: appns.TxNamespace, Shares: []Share{txShareStart}},
+				{Namespace: namespace.TxNamespace, Shares: []Share{txShareStart}},
 				{Namespace: ns1, Shares: []Share{blobOneStart}},
 			},
 			expectErr: false,
@@ -114,7 +110,7 @@ func TestParseShares(t *testing.T) {
 			shares:        []Share{txShareStart, blobOneStart, blobTwoStart},
 			ignorePadding: false,
 			want: []ShareSequence{
-				{Namespace: appns.TxNamespace, Shares: []Share{txShareStart}},
+				{Namespace: namespace.TxNamespace, Shares: []Share{txShareStart}},
 				{Namespace: ns1, Shares: []Share{blobOneStart}},
 				{Namespace: ns2, Shares: []Share{blobTwoStart}},
 			},
@@ -147,11 +143,11 @@ func TestParseShares(t *testing.T) {
 			ignorePadding: false,
 			want: []ShareSequence{
 				{
-					Namespace: appns.TailPaddingNamespace,
+					Namespace: namespace.TailPaddingNamespace,
 					Shares:    []Share{TailPaddingShare()},
 				},
 				{
-					Namespace: appns.TailPaddingNamespace,
+					Namespace: namespace.TailPaddingNamespace,
 					Shares:    []Share{TailPaddingShare()},
 				},
 			},
@@ -163,11 +159,11 @@ func TestParseShares(t *testing.T) {
 			ignorePadding: false,
 			want: []ShareSequence{
 				{
-					Namespace: appns.PrimaryReservedPaddingNamespace,
+					Namespace: namespace.PrimaryReservedPaddingNamespace,
 					Shares:    []Share{ReservedPaddingShare()},
 				},
 				{
-					Namespace: appns.PrimaryReservedPaddingNamespace,
+					Namespace: namespace.PrimaryReservedPaddingNamespace,
 					Shares:    []Share{ReservedPaddingShare()},
 				},
 			},
@@ -211,10 +207,10 @@ func TestParseShares(t *testing.T) {
 	}
 }
 
-func generateRawShare(t *testing.T, namespace appns.Namespace, isSequenceStart bool, sequenceLen uint32) (rawShare []byte) {
-	infoByte, _ := NewInfoByte(appconsts.ShareVersionZero, isSequenceStart)
+func generateRawShare(t *testing.T, namespace namespace.Namespace, isSequenceStart bool, sequenceLen uint32) (rawShare []byte) {
+	infoByte, _ := NewInfoByte(ShareVersionZero, isSequenceStart)
 
-	sequenceLenBuf := make([]byte, appconsts.SequenceLenBytes)
+	sequenceLenBuf := make([]byte, SequenceLenBytes)
 	binary.BigEndian.PutUint32(sequenceLenBuf, sequenceLen)
 
 	rawShare = append(rawShare, namespace.Bytes()...)
@@ -225,15 +221,15 @@ func generateRawShare(t *testing.T, namespace appns.Namespace, isSequenceStart b
 }
 
 func padWithRandomBytes(t *testing.T, partialShare []byte) (paddedShare []byte) {
-	paddedShare = make([]byte, appconsts.ShareSize)
+	paddedShare = make([]byte, ShareSize)
 	copy(paddedShare, partialShare)
 	_, err := rand.Read(paddedShare[len(partialShare):])
 	require.NoError(t, err)
 	return paddedShare
 }
 
-func generateRandomTxs(count, size int) types.Txs {
-	txs := make(types.Txs, count)
+func generateRandomTxs(count, size int) [][]byte {
+	txs := make([][]byte, count)
 	for i := 0; i < count; i++ {
 		tx := make([]byte, size)
 		_, err := rand.Read(tx)
@@ -243,8 +239,4 @@ func generateRandomTxs(count, size int) types.Txs {
 		txs[i] = tx
 	}
 	return txs
-}
-
-func generateRandomBlobWithNamespace(namespace appns.Namespace, size int) *blob.Blob {
-	return blob.New(namespace, tmrand.Bytes(size), appconsts.ShareVersionZero)
 }

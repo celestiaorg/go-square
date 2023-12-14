@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/celestiaorg/celestia-app/pkg/blob"
+	"github.com/celestiaorg/go-square/pkg/blob"
 )
 
 type sequence struct {

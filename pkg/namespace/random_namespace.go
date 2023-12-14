@@ -1,6 +1,6 @@
 package namespace
 
-import tmrand "github.com/tendermint/tendermint/libs/rand"
+import "crypto/rand"
 
 func RandomNamespace() Namespace {
 	for {
@@ -14,5 +14,10 @@ func RandomNamespace() Namespace {
 }
 
 func RandomVerzionZeroID() []byte {
-	return append(NamespaceVersionZeroPrefix, tmrand.Bytes(NamespaceVersionZeroIDSize)...)
+	namespace := make([]byte, NamespaceVersionZeroIDSize)
+	_, err := rand.Read(namespace)
+	if err != nil {
+		panic(err)
+	}
+	return append(NamespaceVersionZeroPrefix, namespace...)
 }

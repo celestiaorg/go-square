@@ -1,9 +1,5 @@
 package shares
 
-import (
-	"github.com/celestiaorg/celestia-app/pkg/appconsts"
-)
-
 type CompactShareCounter struct {
 	lastShares    int
 	lastRemainder int
@@ -30,8 +26,8 @@ func (c *CompactShareCounter) Add(dataLen int) int {
 
 	// if this is the first share, calculate how much is taken up by dataLen
 	if c.shares == 0 {
-		if dataLen >= appconsts.FirstCompactShareContentSize-c.remainder {
-			dataLen -= (appconsts.FirstCompactShareContentSize - c.remainder)
+		if dataLen >= FirstCompactShareContentSize-c.remainder {
+			dataLen -= (FirstCompactShareContentSize - c.remainder)
 			c.shares++
 			c.remainder = 0
 		} else {
@@ -41,8 +37,8 @@ func (c *CompactShareCounter) Add(dataLen int) int {
 	}
 
 	// next, look to fill the remainder of the continuation share
-	if dataLen >= (appconsts.ContinuationCompactShareContentSize - c.remainder) {
-		dataLen -= (appconsts.ContinuationCompactShareContentSize - c.remainder)
+	if dataLen >= (ContinuationCompactShareContentSize - c.remainder) {
+		dataLen -= (ContinuationCompactShareContentSize - c.remainder)
 		c.shares++
 		c.remainder = 0
 	} else {
@@ -53,8 +49,8 @@ func (c *CompactShareCounter) Add(dataLen int) int {
 	// finally, divide the remaining dataLen into the continuation shares and update
 	// the remainder
 	if dataLen > 0 {
-		c.shares += dataLen / appconsts.ContinuationCompactShareContentSize
-		c.remainder = dataLen % appconsts.ContinuationCompactShareContentSize
+		c.shares += dataLen / ContinuationCompactShareContentSize
+		c.remainder = dataLen % ContinuationCompactShareContentSize
 	}
 
 	// calculate the diff between before and after

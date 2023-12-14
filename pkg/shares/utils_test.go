@@ -4,7 +4,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/celestiaorg/celestia-app/test/util/testfactory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -39,7 +38,7 @@ func Test_zeroPadIfNecessary(t *testing.T) {
 
 func TestParseDelimiter(t *testing.T) {
 	for i := uint64(0); i < 100; i++ {
-		tx := testfactory.GenerateRandomTxs(1, int(i))[0]
+		tx := GenerateRandomTxs(1, int(i))[0]
 		input, err := MarshalDelimitedTx(tx)
 		if err != nil {
 			panic(err)

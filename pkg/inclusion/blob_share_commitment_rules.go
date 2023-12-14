@@ -3,7 +3,7 @@ package inclusion
 import (
 	"math"
 
-	"github.com/celestiaorg/celestia-app/pkg/da"
+	"github.com/celestiaorg/go-square/pkg/shares"
 	"golang.org/x/exp/constraints"
 )
 
@@ -50,7 +50,7 @@ func BlobSharesUsedNonInteractiveDefaults(cursor, subtreeRootThreshold int, blob
 // fit in the square. The cursor is expected to be the index after the end of
 // the previous blob.
 //
-// See https://github.com/celestiaorg/celestia-app/blob/main/specs/src/specs/data_square_layout.md
+// See https://github.com/celestiaorg/go-square/blob/main/specs/src/specs/data_square_layout.md
 // for more information.
 func NextShareIndex(cursor, blobShareLen, subtreeRootThreshold int) int {
 	// Calculate the subtreewidth. This is the width of the first mountain in the
@@ -59,12 +59,12 @@ func NextShareIndex(cursor, blobShareLen, subtreeRootThreshold int) int {
 	treeWidth := SubTreeWidth(blobShareLen, subtreeRootThreshold)
 	// We round up the cursor to the next multiple of this value i.e. if the cursor
 	// was at 13 and the tree width was 4, we return 16.
-	return roundUpByMultipleOf(cursor, treeWidth)
+	return RoundUpByMultipleOf(cursor, treeWidth)
 }
 
-// roundUpByMultipleOf rounds cursor up to the next multiple of v. If cursor is divisible
+// RoundUpByMultipleOf rounds cursor up to the next multiple of v. If cursor is divisible
 // by v, then it returns cursor
-func roundUpByMultipleOf(cursor, v int) int {
+func RoundUpByMultipleOf(cursor, v int) int {
 	if cursor%v == 0 {
 		return cursor
 	}
@@ -74,7 +74,7 @@ func roundUpByMultipleOf(cursor, v int) int {
 // BlobMinSquareSize returns the minimum square size that can contain shareCount
 // number of shares.
 func BlobMinSquareSize(shareCount int) int {
-	return da.RoundUpPowerOfTwo(int(math.Ceil(math.Sqrt(float64(shareCount)))))
+	return shares.RoundUpPowerOfTwo(int(math.Ceil(math.Sqrt(float64(shareCount)))))
 }
 
 // SubTreeWidth determines the maximum number of leaves per subtree in the share
@@ -94,7 +94,7 @@ func SubTreeWidth(shareCount, subtreeRootThreshold int) int {
 
 	// use a power of two equal to or larger than the multiple of the subtree
 	// root threshold
-	s = da.RoundUpPowerOfTwo(s)
+	s = shares.RoundUpPowerOfTwo(s)
 
 	// use the minimum of the subtree width and the min square size, this
 	// gurarantees that a valid value is returned

@@ -4,20 +4,19 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/celestiaorg/celestia-app/pkg/appconsts"
-	"github.com/celestiaorg/celestia-app/pkg/blob"
-	appns "github.com/celestiaorg/celestia-app/pkg/namespace"
+	"github.com/celestiaorg/go-square/pkg/blob"
+	"github.com/celestiaorg/go-square/pkg/namespace"
 	"github.com/stretchr/testify/assert"
 )
 
 // TestSparseShareSplitter tests that the spare share splitter can split blobs
 // with different namespaces.
 func TestSparseShareSplitter(t *testing.T) {
-	ns1 := appns.MustNewV0(bytes.Repeat([]byte{1}, appns.NamespaceVersionZeroIDSize))
-	ns2 := appns.MustNewV0(bytes.Repeat([]byte{2}, appns.NamespaceVersionZeroIDSize))
+	ns1 := namespace.MustNewV0(bytes.Repeat([]byte{1}, namespace.NamespaceVersionZeroIDSize))
+	ns2 := namespace.MustNewV0(bytes.Repeat([]byte{2}, namespace.NamespaceVersionZeroIDSize))
 
-	blob1 := blob.New(ns1, []byte("data1"), appconsts.ShareVersionZero)
-	blob2 := blob.New(ns2, []byte("data2"), appconsts.ShareVersionZero)
+	blob1 := blob.New(ns1, []byte("data1"), ShareVersionZero)
+	blob2 := blob.New(ns2, []byte("data2"), ShareVersionZero)
 	sss := NewSparseShareSplitter()
 
 	err := sss.Write(blob1)
@@ -31,8 +30,8 @@ func TestSparseShareSplitter(t *testing.T) {
 }
 
 func TestWriteNamespacePaddingShares(t *testing.T) {
-	ns1 := appns.MustNewV0(bytes.Repeat([]byte{1}, appns.NamespaceVersionZeroIDSize))
-	blob1 := newBlob(ns1, appconsts.ShareVersionZero)
+	ns1 := namespace.MustNewV0(bytes.Repeat([]byte{1}, namespace.NamespaceVersionZeroIDSize))
+	blob1 := newBlob(ns1, ShareVersionZero)
 
 	sss := NewSparseShareSplitter()
 
@@ -53,9 +52,9 @@ func TestWriteNamespacePaddingShares(t *testing.T) {
 	// verify that the padding share has the same share version as blob1
 	info, err := got[1].InfoByte()
 	assert.NoError(t, err)
-	assert.Equal(t, info.Version(), appconsts.ShareVersionZero)
+	assert.Equal(t, info.Version(), ShareVersionZero)
 }
 
-func newBlob(ns appns.Namespace, shareVersion uint8) *blob.Blob {
+func newBlob(ns namespace.Namespace, shareVersion uint8) *blob.Blob {
 	return blob.New(ns, []byte("data"), shareVersion)
 }

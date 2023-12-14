@@ -4,13 +4,12 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/celestiaorg/celestia-app/pkg/appconsts"
-	appns "github.com/celestiaorg/celestia-app/pkg/namespace"
+	"github.com/celestiaorg/go-square/pkg/namespace"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-var ns1 = appns.MustNewV0(bytes.Repeat([]byte{1}, appns.NamespaceVersionZeroIDSize))
+var ns1 = namespace.MustNewV0(bytes.Repeat([]byte{1}, namespace.NamespaceVersionZeroIDSize))
 
 var nsOnePadding, _ = zeroPadIfNecessary(
 	append(
@@ -19,34 +18,34 @@ var nsOnePadding, _ = zeroPadIfNecessary(
 			1,          // info byte
 			0, 0, 0, 0, // sequence len
 		}...,
-	), appconsts.ShareSize)
+	), ShareSize)
 
 var reservedPadding, _ = zeroPadIfNecessary(
 	append(
-		appns.PrimaryReservedPaddingNamespace.Bytes(),
+		namespace.PrimaryReservedPaddingNamespace.Bytes(),
 		[]byte{
 			1,          // info byte
 			0, 0, 0, 0, // sequence len
 		}...,
-	), appconsts.ShareSize)
+	), ShareSize)
 
 var tailPadding, _ = zeroPadIfNecessary(
 	append(
-		appns.TailPaddingNamespace.Bytes(),
+		namespace.TailPaddingNamespace.Bytes(),
 		[]byte{
 			1,          // info byte
 			0, 0, 0, 0, // sequence len
 		}...,
-	), appconsts.ShareSize)
+	), ShareSize)
 
 func TestNamespacePaddingShare(t *testing.T) {
-	got, err := NamespacePaddingShare(ns1, appconsts.ShareVersionZero)
+	got, err := NamespacePaddingShare(ns1, ShareVersionZero)
 	assert.NoError(t, err)
 	assert.Equal(t, nsOnePadding, got.ToBytes())
 }
 
 func TestNamespacePaddingShares(t *testing.T) {
-	shares, err := NamespacePaddingShares(ns1, appconsts.ShareVersionZero, 2)
+	shares, err := NamespacePaddingShares(ns1, ShareVersionZero, 2)
 	assert.NoError(t, err)
 	for _, share := range shares {
 		assert.Equal(t, nsOnePadding, share.ToBytes())

@@ -4,8 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/celestiaorg/celestia-app/pkg/appconsts"
-	"github.com/celestiaorg/celestia-app/pkg/blob"
+	"github.com/celestiaorg/go-square/pkg/blob"
 	"golang.org/x/exp/slices"
 )
 
@@ -27,7 +26,7 @@ func (sss *SparseShareSplitter) Write(blob *blob.Blob) error {
 		return err
 	}
 
-	if !slices.Contains(appconsts.SupportedShareVersions, uint8(blob.ShareVersion)) {
+	if !slices.Contains(SupportedShareVersions, uint8(blob.ShareVersion)) {
 		return fmt.Errorf("unsupported share version: %d", blob.ShareVersion)
 	}
 

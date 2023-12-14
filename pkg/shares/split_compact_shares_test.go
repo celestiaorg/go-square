@@ -2,32 +2,31 @@ package shares
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"testing"
 
-	"github.com/celestiaorg/celestia-app/pkg/appconsts"
-	appns "github.com/celestiaorg/celestia-app/pkg/namespace"
+	"github.com/celestiaorg/go-square/pkg/namespace"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	coretypes "github.com/tendermint/tendermint/types"
 )
 
 func TestCount(t *testing.T) {
 	type testCase struct {
-		transactions   []coretypes.Tx
+		transactions   [][]byte
 		wantShareCount int
 	}
 	testCases := []testCase{
-		{transactions: []coretypes.Tx{}, wantShareCount: 0},
-		{transactions: []coretypes.Tx{[]byte{0}}, wantShareCount: 1},
-		{transactions: []coretypes.Tx{bytes.Repeat([]byte{1}, 100)}, wantShareCount: 1},
+		{transactions: [][]byte{}, wantShareCount: 0},
+		{transactions: [][]byte{[]byte{0}}, wantShareCount: 1},
+		{transactions: [][]byte{bytes.Repeat([]byte{1}, 100)}, wantShareCount: 1},
 		// Test with 1 byte over 1 share
-		{transactions: []coretypes.Tx{bytes.Repeat([]byte{1}, RawTxSize(appconsts.FirstCompactShareContentSize+1))}, wantShareCount: 2},
-		{transactions: []coretypes.Tx{generateTx(1)}, wantShareCount: 1},
-		{transactions: []coretypes.Tx{generateTx(2)}, wantShareCount: 2},
-		{transactions: []coretypes.Tx{generateTx(20)}, wantShareCount: 20},
+		{transactions: [][]byte{bytes.Repeat([]byte{1}, RawTxSize(FirstCompactShareContentSize+1))}, wantShareCount: 2},
+		{transactions: [][]byte{generateTx(1)}, wantShareCount: 1},
+		{transactions: [][]byte{generateTx(2)}, wantShareCount: 2},
+		{transactions: [][]byte{generateTx(20)}, wantShareCount: 20},
 	}
 	for _, tc := range testCases {
-		css := NewCompactShareSplitter(appns.TxNamespace, appconsts.ShareVersionZero)
+		css := NewCompactShareSplitter(namespace.TxNamespace, ShareVersionZero)
 		for _, transaction := range tc.transactions {
 			err := css.WriteTx(transaction)
 			require.NoError(t, err)
@@ -38,20 +37,20 @@ func TestCount(t *testing.T) {
 		}
 	}
 
-	css := NewCompactShareSplitter(appns.TxNamespace, appconsts.ShareVersionZero)
+	css := NewCompactShareSplitter(namespace.TxNamespace, ShareVersionZero)
 	assert.Equal(t, 0, css.Count())
 }
 
 // generateTx generates a transaction that occupies exactly numShares number of
 // shares.
-func generateTx(numShares int) coretypes.Tx {
+func generateTx(numShares int) []byte {
 	if numShares == 0 {
-		return coretypes.Tx{}
+		return []byte{}
 	}
 	if numShares == 1 {
-		return bytes.Repeat([]byte{1}, RawTxSize(appconsts.FirstCompactShareContentSize))
+		return bytes.Repeat([]byte{1}, RawTxSize(FirstCompactShareContentSize))
 	}
-	return bytes.Repeat([]byte{2}, RawTxSize(appconsts.FirstCompactShareContentSize+(numShares-1)*appconsts.ContinuationCompactShareContentSize))
+	return bytes.Repeat([]byte{2}, RawTxSize(FirstCompactShareContentSize+(numShares-1)*ContinuationCompactShareContentSize))
 }
 
 func TestExport_write(t *testing.T) {
@@ -63,7 +62,7 @@ func TestExport_write(t *testing.T) {
 
 	oneShare, _ := zeroPadIfNecessary(
 		append(
-			appns.TxNamespace.Bytes(),
+			namespace.TxNamespace.Bytes(),
 			[]byte{
 				0x1,                // info byte
 				0x0, 0x0, 0x0, 0x1, // sequence len
@@ -71,10 +70,10 @@ func TestExport_write(t *testing.T) {
 				0xf, // data
 			}...,
 		),
-		appconsts.ShareSize)
+		ShareSize)
 
 	firstShare := fillShare(Share{data: append(
-		appns.TxNamespace.Bytes(),
+		namespace.TxNamespace.Bytes(),
 		[]byte{
 			0x1,                // info byte
 			0x0, 0x0, 0x2, 0x0, // sequence len
@@ -84,15 +83,15 @@ func TestExport_write(t *testing.T) {
 
 	continuationShare, _ := zeroPadIfNecessary(
 		append(
-			appns.TxNamespace.Bytes(),
+			namespace.TxNamespace.Bytes(),
 			append(
 				[]byte{
 					0x0,                // info byte
 					0x0, 0x0, 0x0, 0x0, // reserved bytes
-				}, bytes.Repeat([]byte{0xf}, appconsts.NamespaceSize+appconsts.ShareInfoBytes+appconsts.SequenceLenBytes+appconsts.CompactShareReservedBytes)..., // data
+				}, bytes.Repeat([]byte{0xf}, namespace.NamespaceSize+ShareInfoBytes+SequenceLenBytes+CompactShareReservedBytes)..., // data
 			)...,
 		),
-		appconsts.ShareSize)
+		ShareSize)
 
 	testCases := []testCase{
 		{
@@ -118,7 +117,7 @@ func TestExport_write(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			css := NewCompactShareSplitter(appns.TxNamespace, appconsts.ShareVersionZero)
+			css := NewCompactShareSplitter(namespace.TxNamespace, ShareVersionZero)
 			for _, bytes := range tc.writeBytes {
 				err := css.write(bytes)
 				require.NoError(t, err)
@@ -138,48 +137,48 @@ func TestExport_write(t *testing.T) {
 func TestWriteAndExportIdempotence(t *testing.T) {
 	type testCase struct {
 		name    string
-		txs     []coretypes.Tx
+		txs     [][]byte
 		wantLen int
 	}
 	testCases := []testCase{
 		{
 			name:    "one tx that occupies exactly one share",
-			txs:     []coretypes.Tx{generateTx(1)},
+			txs:     [][]byte{generateTx(1)},
 			wantLen: 1,
 		},
 		{
 			name:    "one tx that occupies exactly two shares",
-			txs:     []coretypes.Tx{generateTx(2)},
+			txs:     [][]byte{generateTx(2)},
 			wantLen: 2,
 		},
 		{
 			name:    "one tx that occupies exactly three shares",
-			txs:     []coretypes.Tx{generateTx(3)},
+			txs:     [][]byte{generateTx(3)},
 			wantLen: 3,
 		},
 		{
 			name: "two txs that occupy exactly two shares",
-			txs: []coretypes.Tx{
-				bytes.Repeat([]byte{0xf}, RawTxSize(appconsts.FirstCompactShareContentSize)),
-				bytes.Repeat([]byte{0xf}, RawTxSize(appconsts.ContinuationCompactShareContentSize)),
+			txs: [][]byte{
+				bytes.Repeat([]byte{0xf}, RawTxSize(FirstCompactShareContentSize)),
+				bytes.Repeat([]byte{0xf}, RawTxSize(ContinuationCompactShareContentSize)),
 			},
 			wantLen: 2,
 		},
 		{
 			name: "three txs that occupy exactly three shares",
-			txs: []coretypes.Tx{
-				bytes.Repeat([]byte{0xf}, RawTxSize(appconsts.FirstCompactShareContentSize)),
-				bytes.Repeat([]byte{0xf}, RawTxSize(appconsts.ContinuationCompactShareContentSize)),
-				bytes.Repeat([]byte{0xf}, RawTxSize(appconsts.ContinuationCompactShareContentSize)),
+			txs: [][]byte{
+				bytes.Repeat([]byte{0xf}, RawTxSize(FirstCompactShareContentSize)),
+				bytes.Repeat([]byte{0xf}, RawTxSize(ContinuationCompactShareContentSize)),
+				bytes.Repeat([]byte{0xf}, RawTxSize(ContinuationCompactShareContentSize)),
 			},
 			wantLen: 3,
 		},
 		{
 			name: "four txs that occupy three full shares and one partial share",
-			txs: []coretypes.Tx{
-				bytes.Repeat([]byte{0xf}, RawTxSize(appconsts.FirstCompactShareContentSize)),
-				bytes.Repeat([]byte{0xf}, RawTxSize(appconsts.ContinuationCompactShareContentSize)),
-				bytes.Repeat([]byte{0xf}, RawTxSize(appconsts.ContinuationCompactShareContentSize)),
+			txs: [][]byte{
+				bytes.Repeat([]byte{0xf}, RawTxSize(FirstCompactShareContentSize)),
+				bytes.Repeat([]byte{0xf}, RawTxSize(ContinuationCompactShareContentSize)),
+				bytes.Repeat([]byte{0xf}, RawTxSize(ContinuationCompactShareContentSize)),
 				[]byte{0xf},
 			},
 			wantLen: 4,
@@ -187,7 +186,7 @@ func TestWriteAndExportIdempotence(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			css := NewCompactShareSplitter(appns.TxNamespace, appconsts.ShareVersionZero)
+			css := NewCompactShareSplitter(namespace.TxNamespace, ShareVersionZero)
 
 			for _, tx := range tc.txs {
 				err := css.WriteTx(tx)
@@ -205,113 +204,113 @@ func TestWriteAndExportIdempotence(t *testing.T) {
 func TestExport(t *testing.T) {
 	type testCase struct {
 		name             string
-		txs              []coretypes.Tx
-		want             map[coretypes.TxKey]Range
+		txs              [][]byte
+		want             map[[sha256.Size]byte]Range
 		shareRangeOffset int
 	}
 
-	txOne := coretypes.Tx{0x1}
-	txTwo := coretypes.Tx(bytes.Repeat([]byte{2}, 600))
-	txThree := coretypes.Tx(bytes.Repeat([]byte{3}, 1000))
-	exactlyOneShare := coretypes.Tx(bytes.Repeat([]byte{4}, RawTxSize(appconsts.FirstCompactShareContentSize)))
-	exactlyTwoShares := coretypes.Tx(bytes.Repeat([]byte{5}, RawTxSize(appconsts.FirstCompactShareContentSize+appconsts.ContinuationCompactShareContentSize)))
+	txOne := []byte{0x1}
+	txTwo := []byte(bytes.Repeat([]byte{2}, 600))
+	txThree := []byte(bytes.Repeat([]byte{3}, 1000))
+	exactlyOneShare := []byte(bytes.Repeat([]byte{4}, RawTxSize(FirstCompactShareContentSize)))
+	exactlyTwoShares := []byte(bytes.Repeat([]byte{5}, RawTxSize(FirstCompactShareContentSize+ContinuationCompactShareContentSize)))
 
 	testCases := []testCase{
 		{
 			name: "empty",
-			txs:  []coretypes.Tx{},
-			want: map[coretypes.TxKey]Range{},
+			txs:  [][]byte{},
+			want: map[[sha256.Size]byte]Range{},
 		},
 		{
 			name: "txOne occupies shares 0 to 0",
-			txs: []coretypes.Tx{
+			txs: [][]byte{
 				txOne,
 			},
-			want: map[coretypes.TxKey]Range{
-				txOne.Key(): {0, 1},
+			want: map[[sha256.Size]byte]Range{
+				sha256.Sum256(txOne): {0, 1},
 			},
 		},
 		{
 			name: "txTwo occupies shares 0 to 1",
-			txs: []coretypes.Tx{
+			txs: [][]byte{
 				txTwo,
 			},
-			want: map[coretypes.TxKey]Range{
-				txTwo.Key(): {0, 2},
+			want: map[[sha256.Size]byte]Range{
+				sha256.Sum256(txTwo): {0, 2},
 			},
 		},
 		{
 			name: "txThree occupies shares 0 to 2",
-			txs: []coretypes.Tx{
+			txs: [][]byte{
 				txThree,
 			},
-			want: map[coretypes.TxKey]Range{
-				txThree.Key(): {0, 3},
+			want: map[[sha256.Size]byte]Range{
+				sha256.Sum256(txThree): {0, 3},
 			},
 		},
 		{
 			name: "txOne occupies shares 0 to 0, txTwo occupies shares 0 to 1, txThree occupies shares 1 to 3",
-			txs: []coretypes.Tx{
+			txs: [][]byte{
 				txOne,
 				txTwo,
 				txThree,
 			},
-			want: map[coretypes.TxKey]Range{
-				txOne.Key():   {0, 1},
-				txTwo.Key():   {0, 2},
-				txThree.Key(): {1, 4},
+			want: map[[sha256.Size]byte]Range{
+				sha256.Sum256(txOne):   {0, 1},
+				sha256.Sum256(txTwo):   {0, 2},
+				sha256.Sum256(txThree): {1, 4},
 			},
 		},
 
 		{
 			name: "exactly one share occupies shares 0 to 0",
-			txs: []coretypes.Tx{
+			txs: [][]byte{
 				exactlyOneShare,
 			},
-			want: map[coretypes.TxKey]Range{
-				exactlyOneShare.Key(): {0, 1},
+			want: map[[sha256.Size]byte]Range{
+				sha256.Sum256(exactlyOneShare): {0, 1},
 			},
 		},
 		{
 			name: "exactly two shares occupies shares 0 to 1",
-			txs: []coretypes.Tx{
+			txs: [][]byte{
 				exactlyTwoShares,
 			},
-			want: map[coretypes.TxKey]Range{
-				exactlyTwoShares.Key(): {0, 2},
+			want: map[[sha256.Size]byte]Range{
+				sha256.Sum256(exactlyTwoShares): {0, 2},
 			},
 		},
 		{
 			name: "two shares followed by one share",
-			txs: []coretypes.Tx{
+			txs: [][]byte{
 				exactlyTwoShares,
 				exactlyOneShare,
 			},
-			want: map[coretypes.TxKey]Range{
-				exactlyTwoShares.Key(): {0, 2},
-				exactlyOneShare.Key():  {2, 3},
+			want: map[[sha256.Size]byte]Range{
+				sha256.Sum256(exactlyTwoShares): {0, 2},
+				sha256.Sum256(exactlyOneShare):  {2, 3},
 			},
 		},
 		{
 			name: "one share followed by two shares",
-			txs: []coretypes.Tx{
+			txs: [][]byte{
 				exactlyOneShare,
 				exactlyTwoShares,
 			},
-			want: map[coretypes.TxKey]Range{
-				exactlyOneShare.Key():  {0, 1},
-				exactlyTwoShares.Key(): {1, 3},
+			want: map[[sha256.Size]byte]Range{
+				sha256.Sum256(exactlyOneShare):  {0, 1},
+				sha256.Sum256(exactlyTwoShares): {1, 3},
 			},
 		},
 		{
 			name: "one share followed by two shares offset by 10",
-			txs: []coretypes.Tx{
+			txs: [][]byte{
 				exactlyOneShare,
 				exactlyTwoShares,
 			},
-			want: map[coretypes.TxKey]Range{
-				exactlyOneShare.Key():  {10, 11},
-				exactlyTwoShares.Key(): {11, 13},
+			want: map[[sha256.Size]byte]Range{
+				sha256.Sum256(exactlyOneShare):  {10, 11},
+				sha256.Sum256(exactlyTwoShares): {11, 13},
 			},
 			shareRangeOffset: 10,
 		},
@@ -319,7 +318,7 @@ func TestExport(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			css := NewCompactShareSplitter(appns.TxNamespace, appconsts.ShareVersionZero)
+			css := NewCompactShareSplitter(namespace.TxNamespace, ShareVersionZero)
 
 			for _, tx := range tc.txs {
 				err := css.WriteTx(tx)
@@ -333,12 +332,12 @@ func TestExport(t *testing.T) {
 }
 
 func TestWriteAfterExport(t *testing.T) {
-	a := bytes.Repeat([]byte{0xf}, RawTxSize(appconsts.FirstCompactShareContentSize))
-	b := bytes.Repeat([]byte{0xf}, RawTxSize(appconsts.ContinuationCompactShareContentSize*2))
-	c := bytes.Repeat([]byte{0xf}, RawTxSize(appconsts.ContinuationCompactShareContentSize))
+	a := bytes.Repeat([]byte{0xf}, RawTxSize(FirstCompactShareContentSize))
+	b := bytes.Repeat([]byte{0xf}, RawTxSize(ContinuationCompactShareContentSize*2))
+	c := bytes.Repeat([]byte{0xf}, RawTxSize(ContinuationCompactShareContentSize))
 	d := []byte{0xf}
 
-	css := NewCompactShareSplitter(appns.TxNamespace, appconsts.ShareVersionZero)
+	css := NewCompactShareSplitter(namespace.TxNamespace, ShareVersionZero)
 	shares, err := css.Export()
 	require.NoError(t, err)
 	assert.Equal(t, 0, len(shares))

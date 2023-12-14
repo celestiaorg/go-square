@@ -2,12 +2,13 @@ package inclusion_test
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"testing"
 
-	"github.com/celestiaorg/celestia-app/pkg/appconsts"
-	"github.com/celestiaorg/celestia-app/pkg/blob"
-	"github.com/celestiaorg/celestia-app/pkg/inclusion"
-	appns "github.com/celestiaorg/celestia-app/pkg/namespace"
+	"github.com/celestiaorg/go-square/pkg/blob"
+	"github.com/celestiaorg/go-square/pkg/inclusion"
+	"github.com/celestiaorg/go-square/pkg/namespace"
+	"github.com/celestiaorg/go-square/pkg/shares"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -62,11 +63,11 @@ func Test_MerkleMountainRangeHeights(t *testing.T) {
 // the commitment is calculated. If this is the case, the expected commitment
 // bytes will need to be updated.
 func TestCreateCommitment(t *testing.T) {
-	ns1 := appns.MustNewV0(bytes.Repeat([]byte{0x1}, appns.NamespaceVersionZeroIDSize))
+	ns1 := namespace.MustNewV0(bytes.Repeat([]byte{0x1}, namespace.NamespaceVersionZeroIDSize))
 
 	type test struct {
 		name         string
-		namespace    appns.Namespace
+		namespace    namespace.Namespace
 		blob         []byte
 		expected     []byte
 		expectErr    bool
@@ -74,16 +75,16 @@ func TestCreateCommitment(t *testing.T) {
 	}
 	tests := []test{
 		{
-			name:         "blob of 3 shares succeeds",
+			name:         "blob of 2 shares succeeds",
 			namespace:    ns1,
-			blob:         bytes.Repeat([]byte{0xFF}, 3*appconsts.ShareSize),
-			expected:     []byte{0x3b, 0x9e, 0x78, 0xb6, 0x64, 0x8e, 0xc1, 0xa2, 0x41, 0x92, 0x5b, 0x31, 0xda, 0x2e, 0xcb, 0x50, 0xbf, 0xc6, 0xf4, 0xad, 0x55, 0x2d, 0x32, 0x79, 0x92, 0x8c, 0xa1, 0x3e, 0xbe, 0xba, 0x8c, 0x2b},
-			shareVersion: appconsts.ShareVersionZero,
+			blob:         bytes.Repeat([]byte{0xFF}, shares.AvailableBytesFromSparseShares(2)),
+			expected:     []byte{0x31, 0xf5, 0x15, 0x6d, 0x5d, 0xb9, 0xa7, 0xf5, 0xb4, 0x3b, 0x29, 0x7a, 0x14, 0xc0, 0x70, 0xc2, 0xcc, 0x4e, 0xf3, 0xd6, 0x9d, 0x87, 0xed, 0x8, 0xad, 0xdd, 0x21, 0x6d, 0x9b, 0x9f, 0xa1, 0x18},
+			shareVersion: shares.ShareVersionZero,
 		},
 		{
 			name:         "blob with unsupported share version should return error",
 			namespace:    ns1,
-			blob:         bytes.Repeat([]byte{0xFF}, 12*appconsts.ShareSize),
+			blob:         bytes.Repeat([]byte{0xFF}, shares.AvailableBytesFromSparseShares(2)),
 			expectErr:    true,
 			shareVersion: uint8(1), // unsupported share version
 		},
@@ -96,7 +97,7 @@ func TestCreateCommitment(t *testing.T) {
 				ShareVersion:     uint32(tt.shareVersion),
 				NamespaceVersion: uint32(tt.namespace.Version),
 			}
-			res, err := inclusion.CreateCommitment(blob)
+			res, err := inclusion.CreateCommitment(blob, twoLeafMerkleRoot, defaultSubtreeRootThreshold)
 			if tt.expectErr {
 				assert.Error(t, err)
 				return
@@ -105,4 +106,14 @@ func TestCreateCommitment(t *testing.T) {
 			assert.Equal(t, tt.expected, res)
 		})
 	}
+}
+
+func twoLeafMerkleRoot(data [][]byte) []byte {
+	if len(data) != 2 {
+		panic("data must have exactly 2 elements")
+	}
+	h1 := sha256.Sum256(data[0])
+	h2 := sha256.Sum256(data[1])
+	sum := sha256.Sum256(append(h1[:], h2[:]...))
+	return sum[:]
 }

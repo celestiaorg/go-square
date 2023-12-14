@@ -5,25 +5,22 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/celestiaorg/go-square/pkg/namespace"
+	"github.com/celestiaorg/go-square/pkg/shares"
 	"github.com/stretchr/testify/require"
-	coretypes "github.com/tendermint/tendermint/types"
-
-	"github.com/celestiaorg/celestia-app/pkg/appconsts"
-	"github.com/celestiaorg/celestia-app/pkg/namespace"
-	"github.com/celestiaorg/celestia-app/pkg/shares"
 )
 
 func TestCounterMatchesCompactShareSplitter(t *testing.T) {
 	testCases := []struct {
-		txs []coretypes.Tx
+		txs [][]byte
 	}{
-		{txs: []coretypes.Tx{}},
-		{txs: []coretypes.Tx{newTx(120)}},
-		{txs: []coretypes.Tx{newTx(appconsts.FirstCompactShareContentSize - 2)}},
-		{txs: []coretypes.Tx{newTx(appconsts.FirstCompactShareContentSize - 1)}},
-		{txs: []coretypes.Tx{newTx(appconsts.FirstCompactShareContentSize)}},
-		{txs: []coretypes.Tx{newTx(appconsts.FirstCompactShareContentSize + 1)}},
-		{txs: []coretypes.Tx{newTx(appconsts.FirstCompactShareContentSize), newTx(appconsts.ContinuationCompactShareContentSize - 4)}},
+		{txs: [][]byte{}},
+		{txs: [][]byte{newTx(120)}},
+		{txs: [][]byte{newTx(shares.FirstCompactShareContentSize - 2)}},
+		{txs: [][]byte{newTx(shares.FirstCompactShareContentSize - 1)}},
+		{txs: [][]byte{newTx(shares.FirstCompactShareContentSize)}},
+		{txs: [][]byte{newTx(shares.FirstCompactShareContentSize + 1)}},
+		{txs: [][]byte{newTx(shares.FirstCompactShareContentSize), newTx(shares.ContinuationCompactShareContentSize - 4)}},
 		{txs: newTxs(1000, 100)},
 		{txs: newTxs(100, 1000)},
 		{txs: newTxs(8931, 77)},
@@ -31,7 +28,7 @@ func TestCounterMatchesCompactShareSplitter(t *testing.T) {
 
 	for idx, tc := range testCases {
 		t.Run(fmt.Sprintf("case%d", idx), func(t *testing.T) {
-			writer := shares.NewCompactShareSplitter(namespace.PayForBlobNamespace, appconsts.ShareVersionZero)
+			writer := shares.NewCompactShareSplitter(namespace.PayForBlobNamespace, shares.ShareVersionZero)
 			counter := shares.NewCompactShareCounter()
 
 			sum := 0
@@ -49,7 +46,7 @@ func TestCounterMatchesCompactShareSplitter(t *testing.T) {
 		})
 	}
 
-	writer := shares.NewCompactShareSplitter(namespace.PayForBlobNamespace, appconsts.ShareVersionZero)
+	writer := shares.NewCompactShareSplitter(namespace.PayForBlobNamespace, shares.ShareVersionZero)
 	counter := shares.NewCompactShareCounter()
 	require.Equal(t, counter.Size(), 0)
 	require.Equal(t, writer.Count(), counter.Size())
@@ -58,19 +55,19 @@ func TestCounterMatchesCompactShareSplitter(t *testing.T) {
 func TestCompactShareCounterRevert(t *testing.T) {
 	counter := shares.NewCompactShareCounter()
 	require.Equal(t, counter.Size(), 0)
-	counter.Add(appconsts.FirstCompactShareContentSize - 2)
+	counter.Add(shares.FirstCompactShareContentSize - 2)
 	counter.Add(1)
 	require.Equal(t, counter.Size(), 2)
 	counter.Revert()
 	require.Equal(t, counter.Size(), 1)
 }
 
-func newTx(len int) coretypes.Tx {
+func newTx(len int) []byte {
 	return bytes.Repeat([]byte("a"), len)
 }
 
-func newTxs(n int, len int) []coretypes.Tx {
-	txs := make([]coretypes.Tx, n)
+func newTxs(n int, len int) [][]byte {
+	txs := make([][]byte, n)
 	for i := 0; i < n; i++ {
 		txs[i] = newTx(len)
 	}
