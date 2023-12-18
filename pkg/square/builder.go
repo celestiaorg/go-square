@@ -14,7 +14,7 @@ import (
 )
 
 type Builder struct {
-	// maxSquareSize is an upper bound on the total amount of shares that could fit in the biggest square
+	// maxSquareSize is the maximum number of rows (or columns) in the original data square
 	maxSquareSize int
 	// currentSize is an overestimate for the number of shares used by this builder.
 	currentSize int

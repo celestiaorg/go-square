@@ -50,7 +50,7 @@ func BlobSharesUsedNonInteractiveDefaults(cursor, subtreeRootThreshold int, blob
 // fit in the square. The cursor is expected to be the index after the end of
 // the previous blob.
 //
-// See https://github.com/celestiaorg/go-square/blob/main/specs/src/specs/data_square_layout.md
+// See https://github.com/celestiaorg/celestia-app/blob/main/specs/src/specs/data_square_layout.md
 // for more information.
 func NextShareIndex(cursor, blobShareLen, subtreeRootThreshold int) int {
 	// Calculate the subtreewidth. This is the width of the first mountain in the
