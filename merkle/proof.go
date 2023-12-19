@@ -2,11 +2,11 @@ package merkle
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 
-	"github.com/cometbft/cometbft/crypto/tmhash"
-	cmtcrypto "github.com/cometbft/cometbft/proto/tendermint/crypto"
+	wire "github.com/celestiaorg/go-square/merkle/proto/gen/merkle/v1"
 )
 
 const (
@@ -117,25 +117,25 @@ func (sp *Proof) ValidateBasic() error {
 	if sp.Index < 0 {
 		return errors.New("negative Index")
 	}
-	if len(sp.LeafHash) != tmhash.Size {
-		return fmt.Errorf("expected LeafHash size to be %d, got %d", tmhash.Size, len(sp.LeafHash))
+	if len(sp.LeafHash) != sha256.Size {
+		return fmt.Errorf("expected LeafHash size to be %d, got %d", sha256.Size, len(sp.LeafHash))
 	}
 	if len(sp.Aunts) > MaxAunts {
 		return fmt.Errorf("expected no more than %d aunts, got %d", MaxAunts, len(sp.Aunts))
 	}
 	for i, auntHash := range sp.Aunts {
-		if len(auntHash) != tmhash.Size {
-			return fmt.Errorf("expected Aunts#%d size to be %d, got %d", i, tmhash.Size, len(auntHash))
+		if len(auntHash) != sha256.Size {
+			return fmt.Errorf("expected Aunts#%d size to be %d, got %d", i, sha256.Size, len(auntHash))
 		}
 	}
 	return nil
 }
 
-func (sp *Proof) ToProto() *cmtcrypto.Proof {
+func (sp *Proof) ToProto() *wire.Proof {
 	if sp == nil {
 		return nil
 	}
-	pb := new(cmtcrypto.Proof)
+	pb := new(wire.Proof)
 
 	pb.Total = sp.Total
 	pb.Index = sp.Index
@@ -145,7 +145,7 @@ func (sp *Proof) ToProto() *cmtcrypto.Proof {
 	return pb
 }
 
-func ProofFromProto(pb *cmtcrypto.Proof) (*Proof, error) {
+func ProofFromProto(pb *wire.Proof) (*Proof, error) {
 	if pb == nil {
 		return nil, errors.New("nil proof")
 	}

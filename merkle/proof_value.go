@@ -2,10 +2,11 @@ package merkle
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"fmt"
 
-	"github.com/cometbft/cometbft/crypto/tmhash"
-	cmtcrypto "github.com/cometbft/cometbft/proto/tendermint/crypto"
+	wire "github.com/celestiaorg/go-square/merkle/proto/gen/merkle/v1"
+	"google.golang.org/protobuf/proto"
 )
 
 const ProofOpValue = "simple:v"
@@ -37,12 +38,12 @@ func NewValueOp(key []byte, proof *Proof) ValueOp {
 	}
 }
 
-func ValueOpDecoder(pop cmtcrypto.ProofOp) (ProofOperator, error) {
+func ValueOpDecoder(pop *wire.ProofOp) (ProofOperator, error) {
 	if pop.Type != ProofOpValue {
 		return nil, fmt.Errorf("unexpected ProofOp.Type; got %v, want %v", pop.Type, ProofOpValue)
 	}
-	var pbop cmtcrypto.ValueOp // a bit strange as we'll discard this, but it works.
-	err := pbop.Unmarshal(pop.Data)
+	var pbop wire.ValueOp // a bit strange as we'll discard this, but it works.
+	err := proto.Unmarshal(pop.Data, &pbop)
 	if err != nil {
 		return nil, fmt.Errorf("decoding ProofOp.Data into ValueOp: %w", err)
 	}
@@ -54,16 +55,16 @@ func ValueOpDecoder(pop cmtcrypto.ProofOp) (ProofOperator, error) {
 	return NewValueOp(pop.Key, sp), nil
 }
 
-func (op ValueOp) ProofOp() cmtcrypto.ProofOp {
-	pbval := cmtcrypto.ValueOp{
+func (op ValueOp) ProofOp() wire.ProofOp {
+	pbval := &wire.ValueOp{
 		Key:   op.key,
 		Proof: op.Proof.ToProto(),
 	}
-	bz, err := pbval.Marshal()
+	bz, err := proto.Marshal(pbval)
 	if err != nil {
 		panic(err)
 	}
-	return cmtcrypto.ProofOp{
+	return wire.ProofOp{
 		Type: ProofOpValue,
 		Key:  op.key,
 		Data: bz,
@@ -79,7 +80,7 @@ func (op ValueOp) Run(args [][]byte) ([][]byte, error) {
 		return nil, fmt.Errorf("expected 1 arg, got %v", len(args))
 	}
 	value := args[0]
-	hasher := tmhash.New()
+	hasher := sha256.New()
 	hasher.Write(value)
 	vhash := hasher.Sum(nil)
 

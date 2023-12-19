@@ -6,11 +6,10 @@ import (
 	"fmt"
 	"testing"
 
+	wire "github.com/celestiaorg/go-square/merkle/proto/gen/merkle/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/cometbft/cometbft/crypto/tmhash"
-	cmtcrypto "github.com/cometbft/cometbft/proto/tendermint/crypto"
+	"google.golang.org/protobuf/proto"
 )
 
 const ProofOpDomino = "test:domino"
@@ -31,18 +30,18 @@ func NewDominoOp(key, input, output string) DominoOp {
 	}
 }
 
-func (dop DominoOp) ProofOp() cmtcrypto.ProofOp {
-	dopb := cmtcrypto.DominoOp{
+func (dop DominoOp) ProofOp() wire.ProofOp {
+	dopb := &wire.DominoOp{
 		Key:    dop.key,
 		Input:  dop.Input,
 		Output: dop.Output,
 	}
-	bz, err := dopb.Marshal()
+	bz, err := proto.Marshal(dopb)
 	if err != nil {
 		panic(err)
 	}
 
-	return cmtcrypto.ProofOp{
+	return wire.ProofOp{
 		Type: ProofOpDomino,
 		Key:  []byte(dop.key),
 		Data: bz,
@@ -270,11 +269,11 @@ func TestVsa2022_100(t *testing.T) {
 	// a fake key-value pair and its hash
 	key := []byte{0x13}
 	value := []byte{0x37}
-	vhash := tmhash.Sum(value)
+	vhash := hash(value)
 	bz := new(bytes.Buffer)
 	_ = encodeByteSlice(bz, key)
 	_ = encodeByteSlice(bz, vhash)
-	kvhash := tmhash.Sum(append([]byte{0}, bz.Bytes()...))
+	kvhash := hash(append([]byte{0}, bz.Bytes()...))
 
 	// the malicious `op`
 	op := NewValueOp(

@@ -1,16 +1,14 @@
 package merkle
 
 import (
+	crand "crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
+	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	cmtrand "github.com/cometbft/cometbft/libs/rand"
-	. "github.com/cometbft/cometbft/libs/test"
-
-	"github.com/cometbft/cometbft/crypto/tmhash"
 )
 
 type testItem []byte
@@ -54,7 +52,7 @@ func TestProof(t *testing.T) {
 
 	items := make([][]byte, total)
 	for i := 0; i < total; i++ {
-		items[i] = testItem(cmtrand.Bytes(tmhash.Size))
+		items[i] = testItem(randBytes(sha256.Size))
 	}
 
 	rootHash = HashFromByteSlices(items)
@@ -78,7 +76,7 @@ func TestProof(t *testing.T) {
 
 		// Trail too long should make it fail
 		origAunts := proof.Aunts
-		proof.Aunts = append(proof.Aunts, cmtrand.Bytes(32))
+		proof.Aunts = append(proof.Aunts, randBytes(32))
 		err = proof.Verify(rootHash, item)
 		require.Error(t, err, "Expected verification to fail for wrong trail length")
 
@@ -92,11 +90,11 @@ func TestProof(t *testing.T) {
 		proof.Aunts = origAunts
 
 		// Mutating the itemHash should make it fail.
-		err = proof.Verify(rootHash, MutateByteSlice(item))
+		err = proof.Verify(rootHash, mutateByteSlice(item))
 		require.Error(t, err, "Expected verification to fail for mutated leaf hash")
 
 		// Mutating the rootHash should make it fail.
-		err = proof.Verify(MutateByteSlice(rootHash), item)
+		err = proof.Verify(mutateByteSlice(rootHash), item)
 		require.Error(t, err, "Expected verification to fail for mutated root hash")
 	}
 }
@@ -107,7 +105,7 @@ func TestHashAlternatives(t *testing.T) {
 
 	items := make([][]byte, total)
 	for i := 0; i < total; i++ {
-		items[i] = testItem(cmtrand.Bytes(tmhash.Size))
+		items[i] = testItem(randBytes(sha256.Size))
 	}
 
 	rootHash1 := HashFromByteSlicesIterative(items)
@@ -120,7 +118,7 @@ func BenchmarkHashAlternatives(b *testing.B) {
 
 	items := make([][]byte, total)
 	for i := 0; i < total; i++ {
-		items[i] = testItem(cmtrand.Bytes(tmhash.Size))
+		items[i] = testItem(randBytes(sha256.Size))
 	}
 
 	b.ResetTimer()
@@ -158,4 +156,33 @@ func Test_getSplitPoint(t *testing.T) {
 		got := getSplitPoint(tt.length)
 		require.EqualValues(t, tt.want, got, "getSplitPoint(%d) = %v, want %v", tt.length, got, tt.want)
 	}
+}
+
+func randBytes(size int) []byte {
+	b := make([]byte, size)
+	_, _ = crand.Read(b)
+	return b
+}
+
+// Contract: !bytes.Equal(input, output) && len(input) >= len(output)
+func mutateByteSlice(bytez []byte) []byte {
+	// If bytez is empty, panic
+	if len(bytez) == 0 {
+		panic("Cannot mutate an empty bytez")
+	}
+
+	// Copy bytez
+	mBytez := make([]byte, len(bytez))
+	copy(mBytez, bytez)
+	bytez = mBytez
+
+	// Try a random mutation
+	switch rand.Int() % 2 {
+	case 0: // Mutate a single byte
+		bytez[rand.Int()%len(bytez)] += byte(rand.Int()%255 + 1)
+	case 1: // Remove an arbitrary byte
+		pos := rand.Int() % len(bytez)
+		bytez = append(bytez[:pos], bytez[pos+1:]...)
+	}
+	return bytez
 }

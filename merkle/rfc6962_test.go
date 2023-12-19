@@ -17,10 +17,9 @@ package merkle
 // and consequently fall under the above license.
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/hex"
 	"testing"
-
-	"github.com/cometbft/cometbft/crypto/tmhash"
 )
 
 func TestRFC6962Hasher(t *testing.T) {
@@ -39,7 +38,7 @@ func TestRFC6962Hasher(t *testing.T) {
 		// echo -n '' | sha256sum
 		{
 			desc: "RFC6962 Empty Tree",
-			want: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"[:tmhash.Size*2],
+			want: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"[:sha256.Size*2],
 			got:  emptyTreeHash,
 		},
 
@@ -47,19 +46,19 @@ func TestRFC6962Hasher(t *testing.T) {
 		// echo -n 00 | xxd -r -p | sha256sum
 		{
 			desc: "RFC6962 Empty Leaf",
-			want: "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d"[:tmhash.Size*2],
+			want: "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d"[:sha256.Size*2],
 			got:  emptyLeafHash,
 		},
 		// echo -n 004C313233343536 | xxd -r -p | sha256sum
 		{
 			desc: "RFC6962 Leaf",
-			want: "395aa064aa4c29f7010acfe3f25db9485bbd4b91897b6ad7ad547639252b4d56"[:tmhash.Size*2],
+			want: "395aa064aa4c29f7010acfe3f25db9485bbd4b91897b6ad7ad547639252b4d56"[:sha256.Size*2],
 			got:  leafHash,
 		},
 		// echo -n 014E3132334E343536 | xxd -r -p | sha256sum
 		{
 			desc: "RFC6962 Node",
-			want: "aa217fe888e47007fa15edab33c2b492a722cb106c64667fc2b044444de66bbb"[:tmhash.Size*2],
+			want: "aa217fe888e47007fa15edab33c2b492a722cb106c64667fc2b044444de66bbb"[:sha256.Size*2],
 			got:  innerHash([]byte("N123"), []byte("N456")),
 		},
 	} {

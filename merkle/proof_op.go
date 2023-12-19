@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	cmtcrypto "github.com/cometbft/cometbft/proto/tendermint/crypto"
+	wire "github.com/celestiaorg/go-square/merkle/proto/gen/merkle/v1"
 )
 
 //----------------------------------------
@@ -21,7 +21,7 @@ import (
 type ProofOperator interface {
 	Run([][]byte) ([][]byte, error)
 	GetKey() []byte
-	ProofOp() cmtcrypto.ProofOp
+	ProofOp() wire.ProofOp
 }
 
 //----------------------------------------
@@ -101,7 +101,7 @@ func (poz ProofOperators) VerifyFromKeys(root []byte, keys [][]byte, args [][]by
 //----------------------------------------
 // ProofRuntime - main entrypoint
 
-type OpDecoder func(cmtcrypto.ProofOp) (ProofOperator, error)
+type OpDecoder func(*wire.ProofOp) (ProofOperator, error)
 
 type ProofRuntime struct {
 	decoders map[string]OpDecoder
@@ -121,15 +121,18 @@ func (prt *ProofRuntime) RegisterOpDecoder(typ string, dec OpDecoder) {
 	prt.decoders[typ] = dec
 }
 
-func (prt *ProofRuntime) Decode(pop cmtcrypto.ProofOp) (ProofOperator, error) {
+func (prt *ProofRuntime) Decode(pop *wire.ProofOp) (ProofOperator, error) {
 	decoder := prt.decoders[pop.Type]
 	if decoder == nil {
 		return nil, fmt.Errorf("unrecognized proof type %v", pop.Type)
 	}
+	if pop == nil {
+		return nil, errors.New("nil ProofOp")
+	}
 	return decoder(pop)
 }
 
-func (prt *ProofRuntime) DecodeProof(proof *cmtcrypto.ProofOps) (ProofOperators, error) {
+func (prt *ProofRuntime) DecodeProof(proof *wire.ProofOps) (ProofOperators, error) {
 	poz := make(ProofOperators, 0, len(proof.Ops))
 	for _, pop := range proof.Ops {
 		operator, err := prt.Decode(pop)
@@ -141,21 +144,21 @@ func (prt *ProofRuntime) DecodeProof(proof *cmtcrypto.ProofOps) (ProofOperators,
 	return poz, nil
 }
 
-func (prt *ProofRuntime) VerifyValue(proof *cmtcrypto.ProofOps, root []byte, keypath string, value []byte) (err error) {
+func (prt *ProofRuntime) VerifyValue(proof *wire.ProofOps, root []byte, keypath string, value []byte) (err error) {
 	return prt.Verify(proof, root, keypath, [][]byte{value})
 }
 
-func (prt *ProofRuntime) VerifyValueFromKeys(proof *cmtcrypto.ProofOps, root []byte, keys [][]byte, value []byte) (err error) {
+func (prt *ProofRuntime) VerifyValueFromKeys(proof *wire.ProofOps, root []byte, keys [][]byte, value []byte) (err error) {
 	return prt.VerifyFromKeys(proof, root, keys, [][]byte{value})
 }
 
 // TODO In the long run we'll need a method of classification of ops,
 // whether existence or absence or perhaps a third?
-func (prt *ProofRuntime) VerifyAbsence(proof *cmtcrypto.ProofOps, root []byte, keypath string) (err error) {
+func (prt *ProofRuntime) VerifyAbsence(proof *wire.ProofOps, root []byte, keypath string) (err error) {
 	return prt.Verify(proof, root, keypath, nil)
 }
 
-func (prt *ProofRuntime) Verify(proof *cmtcrypto.ProofOps, root []byte, keypath string, args [][]byte) (err error) {
+func (prt *ProofRuntime) Verify(proof *wire.ProofOps, root []byte, keypath string, args [][]byte) (err error) {
 	poz, err := prt.DecodeProof(proof)
 	if err != nil {
 		return fmt.Errorf("decoding proof: %w", err)
@@ -166,7 +169,7 @@ func (prt *ProofRuntime) Verify(proof *cmtcrypto.ProofOps, root []byte, keypath 
 // VerifyFromKeys performs the same verification logic as the normal Verify
 // method, except it does not perform any processing on the keypath. This is
 // useful when using keys that have split or escape points as a part of the key.
-func (prt *ProofRuntime) VerifyFromKeys(proof *cmtcrypto.ProofOps, root []byte, keys [][]byte, args [][]byte) (err error) {
+func (prt *ProofRuntime) VerifyFromKeys(proof *wire.ProofOps, root []byte, keys [][]byte, args [][]byte) (err error) {
 	poz, err := prt.DecodeProof(proof)
 	if err != nil {
 		return fmt.Errorf("decoding proof: %w", err)
