@@ -1,7 +1,7 @@
 syntax = "proto3";
-package celestia.core.v1.blob;
+package square.blob.v1;
 
-option go_package = "github.com/celestiaorg/celestia-app/pkg/blob";
+option go_package = "github.com/celestiaorg/go-square/pkg/blob";
 
 // Blob (named after binary large object) is a chunk of data submitted by a user
 // to be published to the Celestia blockchain. The data of a Blob is published
@@ -21,4 +21,12 @@ message BlobTx {
   bytes tx = 1;
   repeated Blob blobs = 2;
   string type_id = 3;
+}
+
+// IndexWrapper adds index metadata to a transaction. This is used to track
+// transactions that pay for blobs, and where the blobs start in the square.
+message IndexWrapper {
+  bytes           tx            = 1;
+  repeated uint32 share_indexes = 2;
+  string          type_id       = 3;
 }

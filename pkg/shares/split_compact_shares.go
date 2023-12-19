@@ -1,12 +1,11 @@
 package shares
 
 import (
+	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
 
-	"github.com/celestiaorg/celestia-app/pkg/appconsts"
-	appns "github.com/celestiaorg/celestia-app/pkg/namespace"
-	coretypes "github.com/tendermint/tendermint/types"
+	"github.com/celestiaorg/go-square/pkg/namespace"
 )
 
 // CompactShareSplitter will write raw data compactly across a progressively
@@ -16,19 +15,19 @@ type CompactShareSplitter struct {
 	shares []Share
 	// pendingShare Share
 	shareBuilder *Builder
-	namespace    appns.Namespace
+	namespace    namespace.Namespace
 	done         bool
 	shareVersion uint8
 	// shareRanges is a map from a transaction key to the range of shares it
 	// occupies. The range assumes this compact share splitter is the only
 	// thing in the data square (e.g. the range for the first tx starts at index
 	// 0).
-	shareRanges map[coretypes.TxKey]Range
+	shareRanges map[[sha256.Size]byte]Range
 }
 
 // NewCompactShareSplitter returns a CompactShareSplitter using the provided
 // namespace and shareVersion.
-func NewCompactShareSplitter(ns appns.Namespace, shareVersion uint8) *CompactShareSplitter {
+func NewCompactShareSplitter(ns namespace.Namespace, shareVersion uint8) *CompactShareSplitter {
 	sb, err := NewBuilder(ns, shareVersion, true)
 	if err != nil {
 		panic(err)
@@ -38,14 +37,14 @@ func NewCompactShareSplitter(ns appns.Namespace, shareVersion uint8) *CompactSha
 		shares:       []Share{},
 		namespace:    ns,
 		shareVersion: shareVersion,
-		shareRanges:  map[coretypes.TxKey]Range{},
+		shareRanges:  map[[sha256.Size]byte]Range{},
 		shareBuilder: sb,
 	}
 }
 
 // WriteTx adds the delimited data for the provided tx to the underlying compact
 // share splitter.
-func (css *CompactShareSplitter) WriteTx(tx coretypes.Tx) error {
+func (css *CompactShareSplitter) WriteTx(tx []byte) error {
 	rawData, err := MarshalDelimitedTx(tx)
 	if err != nil {
 		return fmt.Errorf("included Tx in mem-pool that can not be encoded %v", tx)
@@ -57,7 +56,7 @@ func (css *CompactShareSplitter) WriteTx(tx coretypes.Tx) error {
 		return err
 	}
 	endShare := css.Count()
-	css.shareRanges[tx.Key()] = NewRange(startShare, endShare)
+	css.shareRanges[sha256.Sum256(tx)] = NewRange(startShare, endShare)
 
 	return nil
 }
@@ -142,9 +141,9 @@ func (css *CompactShareSplitter) Export() ([]Share, error) {
 // the shareRangeOffset provided. shareRangeOffset should be 0 for the first
 // compact share sequence in the data square (transactions) but should be some
 // non-zero number for subsequent compact share sequences (e.g. pfb txs).
-func (css *CompactShareSplitter) ShareRanges(shareRangeOffset int) map[coretypes.TxKey]Range {
+func (css *CompactShareSplitter) ShareRanges(shareRangeOffset int) map[[sha256.Size]byte]Range {
 	// apply the shareRangeOffset to all share ranges
-	shareRanges := make(map[coretypes.TxKey]Range, len(css.shareRanges))
+	shareRanges := make(map[[sha256.Size]byte]Range, len(css.shareRanges))
 
 	for k, v := range css.shareRanges {
 		shareRanges[k] = Range{
@@ -193,12 +192,12 @@ func (css *CompactShareSplitter) sequenceLen(bytesOfPadding int) uint32 {
 		return 0
 	}
 	if len(css.shares) == 1 {
-		return uint32(appconsts.FirstCompactShareContentSize) - uint32(bytesOfPadding)
+		return uint32(FirstCompactShareContentSize) - uint32(bytesOfPadding)
 	}
 
 	continuationSharesCount := len(css.shares) - 1
-	continuationSharesSequenceLen := continuationSharesCount * appconsts.ContinuationCompactShareContentSize
-	return uint32(appconsts.FirstCompactShareContentSize + continuationSharesSequenceLen - bytesOfPadding)
+	continuationSharesSequenceLen := continuationSharesCount * ContinuationCompactShareContentSize
+	return uint32(FirstCompactShareContentSize + continuationSharesSequenceLen - bytesOfPadding)
 }
 
 // isEmpty returns whether this compact share splitter is empty.
@@ -218,7 +217,7 @@ func (css *CompactShareSplitter) Count() int {
 
 // MarshalDelimitedTx prefixes a transaction with the length of the transaction
 // encoded as a varint.
-func MarshalDelimitedTx(tx coretypes.Tx) ([]byte, error) {
+func MarshalDelimitedTx(tx []byte) ([]byte, error) {
 	lenBuf := make([]byte, binary.MaxVarintLen64)
 	length := uint64(len(tx))
 	n := binary.PutUvarint(lenBuf, length)

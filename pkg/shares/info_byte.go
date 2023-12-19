@@ -2,8 +2,6 @@ package shares
 
 import (
 	"fmt"
-
-	"github.com/celestiaorg/celestia-app/pkg/appconsts"
 )
 
 // InfoByte is a byte with the following structure: the first 7 bits are
@@ -13,8 +11,8 @@ import (
 type InfoByte byte
 
 func NewInfoByte(version uint8, isSequenceStart bool) (InfoByte, error) {
-	if version > appconsts.MaxShareVersion {
-		return 0, fmt.Errorf("version %d must be less than or equal to %d", version, appconsts.MaxShareVersion)
+	if version > MaxShareVersion {
+		return 0, fmt.Errorf("version %d must be less than or equal to %d", version, MaxShareVersion)
 	}
 
 	prefix := version << 1
@@ -25,7 +23,7 @@ func NewInfoByte(version uint8, isSequenceStart bool) (InfoByte, error) {
 }
 
 // Version returns the version encoded in this InfoByte. Version is
-// expected to be between 0 and appconsts.MaxShareVersion (inclusive).
+// expected to be between 0 and MaxShareVersion (inclusive).
 func (i InfoByte) Version() uint8 {
 	version := uint8(i) >> 1
 	return version

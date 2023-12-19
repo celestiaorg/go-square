@@ -5,8 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/celestiaorg/celestia-app/pkg/appconsts"
-	appns "github.com/celestiaorg/celestia-app/pkg/namespace"
+	"github.com/celestiaorg/go-square/pkg/namespace"
 )
 
 // Share contains the raw share data (including namespace ID).
@@ -14,19 +13,19 @@ type Share struct {
 	data []byte
 }
 
-func (s *Share) Namespace() (appns.Namespace, error) {
-	if len(s.data) < appns.NamespaceSize {
+func (s *Share) Namespace() (namespace.Namespace, error) {
+	if len(s.data) < namespace.NamespaceSize {
 		panic(fmt.Sprintf("share %s is too short to contain a namespace", s))
 	}
-	return appns.From(s.data[:appns.NamespaceSize])
+	return namespace.From(s.data[:namespace.NamespaceSize])
 }
 
 func (s *Share) InfoByte() (InfoByte, error) {
-	if len(s.data) < appns.NamespaceSize+appconsts.ShareInfoBytes {
+	if len(s.data) < namespace.NamespaceSize+ShareInfoBytes {
 		return 0, fmt.Errorf("share %s is too short to contain an info byte", s)
 	}
 	// the info byte is the first byte after the namespace
-	unparsed := s.data[appns.NamespaceSize]
+	unparsed := s.data[namespace.NamespaceSize]
 	return ParseInfoByte(unparsed)
 }
 
@@ -42,8 +41,8 @@ func (s *Share) Validate() error {
 }
 
 func validateSize(data []byte) error {
-	if len(data) != appconsts.ShareSize {
-		return fmt.Errorf("share data must be %d bytes, got %d", appconsts.ShareSize, len(data))
+	if len(data) != ShareSize {
+		return fmt.Errorf("share data must be %d bytes, got %d", ShareSize, len(data))
 	}
 	return nil
 }
@@ -102,8 +101,8 @@ func (s *Share) SequenceLen() (sequenceLen uint32, err error) {
 		return 0, nil
 	}
 
-	start := appconsts.NamespaceSize + appconsts.ShareInfoBytes
-	end := start + appconsts.SequenceLenBytes
+	start := namespace.NamespaceSize + ShareInfoBytes
+	end := start + SequenceLenBytes
 	if len(s.data) < end {
 		return 0, fmt.Errorf("share %s with length %d is too short to contain a sequence length",
 			s, len(s.data))
@@ -181,12 +180,12 @@ func (s *Share) rawDataStartIndex() int {
 		panic(err)
 	}
 
-	index := appconsts.NamespaceSize + appconsts.ShareInfoBytes
+	index := namespace.NamespaceSize + ShareInfoBytes
 	if isStart {
-		index += appconsts.SequenceLenBytes
+		index += SequenceLenBytes
 	}
 	if isCompact {
-		index += appconsts.CompactShareReservedBytes
+		index += CompactShareReservedBytes
 	}
 	return index
 }
@@ -221,13 +220,13 @@ func (s *Share) rawDataStartIndexUsingReserved() (int, error) {
 		return 0, err
 	}
 
-	index := appconsts.NamespaceSize + appconsts.ShareInfoBytes
+	index := namespace.NamespaceSize + ShareInfoBytes
 	if isStart {
-		index += appconsts.SequenceLenBytes
+		index += SequenceLenBytes
 	}
 
 	if isCompact {
-		reservedBytes, err := ParseReservedBytes(s.data[index : index+appconsts.CompactShareReservedBytes])
+		reservedBytes, err := ParseReservedBytes(s.data[index : index+CompactShareReservedBytes])
 		if err != nil {
 			return 0, err
 		}

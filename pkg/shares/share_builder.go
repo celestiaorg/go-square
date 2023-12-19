@@ -4,12 +4,11 @@ import (
 	"encoding/binary"
 	"errors"
 
-	"github.com/celestiaorg/celestia-app/pkg/appconsts"
-	appns "github.com/celestiaorg/celestia-app/pkg/namespace"
+	"github.com/celestiaorg/go-square/pkg/namespace"
 )
 
 type Builder struct {
-	namespace      appns.Namespace
+	namespace      namespace.Namespace
 	shareVersion   uint8
 	isFirstShare   bool
 	isCompactShare bool
@@ -18,12 +17,12 @@ type Builder struct {
 
 func NewEmptyBuilder() *Builder {
 	return &Builder{
-		rawShareData: make([]byte, 0, appconsts.ShareSize),
+		rawShareData: make([]byte, 0, ShareSize),
 	}
 }
 
 // NewBuilder returns a new share builder.
-func NewBuilder(ns appns.Namespace, shareVersion uint8, isFirstShare bool) (*Builder, error) {
+func NewBuilder(ns namespace.Namespace, shareVersion uint8, isFirstShare bool) (*Builder, error) {
 	b := Builder{
 		namespace:      ns,
 		shareVersion:   shareVersion,
@@ -45,7 +44,7 @@ func (b *Builder) init() error {
 }
 
 func (b *Builder) AvailableBytes() int {
-	return appconsts.ShareSize - len(b.rawShareData)
+	return ShareSize - len(b.rawShareData)
 }
 
 func (b *Builder) ImportRawShare(rawBytes []byte) *Builder {
@@ -55,7 +54,7 @@ func (b *Builder) ImportRawShare(rawBytes []byte) *Builder {
 
 func (b *Builder) AddData(rawData []byte) (rawDataLeftOver []byte) {
 	// find the len left in the pending share
-	pendingLeft := appconsts.ShareSize - len(b.rawShareData)
+	pendingLeft := ShareSize - len(b.rawShareData)
 
 	// if we can simply add the tx to the share without creating a new
 	// pending share, do so and return
@@ -80,25 +79,25 @@ func (b *Builder) Build() (*Share, error) {
 
 // IsEmptyShare returns true if no data has been written to the share
 func (b *Builder) IsEmptyShare() bool {
-	expectedLen := appconsts.NamespaceSize + appconsts.ShareInfoBytes
+	expectedLen := namespace.NamespaceSize + ShareInfoBytes
 	if b.isCompactShare {
-		expectedLen += appconsts.CompactShareReservedBytes
+		expectedLen += CompactShareReservedBytes
 	}
 	if b.isFirstShare {
-		expectedLen += appconsts.SequenceLenBytes
+		expectedLen += SequenceLenBytes
 	}
 	return len(b.rawShareData) == expectedLen
 }
 
 func (b *Builder) ZeroPadIfNecessary() (bytesOfPadding int) {
-	b.rawShareData, bytesOfPadding = zeroPadIfNecessary(b.rawShareData, appconsts.ShareSize)
+	b.rawShareData, bytesOfPadding = zeroPadIfNecessary(b.rawShareData, ShareSize)
 	return bytesOfPadding
 }
 
 // isEmptyReservedBytes returns true if the reserved bytes are empty.
 func (b *Builder) isEmptyReservedBytes() (bool, error) {
 	indexOfReservedBytes := b.indexOfReservedBytes()
-	reservedBytes, err := ParseReservedBytes(b.rawShareData[indexOfReservedBytes : indexOfReservedBytes+appconsts.CompactShareReservedBytes])
+	reservedBytes, err := ParseReservedBytes(b.rawShareData[indexOfReservedBytes : indexOfReservedBytes+CompactShareReservedBytes])
 	if err != nil {
 		return false, err
 	}
@@ -109,16 +108,16 @@ func (b *Builder) isEmptyReservedBytes() (bool, error) {
 func (b *Builder) indexOfReservedBytes() int {
 	if b.isFirstShare {
 		// if the share is the first share, the reserved bytes follow the namespace, info byte, and sequence length
-		return appconsts.NamespaceSize + appconsts.ShareInfoBytes + appconsts.SequenceLenBytes
+		return namespace.NamespaceSize + ShareInfoBytes + SequenceLenBytes
 	}
 	// if the share is not the first share, the reserved bytes follow the namespace and info byte
-	return appconsts.NamespaceSize + appconsts.ShareInfoBytes
+	return namespace.NamespaceSize + ShareInfoBytes
 }
 
 // indexOfInfoBytes returns the index of the InfoBytes.
 func (b *Builder) indexOfInfoBytes() int {
 	// the info byte is immediately after the namespace
-	return appconsts.NamespaceSize
+	return namespace.NamespaceSize
 }
 
 // MaybeWriteReservedBytes will be a no-op if the reserved bytes
@@ -145,7 +144,7 @@ func (b *Builder) MaybeWriteReservedBytes() error {
 
 	indexOfReservedBytes := b.indexOfReservedBytes()
 	// overwrite the reserved bytes of the pending share
-	for i := 0; i < appconsts.CompactShareReservedBytes; i++ {
+	for i := 0; i < CompactShareReservedBytes; i++ {
 		b.rawShareData[indexOfReservedBytes+i] = reservedBytes[i]
 	}
 	return nil
@@ -159,11 +158,11 @@ func (b *Builder) WriteSequenceLen(sequenceLen uint32) error {
 	if !b.isFirstShare {
 		return errors.New("not the first share")
 	}
-	sequenceLenBuf := make([]byte, appconsts.SequenceLenBytes)
+	sequenceLenBuf := make([]byte, SequenceLenBytes)
 	binary.BigEndian.PutUint32(sequenceLenBuf, sequenceLen)
 
-	for i := 0; i < appconsts.SequenceLenBytes; i++ {
-		b.rawShareData[appconsts.NamespaceSize+appconsts.ShareInfoBytes+i] = sequenceLenBuf[i]
+	for i := 0; i < SequenceLenBytes; i++ {
+		b.rawShareData[namespace.NamespaceSize+ShareInfoBytes+i] = sequenceLenBuf[i]
 	}
 
 	return nil
@@ -179,13 +178,13 @@ func (b *Builder) FlipSequenceStart() {
 }
 
 func (b *Builder) prepareCompactShare() error {
-	shareData := make([]byte, 0, appconsts.ShareSize)
+	shareData := make([]byte, 0, ShareSize)
 	infoByte, err := NewInfoByte(b.shareVersion, b.isFirstShare)
 	if err != nil {
 		return err
 	}
-	placeholderSequenceLen := make([]byte, appconsts.SequenceLenBytes)
-	placeholderReservedBytes := make([]byte, appconsts.CompactShareReservedBytes)
+	placeholderSequenceLen := make([]byte, SequenceLenBytes)
+	placeholderReservedBytes := make([]byte, CompactShareReservedBytes)
 
 	shareData = append(shareData, b.namespace.Bytes()...)
 	shareData = append(shareData, byte(infoByte))
@@ -202,12 +201,12 @@ func (b *Builder) prepareCompactShare() error {
 }
 
 func (b *Builder) prepareSparseShare() error {
-	shareData := make([]byte, 0, appconsts.ShareSize)
+	shareData := make([]byte, 0, ShareSize)
 	infoByte, err := NewInfoByte(b.shareVersion, b.isFirstShare)
 	if err != nil {
 		return err
 	}
-	placeholderSequenceLen := make([]byte, appconsts.SequenceLenBytes)
+	placeholderSequenceLen := make([]byte, SequenceLenBytes)
 
 	shareData = append(shareData, b.namespace.Bytes()...)
 	shareData = append(shareData, byte(infoByte))
@@ -220,6 +219,6 @@ func (b *Builder) prepareSparseShare() error {
 	return nil
 }
 
-func isCompactShare(ns appns.Namespace) bool {
+func isCompactShare(ns namespace.Namespace) bool {
 	return ns.IsTx() || ns.IsPayForBlob()
 }

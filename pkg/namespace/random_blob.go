@@ -1,39 +1,28 @@
 package namespace
 
 import (
-	tmrand "github.com/tendermint/tendermint/libs/rand"
+	"crypto/rand"
+
 	"golang.org/x/exp/slices"
 )
 
 func RandomBlobNamespaceID() []byte {
-	return RandomBlobNamespaceIDWithPRG(tmrand.NewRand())
-}
-
-// RandomBlobNamespaceIDWithPRG returns a random blob namespace ID using the supplied Pseudo-Random number Generator (PRG).
-func RandomBlobNamespaceIDWithPRG(prg *tmrand.Rand) []byte {
-	return prg.Bytes(NamespaceVersionZeroIDSize)
+	namespace := make([]byte, NamespaceVersionZeroIDSize)
+	_, err := rand.Read(namespace)
+	if err != nil {
+		panic(err)
+	}
+	return namespace
 }
 
 func RandomBlobNamespace() Namespace {
-	return RandomBlobNamespaceWithPRG(tmrand.NewRand())
-}
-
-// RandomBlobNamespaceWithPRG generates and returns a random blob namespace using the supplied Pseudo-Random number Generator (PRG).
-func RandomBlobNamespaceWithPRG(prg *tmrand.Rand) Namespace {
 	for {
-		id := RandomBlobNamespaceIDWithPRG(prg)
+		id := RandomBlobNamespaceID()
 		namespace := MustNewV0(id)
 		if isBlobNamespace(namespace) {
 			return namespace
 		}
 	}
-}
-
-func RandomBlobNamespaces(rand *tmrand.Rand, count int) (namespaces []Namespace) {
-	for i := 0; i < count; i++ {
-		namespaces = append(namespaces, RandomBlobNamespaceWithPRG(rand))
-	}
-	return namespaces
 }
 
 // isBlobNamespace returns an true if this namespace is a valid user-specifiable

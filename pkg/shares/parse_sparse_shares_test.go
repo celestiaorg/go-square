@@ -2,12 +2,13 @@ package shares
 
 import (
 	"bytes"
+	crand "crypto/rand"
 	"fmt"
+	"math/rand"
 	"testing"
 
-	"github.com/celestiaorg/celestia-app/pkg/appconsts"
-	"github.com/celestiaorg/celestia-app/pkg/blob"
-	"github.com/celestiaorg/celestia-app/test/util/testfactory"
+	"github.com/celestiaorg/go-square/pkg/blob"
+	ns "github.com/celestiaorg/go-square/pkg/namespace"
 	"github.com/celestiaorg/nmt/namespace"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -35,17 +36,17 @@ func Test_parseSparseShares(t *testing.T) {
 		},
 		{
 			name:      "single big blob",
-			blobSize:  appconsts.ContinuationSparseShareContentSize * 4,
+			blobSize:  ContinuationSparseShareContentSize * 4,
 			blobCount: 1,
 		},
 		{
 			name:      "many big blobs",
-			blobSize:  appconsts.ContinuationSparseShareContentSize * 4,
+			blobSize:  ContinuationSparseShareContentSize * 4,
 			blobCount: 10,
 		},
 		{
 			name:      "single exact size blob",
-			blobSize:  appconsts.FirstSparseShareContentSize,
+			blobSize:  FirstSparseShareContentSize,
 			blobCount: 1,
 		},
 	}
@@ -55,14 +56,14 @@ func Test_parseSparseShares(t *testing.T) {
 		t.Run(fmt.Sprintf("%s identically sized ", tc.name), func(t *testing.T) {
 			blobs := make([]*blob.Blob, tc.blobCount)
 			for i := 0; i < tc.blobCount; i++ {
-				blobs[i] = testfactory.GenerateRandomBlob(tc.blobSize)
+				blobs[i] = generateRandomBlob(tc.blobSize)
 			}
 
 			blob.Sort(blobs)
 
 			shares, err := SplitBlobs(blobs...)
 			require.NoError(t, err)
-			parsedBlobs, err := parseSparseShares(shares, appconsts.SupportedShareVersions)
+			parsedBlobs, err := parseSparseShares(shares, SupportedShareVersions)
 			if err != nil {
 				t.Error(err)
 			}
@@ -76,10 +77,10 @@ func Test_parseSparseShares(t *testing.T) {
 
 		// run the same tests using randomly sized blobs with caps of tc.blobSize
 		t.Run(fmt.Sprintf("%s randomly sized", tc.name), func(t *testing.T) {
-			blobs := testfactory.GenerateRandomlySizedBlobs(tc.blobCount, tc.blobSize)
+			blobs := GenerateRandomlySizedBlobs(tc.blobCount, tc.blobSize)
 			shares, err := SplitBlobs(blobs...)
 			require.NoError(t, err)
-			parsedBlobs, err := parseSparseShares(shares, appconsts.SupportedShareVersions)
+			parsedBlobs, err := parseSparseShares(shares, SupportedShareVersions)
 			if err != nil {
 				t.Error(err)
 			}
@@ -105,7 +106,7 @@ func Test_parseSparseSharesErrors(t *testing.T) {
 	rawShare := []byte{}
 	rawShare = append(rawShare, namespace.ID{1, 1, 1, 1, 1, 1, 1, 1}...)
 	rawShare = append(rawShare, byte(infoByte))
-	rawShare = append(rawShare, bytes.Repeat([]byte{0}, appconsts.ShareSize-len(rawShare))...)
+	rawShare = append(rawShare, bytes.Repeat([]byte{0}, ShareSize-len(rawShare))...)
 	share, err := NewShare(rawShare)
 	if err != nil {
 		t.Fatal(err)
@@ -120,7 +121,7 @@ func Test_parseSparseSharesErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(*testing.T) {
-			_, err := parseSparseShares(tt.shares, appconsts.SupportedShareVersions)
+			_, err := parseSparseShares(tt.shares, SupportedShareVersions)
 			assert.Error(t, err)
 		})
 	}
@@ -128,8 +129,8 @@ func Test_parseSparseSharesErrors(t *testing.T) {
 
 func Test_parseSparseSharesWithNamespacedPadding(t *testing.T) {
 	sss := NewSparseShareSplitter()
-	randomSmallBlob := testfactory.GenerateRandomBlob(appconsts.ContinuationSparseShareContentSize / 2)
-	randomLargeBlob := testfactory.GenerateRandomBlob(appconsts.ContinuationSparseShareContentSize * 4)
+	randomSmallBlob := generateRandomBlob(ContinuationSparseShareContentSize / 2)
+	randomLargeBlob := generateRandomBlob(ContinuationSparseShareContentSize * 4)
 	blobs := []*blob.Blob{
 		randomSmallBlob,
 		randomLargeBlob,
@@ -149,7 +150,39 @@ func Test_parseSparseSharesWithNamespacedPadding(t *testing.T) {
 	require.NoError(t, err)
 
 	shares := sss.Export()
-	pblobs, err := parseSparseShares(shares, appconsts.SupportedShareVersions)
+	pblobs, err := parseSparseShares(shares, SupportedShareVersions)
 	require.NoError(t, err)
 	require.Equal(t, blobs, pblobs)
+}
+
+func generateRandomBlobWithNamespace(namespace ns.Namespace, size int) *blob.Blob {
+	data := make([]byte, size)
+	_, err := crand.Read(data)
+	if err != nil {
+		panic(err)
+	}
+	return blob.New(namespace, data, ShareVersionZero)
+}
+
+func generateRandomBlob(dataSize int) *blob.Blob {
+	ns := ns.MustNewV0(bytes.Repeat([]byte{0x1}, ns.NamespaceVersionZeroIDSize))
+	return generateRandomBlobWithNamespace(ns, dataSize)
+}
+
+func GenerateRandomlySizedBlobs(count, maxBlobSize int) []*blob.Blob {
+	blobs := make([]*blob.Blob, count)
+	for i := 0; i < count; i++ {
+		blobs[i] = generateRandomBlob(rand.Intn(maxBlobSize))
+		if len(blobs[i].Data) == 0 {
+			i--
+		}
+	}
+
+	// this is just to let us use assert.Equal
+	if count == 0 {
+		blobs = nil
+	}
+
+	blob.Sort(blobs)
+	return blobs
 }

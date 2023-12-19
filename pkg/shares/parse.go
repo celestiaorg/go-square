@@ -4,31 +4,23 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/celestiaorg/celestia-app/pkg/appconsts"
-	"github.com/celestiaorg/celestia-app/pkg/blob"
-	coretypes "github.com/tendermint/tendermint/types"
+	"github.com/celestiaorg/go-square/pkg/blob"
 )
 
 // ParseTxs collects all of the transactions from the shares provided
-func ParseTxs(shares []Share) (coretypes.Txs, error) {
+func ParseTxs(shares []Share) ([][]byte, error) {
 	// parse the shares
-	rawTxs, err := parseCompactShares(shares, appconsts.SupportedShareVersions)
+	rawTxs, err := parseCompactShares(shares, SupportedShareVersions)
 	if err != nil {
 		return nil, err
 	}
 
-	// convert to the Tx type
-	txs := make(coretypes.Txs, len(rawTxs))
-	for i := 0; i < len(txs); i++ {
-		txs[i] = coretypes.Tx(rawTxs[i])
-	}
-
-	return txs, nil
+	return rawTxs, nil
 }
 
 // ParseBlobs collects all blobs from the shares provided
 func ParseBlobs(shares []Share) ([]*blob.Blob, error) {
-	blobList, err := parseSparseShares(shares, appconsts.SupportedShareVersions)
+	blobList, err := parseSparseShares(shares, SupportedShareVersions)
 	if err != nil {
 		return []*blob.Blob{}, err
 	}

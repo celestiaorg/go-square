@@ -2,9 +2,9 @@ package shares
 
 import (
 	"bytes"
+	crand "crypto/rand"
 	"encoding/binary"
-
-	"github.com/celestiaorg/celestia-app/pkg/appconsts"
+	"math/rand"
 )
 
 // DelimLen calculates the length of the delimiter for a given unit size
@@ -77,9 +77,9 @@ func AvailableBytesFromCompactShares(n int) int {
 		return 0
 	}
 	if n == 1 {
-		return appconsts.FirstCompactShareContentSize
+		return FirstCompactShareContentSize
 	}
-	return (n-1)*appconsts.ContinuationCompactShareContentSize + appconsts.FirstCompactShareContentSize
+	return (n-1)*ContinuationCompactShareContentSize + FirstCompactShareContentSize
 }
 
 // AvailableBytesFromSparseShares returns the maximum amount of bytes that could fit in `n` sparse shares
@@ -88,7 +88,57 @@ func AvailableBytesFromSparseShares(n int) int {
 		return 0
 	}
 	if n == 1 {
-		return appconsts.FirstSparseShareContentSize
+		return FirstSparseShareContentSize
 	}
-	return (n-1)*appconsts.ContinuationSparseShareContentSize + appconsts.FirstSparseShareContentSize
+	return (n-1)*ContinuationSparseShareContentSize + FirstSparseShareContentSize
+}
+
+func GenerateRandomTxs(count, size int) [][]byte {
+	txs := make([][]byte, count)
+	for i := 0; i < count; i++ {
+		tx := make([]byte, size)
+		_, err := crand.Read(tx)
+		if err != nil {
+			panic(err)
+		}
+		txs[i] = tx
+	}
+	return txs
+}
+
+func GenerateRandomlySizedTxs(count, maxSize int) [][]byte {
+	txs := make([][]byte, count)
+	for i := 0; i < count; i++ {
+		size := rand.Intn(maxSize)
+		if size == 0 {
+			size = 1
+		}
+		txs[i] = GenerateRandomTxs(1, size)[0]
+	}
+	return txs
+}
+
+// GetRandomSubSlice returns two integers representing a randomly sized range in the interval [0, size]
+func GetRandomSubSlice(size int) (start int, length int) {
+	length = rand.Intn(size + 1)
+	start = rand.Intn(size - length + 1)
+	return start, length
+}
+
+// CheckSubArray returns whether subTxList is a subarray of txList
+func CheckSubArray(txList [][]byte, subTxList [][]byte) bool {
+	for i := 0; i <= len(txList)-len(subTxList); i++ {
+		j := 0
+		for j = 0; j < len(subTxList); j++ {
+			tx := txList[i+j]
+			subTx := subTxList[j]
+			if !bytes.Equal([]byte(tx), []byte(subTx)) {
+				break
+			}
+		}
+		if j == len(subTxList) {
+			return true
+		}
+	}
+	return false
 }

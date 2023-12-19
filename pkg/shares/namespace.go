@@ -3,7 +3,7 @@ package shares
 import (
 	"fmt"
 
-	"github.com/celestiaorg/celestia-app/pkg/namespace"
+	"github.com/celestiaorg/go-square/pkg/namespace"
 )
 
 // GetShareRangeForNamespace returns all shares that belong to a given

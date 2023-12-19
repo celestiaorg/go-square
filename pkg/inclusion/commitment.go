@@ -3,26 +3,26 @@ package inclusion
 import (
 	"crypto/sha256"
 
-	"github.com/celestiaorg/celestia-app/pkg/appconsts"
-	"github.com/celestiaorg/celestia-app/pkg/blob"
-	appns "github.com/celestiaorg/celestia-app/pkg/namespace"
-	appshares "github.com/celestiaorg/celestia-app/pkg/shares"
+	"github.com/celestiaorg/go-square/pkg/blob"
+	ns "github.com/celestiaorg/go-square/pkg/namespace"
+	sh "github.com/celestiaorg/go-square/pkg/shares"
 	"github.com/celestiaorg/nmt"
-	"github.com/tendermint/tendermint/crypto/merkle"
 )
+
+type MerkleRootFn func([][]byte) []byte
 
 // CreateCommitment generates the share commitment for a given blob.
 // See [data square layout rationale] and [blob share commitment rules].
 //
 // [data square layout rationale]: ../../specs/src/specs/data_square_layout.md
 // [blob share commitment rules]: ../../specs/src/specs/data_square_layout.md#blob-share-commitment-rules
-func CreateCommitment(blob *blob.Blob) ([]byte, error) {
+func CreateCommitment(blob *blob.Blob, merkleRootFn MerkleRootFn, subtreeRootThreshold int) ([]byte, error) {
 	if err := blob.Validate(); err != nil {
 		return nil, err
 	}
 	namespace := blob.Namespace()
 
-	shares, err := appshares.SplitBlobs(blob)
+	shares, err := sh.SplitBlobs(blob)
 	if err != nil {
 		return nil, err
 	}
@@ -31,7 +31,7 @@ func CreateCommitment(blob *blob.Blob) ([]byte, error) {
 	// determined by the number of roots required to create a share commitment
 	// over that blob. The size of the tree is only increased if the number of
 	// subtree roots surpasses a constant threshold.
-	subTreeWidth := SubTreeWidth(len(shares), appconsts.DefaultSubtreeRootThreshold)
+	subTreeWidth := SubTreeWidth(len(shares), subtreeRootThreshold)
 	treeSizes, err := MerkleMountainRangeSizes(uint64(len(shares)), uint64(subTreeWidth))
 	if err != nil {
 		return nil, err
@@ -39,7 +39,7 @@ func CreateCommitment(blob *blob.Blob) ([]byte, error) {
 	leafSets := make([][][]byte, len(treeSizes))
 	cursor := uint64(0)
 	for i, treeSize := range treeSizes {
-		leafSets[i] = appshares.ToBytes(shares[cursor : cursor+treeSize])
+		leafSets[i] = sh.ToBytes(shares[cursor : cursor+treeSize])
 		cursor = cursor + treeSize
 	}
 
@@ -47,7 +47,7 @@ func CreateCommitment(blob *blob.Blob) ([]byte, error) {
 	subTreeRoots := make([][]byte, len(leafSets))
 	for i, set := range leafSets {
 		// create the nmt todo(evan) use nmt wrapper
-		tree := nmt.New(sha256.New(), nmt.NamespaceIDSize(appns.NamespaceSize), nmt.IgnoreMaxNamespace(true))
+		tree := nmt.New(sha256.New(), nmt.NamespaceIDSize(ns.NamespaceSize), nmt.IgnoreMaxNamespace(true))
 		for _, leaf := range set {
 			// the namespace must be added again here even though it is already
 			// included in the leaf to ensure that the hash will match that of
@@ -71,13 +71,13 @@ func CreateCommitment(blob *blob.Blob) ([]byte, error) {
 		}
 		subTreeRoots[i] = root
 	}
-	return merkle.HashFromByteSlices(subTreeRoots), nil
+	return merkleRootFn(subTreeRoots), nil
 }
 
-func CreateCommitments(blobs []*blob.Blob) ([][]byte, error) {
+func CreateCommitments(blobs []*blob.Blob, merkleRootFn MerkleRootFn, subtreeRootThreshold int) ([][]byte, error) {
 	commitments := make([][]byte, len(blobs))
 	for i, blob := range blobs {
-		commitment, err := CreateCommitment(blob)
+		commitment, err := CreateCommitment(blob, merkleRootFn, subtreeRootThreshold)
 		if err != nil {
 			return nil, err
 		}
@@ -101,7 +101,7 @@ func MerkleMountainRangeSizes(totalSize, maxTreeSize uint64) ([]uint64, error) {
 			treeSizes = append(treeSizes, maxTreeSize)
 			totalSize = totalSize - maxTreeSize
 		case totalSize < maxTreeSize:
-			treeSize, err := appshares.RoundDownPowerOfTwo(totalSize)
+			treeSize, err := sh.RoundDownPowerOfTwo(totalSize)
 			if err != nil {
 				return treeSizes, err
 			}

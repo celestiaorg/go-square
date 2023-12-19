@@ -7,12 +7,22 @@ import (
 	math "math"
 	"sort"
 
-	"github.com/celestiaorg/celestia-app/pkg/namespace"
+	"github.com/celestiaorg/go-square/pkg/namespace"
+	"google.golang.org/protobuf/proto"
+)
+
+var (
+	// SupportedBlobNamespaceVersions is a list of namespace versions that can be specified by a user for blobs.
+	SupportedBlobNamespaceVersions = []uint8{namespace.NamespaceVersionZero}
 )
 
 // ProtoBlobTxTypeID is included in each encoded BlobTx to help prevent
 // decoding binaries that are not actually BlobTxs.
 const ProtoBlobTxTypeID = "BLOB"
+
+// ProtoIndexWrapperTypeID is included in each encoded IndexWrapper to help prevent
+// decoding binaries that are not actually IndexWrappers.
+const ProtoIndexWrapperTypeID = "INDX"
 
 // NewBlob creates a new coretypes.Blob from the provided data after performing
 // basic stateless checks over it.
@@ -26,7 +36,7 @@ func New(ns namespace.Namespace, blob []byte, shareVersion uint8) *Blob {
 }
 
 // Namespace returns the namespace of the blob
-func (b Blob) Namespace() namespace.Namespace {
+func (b *Blob) Namespace() namespace.Namespace {
 	return namespace.Namespace{
 		Version: uint8(b.NamespaceVersion),
 		ID:      b.NamespaceId,
@@ -55,24 +65,25 @@ func (b *Blob) Validate() error {
 
 // UnmarshalBlobTx attempts to unmarshal a transaction into blob transaction. If an
 // error is thrown, false is returned.
-func UnmarshalBlobTx(tx []byte) (bTx BlobTx, isBlob bool) {
-	err := bTx.Unmarshal(tx)
+func UnmarshalBlobTx(tx []byte) (*BlobTx, bool) {
+	bTx := BlobTx{}
+	err := proto.Unmarshal(tx, &bTx)
 	if err != nil {
-		return BlobTx{}, false
+		return &bTx, false
 	}
 	// perform some quick basic checks to prevent false positives
 	if bTx.TypeId != ProtoBlobTxTypeID {
-		return bTx, false
+		return &bTx, false
 	}
 	if len(bTx.Blobs) == 0 {
-		return bTx, false
+		return &bTx, false
 	}
 	for _, b := range bTx.Blobs {
 		if len(b.NamespaceId) != namespace.NamespaceIDSize {
-			return bTx, false
+			return &bTx, false
 		}
 	}
-	return bTx, true
+	return &bTx, true
 }
 
 // MarshalBlobTx creates a BlobTx using a normal transaction and some number of
@@ -81,16 +92,50 @@ func UnmarshalBlobTx(tx []byte) (bTx BlobTx, isBlob bool) {
 // NOTE: Any checks on the blobs or the transaction must be performed in the
 // application
 func MarshalBlobTx(tx []byte, blobs ...*Blob) ([]byte, error) {
-	bTx := BlobTx{
+	bTx := &BlobTx{
 		Tx:     tx,
 		Blobs:  blobs,
 		TypeId: ProtoBlobTxTypeID,
 	}
-	return bTx.Marshal()
+	return proto.Marshal(bTx)
 }
 
 func Sort(blobs []*Blob) {
 	sort.SliceStable(blobs, func(i, j int) bool {
 		return bytes.Compare(blobs[i].Namespace().Bytes(), blobs[j].Namespace().Bytes()) < 0
 	})
+}
+
+// IndexWrapper transaction. It returns true if the provided transaction is an
+// IndexWrapper transaction. An IndexWrapper transaction is a transaction that contains
+// a MsgPayForBlob that has been wrapped with a share index.
+//
+// NOTE: protobuf sometimes does not throw an error if the transaction passed is
+// not a IndexWrapper, since the protobuf definition for MsgPayForBlob is
+// kept in the app, we cannot perform further checks without creating an import
+// cycle.
+func UnmarshalIndexWrapper(tx []byte) (*IndexWrapper, bool) {
+	indexWrapper := IndexWrapper{}
+	// attempt to unmarshal into an IndexWrapper transaction
+	err := proto.Unmarshal(tx, &indexWrapper)
+	if err != nil {
+		return &indexWrapper, false
+	}
+	if indexWrapper.TypeId != ProtoIndexWrapperTypeID {
+		return &indexWrapper, false
+	}
+	return &indexWrapper, true
+}
+
+// MarshalIndexWrapper creates a wrapped Tx that includes the original transaction
+// and the share index of the start of its blob.
+//
+// NOTE: must be unwrapped to be a viable sdk.Tx
+func MarshalIndexWrapper(tx []byte, shareIndexes ...uint32) ([]byte, error) {
+	wTx := IndexWrapper{
+		Tx:           tx,
+		ShareIndexes: shareIndexes,
+		TypeId:       ProtoIndexWrapperTypeID,
+	}
+	return proto.Marshal(&wTx)
 }
