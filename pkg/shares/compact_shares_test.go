@@ -86,7 +86,7 @@ func Test_processCompactShares(t *testing.T) {
 
 			// check that the data parsed is identical
 			for i := 0; i < len(txs); i++ {
-				assert.Equal(t, []byte(txs[i]), parsedTxs[i])
+				assert.Equal(t, txs[i], parsedTxs[i])
 			}
 		})
 
@@ -103,7 +103,7 @@ func Test_processCompactShares(t *testing.T) {
 
 			// check that the data parsed is identical to the original
 			for i := 0; i < len(txs); i++ {
-				assert.Equal(t, []byte(txs[i]), parsedTxs[i])
+				assert.Equal(t, txs[i], parsedTxs[i])
 			}
 		})
 	}
