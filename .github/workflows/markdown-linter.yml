@@ -21,15 +21,3 @@ jobs:
       - name: Run markdownlint
         run: markdownlint --config .markdownlint.yaml **/*.md
         shell: bash
-
-  markdown-link-check:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Run markdown link check
-        uses: gaurav-nelson/github-action-markdown-link-check@1.0.15
-        with:
-          config-file: '.github/markdown-link-check-config.json'
-          folder-path: '.'

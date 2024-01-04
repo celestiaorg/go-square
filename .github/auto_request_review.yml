@@ -5,7 +5,7 @@ reviewers:
     # Example of Github Team. Github team must have write access to repo.
     # NOTE: This assigned the team itself, not members of the team. The Github
     # team auto PR assignment will then turn this into individuals
-    - team:celestia-core 
+    - team:celestia-core
     - team:celestia-node
 
 options:
