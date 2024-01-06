@@ -1,0 +1,25 @@
+name: ci-release
+
+# Run this workflow on push events (i.e. PR merge) to main or release branches,
+# push events for new semantic version tags, and all PRs.
+on:
+  push:
+    branches:
+      - main
+      - "v[0-9]+.x"
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+-alpha.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+-beta.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+-rc[0-9]+"
+  pull_request:
+
+jobs:
+  lint:
+    uses: ./.github/workflows/lint.yml
+
+  markdown-linter:
+    uses: ./.github/workflows/markdown-linter.yml
+
+  test:
+    uses: ./.github/workflows/test.yml
