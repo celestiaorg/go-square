@@ -48,6 +48,6 @@ func TestParseDelimiter(t *testing.T) {
 			panic(err)
 		}
 		assert.Equal(t, i, txLen)
-		assert.Equal(t, []byte(tx), res)
+		assert.Equal(t, tx, res)
 	}
 }

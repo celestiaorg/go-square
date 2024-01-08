@@ -210,10 +210,10 @@ func TestExport(t *testing.T) {
 	}
 
 	txOne := []byte{0x1}
-	txTwo := []byte(bytes.Repeat([]byte{2}, 600))
-	txThree := []byte(bytes.Repeat([]byte{3}, 1000))
-	exactlyOneShare := []byte(bytes.Repeat([]byte{4}, RawTxSize(FirstCompactShareContentSize)))
-	exactlyTwoShares := []byte(bytes.Repeat([]byte{5}, RawTxSize(FirstCompactShareContentSize+ContinuationCompactShareContentSize)))
+	txTwo := bytes.Repeat([]byte{2}, 600)
+	txThree := bytes.Repeat([]byte{3}, 1000)
+	exactlyOneShare := bytes.Repeat([]byte{4}, RawTxSize(FirstCompactShareContentSize))
+	exactlyTwoShares := bytes.Repeat([]byte{5}, RawTxSize(FirstCompactShareContentSize+ContinuationCompactShareContentSize))
 
 	testCases := []testCase{
 		{
