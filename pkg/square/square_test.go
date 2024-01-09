@@ -2,8 +2,11 @@ package square_test
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 
+	"github.com/celestiaorg/go-square/internal/test"
+	"github.com/celestiaorg/go-square/pkg/blob"
 	"github.com/celestiaorg/go-square/pkg/shares"
 	"github.com/celestiaorg/go-square/pkg/square"
 	"github.com/stretchr/testify/assert"
@@ -16,29 +19,26 @@ const (
 	defaultSubtreeRootThreshold = 64
 )
 
-// func TestSquareConstruction(t *testing.T) {
-// 	rand := tmrand.NewRand()
-// 	signer, err := testnode.NewOfflineSigner()
-// 	require.NoError(t, err)
-// 	sendTxs := blobfactory.GenerateManyRawSendTxs(signer, 250)
-// 	pfbTxs := blobfactory.RandBlobTxs(signer, rand, 10000, 1, 1024)
-// 	t.Run("normal transactions after PFB transactions", func(t *testing.T) {
-// 		txs := append(sendTxs[:5], append(pfbTxs, sendTxs[5:]...)...)
-// 		_, err := square.Construct(txs, LatestVersion, defaultMaxSquareSize)
-// 		require.Error(t, err)
-// 	})
-// 	t.Run("not enough space to append transactions", func(t *testing.T) {
-// 		_, err := square.Construct(sendTxs, LatestVersion, 2)
-// 		require.Error(t, err)
-// 		_, err = square.Construct(pfbTxs, LatestVersion, 2)
-// 		require.Error(t, err)
-// 	})
-// 	t.Run("construction should fail if a single PFB tx contains a blob that is too large to fit in the square", func(t *testing.T) {
-// 		pfbTxs := blobfactory.RandBlobTxs(signer, rand, 1, 1, 2*mebibyte)
-// 		_, err := square.Construct(pfbTxs, LatestVersion, 64)
-// 		require.Error(t, err)
-// 	})
-// }
+func TestSquareConstruction(t *testing.T) {
+	sendTxs := test.GenerateTxs(250, 250, 250)
+	pfbTxs := test.GenerateBlobTxs(10_000, 1, 1024)
+	t.Run("normal transactions after PFB transactions", func(t *testing.T) {
+		txs := append(sendTxs[:5], append(pfbTxs, sendTxs[5:]...)...)
+		_, err := square.Construct(txs, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+		require.Error(t, err)
+	})
+	t.Run("not enough space to append transactions", func(t *testing.T) {
+		_, err := square.Construct(sendTxs, 2, defaultSubtreeRootThreshold)
+		require.Error(t, err)
+		_, err = square.Construct(pfbTxs, 2, defaultSubtreeRootThreshold)
+		require.Error(t, err)
+	})
+	t.Run("construction should fail if a single PFB tx contains a blob that is too large to fit in the square", func(t *testing.T) {
+		pfbTxs := test.GenerateBlobTxs(1, 1, 2*mebibyte)
+		_, err := square.Construct(pfbTxs, 64, defaultSubtreeRootThreshold)
+		require.Error(t, err)
+	})
+}
 
 func TestSquareTxShareRange(t *testing.T) {
 	type test struct {
@@ -111,126 +111,80 @@ func TestSquareTxShareRange(t *testing.T) {
 	}
 }
 
-// func TestSquareBlobShareRange(t *testing.T) {
-// 	signer, err := testnode.NewOfflineSigner()
-// 	require.NoError(t, err)
-// 	txs := blobfactory.RandBlobTxsRandomlySized(signer, tmrand.NewRand(), 10, 1000, 10).ToSliceOfBytes()
+func TestSquareBlobShareRange(t *testing.T) {
+	txs := test.GenerateBlobTxs(10, 1, 1024)
 
-// 	builder, err := square.NewBuilder(defaultMaxSquareSize, defaultSubtreeRootThreshold, txs...)
-// 	require.NoError(t, err)
+	builder, err := square.NewBuilder(defaultMaxSquareSize, defaultSubtreeRootThreshold, txs...)
+	require.NoError(t, err)
 
-// 	dataSquare, err := builder.Export()
-// 	require.NoError(t, err)
+	dataSquare, err := builder.Export()
+	require.NoError(t, err)
 
-// 	for pfbIdx, tx := range txs {
-// 		blobTx, isBlobTx := blob.UnmarshalBlobTx(tx)
-// 		require.True(t, isBlobTx)
-// 		for blobIdx := range blobTx.Blobs {
-// 			shareRange, err := square.BlobShareRange(txs, pfbIdx, blobIdx, defaultMaxSquareSize, defaultSubtreeRootThreshold)
-// 			require.NoError(t, err)
-// 			require.LessOrEqual(t, shareRange.End, len(dataSquare))
-// 			blobShares := dataSquare[shareRange.Start:shareRange.End]
-// 			blobSharesBytes, err := rawData(blobShares)
-// 			require.NoError(t, err)
-// 			require.True(t, bytes.Contains(blobSharesBytes, blobTx.Blobs[blobIdx].Data))
-// 		}
-// 	}
+	for pfbIdx, tx := range txs {
+		blobTx, isBlobTx := blob.UnmarshalBlobTx(tx)
+		require.True(t, isBlobTx)
+		for blobIdx := range blobTx.Blobs {
+			shareRange, err := square.BlobShareRange(txs, pfbIdx, blobIdx, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+			require.NoError(t, err)
+			require.LessOrEqual(t, shareRange.End, len(dataSquare))
+			blobShares := dataSquare[shareRange.Start:shareRange.End]
+			blobSharesBytes, err := rawData(blobShares)
+			require.NoError(t, err)
+			require.True(t, bytes.Contains(blobSharesBytes, blobTx.Blobs[blobIdx].Data))
+		}
+	}
 
-// 	// error on out of bounds cases
-// 	_, err = square.BlobShareRange(txs, -1, 0, defaultMaxSquareSize, defaultSubtreeRootThreshold)
-// 	require.Error(t, err)
+	// error on out of bounds cases
+	_, err = square.BlobShareRange(txs, -1, 0, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+	require.Error(t, err)
 
-// 	_, err = square.BlobShareRange(txs, 0, -1, defaultMaxSquareSize, defaultSubtreeRootThreshold)
-// 	require.Error(t, err)
+	_, err = square.BlobShareRange(txs, 0, -1, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+	require.Error(t, err)
 
-// 	_, err = square.BlobShareRange(txs, 10, 0, defaultMaxSquareSize, defaultSubtreeRootThreshold)
-// 	require.Error(t, err)
+	_, err = square.BlobShareRange(txs, 10, 0, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+	require.Error(t, err)
 
-// 	_, err = square.BlobShareRange(txs, 0, 10, defaultMaxSquareSize, defaultSubtreeRootThreshold)
-// 	require.Error(t, err)
-// }
+	_, err = square.BlobShareRange(txs, 0, 10, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+	require.Error(t, err)
+}
 
-// func TestSquareDeconstruct(t *testing.T) {
-// 	rand := tmrand.NewRand()
-// 	encCfg := encoding.MakeConfig(app.ModuleEncodingRegisters...)
-// 	t.Run("ConstructDeconstructParity", func(t *testing.T) {
-// 		// 8192 -> square size 128
-// 		for _, numTxs := range []int{2, 128, 1024, 8192} {
-// 			t.Run(fmt.Sprintf("%d", numTxs), func(t *testing.T) {
-// 				signer, err := testnode.NewOfflineSigner()
-// 				require.NoError(t, err)
-// 				txs := generateOrderedTxs(signer, rand, numTxs/2, numTxs/2, 1, 800)
-// 				dataSquare, err := square.Construct(txs, LatestVersion, defaultMaxSquareSize)
-// 				require.NoError(t, err)
-// 				recomputedTxs, err := square.Deconstruct(dataSquare, encCfg.TxConfig.TxDecoder())
-// 				require.NoError(t, err)
-// 				require.Equal(t, txs, recomputedTxs)
-// 			})
-// 		}
-// 	})
-// 	t.Run("NoPFBs", func(t *testing.T) {
-// 		const numTxs = 10
-// 		signer, err := testnode.NewOfflineSigner()
-// 		require.NoError(t, err)
-// 		txs := coretypes.Txs(blobfactory.GenerateManyRawSendTxs(signer, numTxs)).ToSliceOfBytes()
-// 		dataSquare, err := square.Construct(txs, LatestVersion, defaultMaxSquareSize)
-// 		require.NoError(t, err)
-// 		recomputedTxs, err := square.Deconstruct(dataSquare, encCfg.TxConfig.TxDecoder())
-// 		require.NoError(t, err)
-// 		require.Equal(t, txs, recomputedTxs)
-// 	})
-// 	t.Run("PFBsOnly", func(t *testing.T) {
-// 		signer, err := testnode.NewOfflineSigner()
-// 		require.NoError(t, err)
-// 		txs := blobfactory.RandBlobTxs(signer, rand, 100, 1, 1024).ToSliceOfBytes()
-// 		dataSquare, err := square.Construct(txs, LatestVersion, defaultMaxSquareSize)
-// 		require.NoError(t, err)
-// 		recomputedTxs, err := square.Deconstruct(dataSquare, encCfg.TxConfig.TxDecoder())
-// 		require.NoError(t, err)
-// 		require.Equal(t, txs, recomputedTxs)
-// 	})
-// 	t.Run("EmptySquare", func(t *testing.T) {
-// 		tx, err := square.Deconstruct(square.EmptySquare(), encCfg.TxConfig.TxDecoder())
-// 		require.NoError(t, err)
-// 		require.Equal(t, coretypes.Txs{}, tx)
-// 	})
-// }
-
-// func TestSquareShareCommitments(t *testing.T) {
-// 	const numTxs = 10
-// 	rand := tmrand.NewRand()
-// 	signer, err := testnode.NewOfflineSigner()
-// 	require.NoError(t, err)
-// 	txs := generateOrderedTxs(signer, rand, numTxs, numTxs, 3, 800)
-// 	builder, err := square.NewBuilder(defaultMaxSquareSize, LatestVersion, txs...)
-// 	require.NoError(t, err)
-
-// 	dataSquare, err := builder.Export()
-// 	require.NoError(t, err)
-
-// 	cacher := inclusion.NewSubtreeCacher(uint64(dataSquare.Size()))
-// 	eds, err := rsmt2d.ComputeExtendedDataSquare(shares.ToBytes(dataSquare), DefaultCodec(), cacher.Constructor)
-// 	require.NoError(t, err)
-// 	dah, err := da.NewDataAvailabilityHeader(eds)
-// 	require.NoError(t, err)
-// 	decoder := encoding.MakeConfig(app.ModuleEncodingRegisters...).TxConfig.TxDecoder()
-
-// 	for pfbIndex := 0; pfbIndex < numTxs; pfbIndex++ {
-// 		wpfb, err := builder.GetWrappedPFB(pfbIndex + numTxs)
-// 		require.NoError(t, err)
-// 		tx, err := decoder(wpfb.Tx)
-// 		require.NoError(t, err)
-
-// 		pfb, ok := tx.GetMsgs()[0].(*blobtypes.MsgPayForBlobs)
-// 		require.True(t, ok)
-
-// 		for blobIndex, shareIndex := range wpfb.ShareIndexes {
-// 			commitment, err := inclusion.GetCommitment(cacher, dah, int(shareIndex), shares.SparseSharesNeeded(pfb.BlobSizes[blobIndex]), DefaultSubtreeRootThreshold)
-// 			require.NoError(t, err)
-// 			require.Equal(t, pfb.ShareCommitments[blobIndex], commitment)
-// 		}
-// 	}
-// }
+func TestSquareDeconstruct(t *testing.T) {
+	t.Run("ConstructDeconstructParity", func(t *testing.T) {
+		// 8192 -> square size 128
+		for _, numTxs := range []int{2, 128, 1024, 8192} {
+			t.Run(fmt.Sprintf("%d", numTxs), func(t *testing.T) {
+				txs := generateOrderedTxs(numTxs/2, numTxs/2, 1, 800)
+				dataSquare, err := square.Construct(txs, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+				require.NoError(t, err)
+				recomputedTxs, err := square.Deconstruct(dataSquare, test.DecodeMockPFB)
+				require.NoError(t, err)
+				require.Equal(t, txs, recomputedTxs)
+			})
+		}
+	})
+	t.Run("NoPFBs", func(t *testing.T) {
+		const numTxs = 10
+		txs := test.GenerateTxs(250, 250, numTxs)
+		dataSquare, err := square.Construct(txs, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+		require.NoError(t, err)
+		recomputedTxs, err := square.Deconstruct(dataSquare, test.DecodeMockPFB)
+		require.NoError(t, err)
+		require.Equal(t, txs, recomputedTxs)
+	})
+	t.Run("PFBsOnly", func(t *testing.T) {
+		txs := test.GenerateBlobTxs(100, 1, 1024)
+		dataSquare, err := square.Construct(txs, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+		require.NoError(t, err)
+		recomputedTxs, err := square.Deconstruct(dataSquare, test.DecodeMockPFB)
+		require.NoError(t, err)
+		require.Equal(t, txs, recomputedTxs)
+	})
+	t.Run("EmptySquare", func(t *testing.T) {
+		tx, err := square.Deconstruct(square.EmptySquare(), test.DecodeMockPFB)
+		require.NoError(t, err)
+		require.Equal(t, [][]byte{}, tx)
+	})
+}
 
 func TestSize(t *testing.T) {
 	type test struct {

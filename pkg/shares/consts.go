@@ -54,7 +54,5 @@ const (
 	MaxShareVersion = 127
 )
 
-var (
-	// SupportedShareVersions is a list of supported share versions.
-	SupportedShareVersions = []uint8{ShareVersionZero}
-)
+// SupportedShareVersions is a list of supported share versions.
+var SupportedShareVersions = []uint8{ShareVersionZero}
