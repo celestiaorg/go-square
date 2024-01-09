@@ -11,10 +11,8 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-var (
-	// SupportedBlobNamespaceVersions is a list of namespace versions that can be specified by a user for blobs.
-	SupportedBlobNamespaceVersions = []uint8{namespace.NamespaceVersionZero}
-)
+// SupportedBlobNamespaceVersions is a list of namespace versions that can be specified by a user for blobs.
+var SupportedBlobNamespaceVersions = []uint8{namespace.NamespaceVersionZero}
 
 // ProtoBlobTxTypeID is included in each encoded BlobTx to help prevent
 // decoding binaries that are not actually BlobTxs.
