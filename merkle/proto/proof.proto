@@ -1,5 +1,5 @@
 syntax = "proto3";
-package square.merkle;
+package merkle.proto;
 
 option go_package = "github.com/celestiaorg/go-square/merkle";
 

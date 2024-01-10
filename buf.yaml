@@ -1,9 +1,9 @@
 version: v1
-roots:
-  -proto
+name: buf.build/celestiaorg/go-square
 breaking:
   use:
     - FILE
 lint:
   use:
-    - DEFAULT
+    - BASIC
+
