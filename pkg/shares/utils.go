@@ -132,7 +132,7 @@ func CheckSubArray(txList [][]byte, subTxList [][]byte) bool {
 		for j = 0; j < len(subTxList); j++ {
 			tx := txList[i+j]
 			subTx := subTxList[j]
-			if !bytes.Equal([]byte(tx), []byte(subTx)) {
+			if !bytes.Equal(tx, subTx) {
 				break
 			}
 		}

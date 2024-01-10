@@ -223,7 +223,7 @@ func TestSplitTxs(t *testing.T) {
 		),
 	}
 
-	largeTx := []byte(bytes.Repeat([]byte{0xc}, ShareSize)) // spans two shares
+	largeTx := bytes.Repeat([]byte{0xc}, ShareSize) // spans two shares
 	largeTxShares := []Share{
 		fillShare(Share{
 			data: append(namespace.TxNamespace.Bytes(),
