@@ -17,7 +17,7 @@ func TestCount(t *testing.T) {
 	}
 	testCases := []testCase{
 		{transactions: [][]byte{}, wantShareCount: 0},
-		{transactions: [][]byte{[]byte{0}}, wantShareCount: 1},
+		{transactions: [][]byte{{0}}, wantShareCount: 1},
 		{transactions: [][]byte{bytes.Repeat([]byte{1}, 100)}, wantShareCount: 1},
 		// Test with 1 byte over 1 share
 		{transactions: [][]byte{bytes.Repeat([]byte{1}, RawTxSize(FirstCompactShareContentSize+1))}, wantShareCount: 2},
@@ -179,7 +179,7 @@ func TestWriteAndExportIdempotence(t *testing.T) {
 				bytes.Repeat([]byte{0xf}, RawTxSize(FirstCompactShareContentSize)),
 				bytes.Repeat([]byte{0xf}, RawTxSize(ContinuationCompactShareContentSize)),
 				bytes.Repeat([]byte{0xf}, RawTxSize(ContinuationCompactShareContentSize)),
-				[]byte{0xf},
+				{0xf},
 			},
 			wantLen: 4,
 		},
