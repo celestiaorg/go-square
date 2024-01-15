@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"math/rand"
 
-	"github.com/celestiaorg/go-square/pkg/blob"
-	"github.com/celestiaorg/go-square/pkg/namespace"
-	"github.com/celestiaorg/go-square/pkg/shares"
+	"github.com/celestiaorg/go-square/blob"
+	"github.com/celestiaorg/go-square/namespace"
+	"github.com/celestiaorg/go-square/shares"
 )
 
 var DefaultTestNamespace = namespace.MustNewV0([]byte("test"))
