@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	wire "github.com/celestiaorg/go-square/merkle/proto/gen/merkle/v1"
+	wire "github.com/celestiaorg/go-square/merkle/proto"
 )
 
 //----------------------------------------

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"testing"
 
-	wire "github.com/celestiaorg/go-square/merkle/proto/gen/merkle/v1"
+	wire "github.com/celestiaorg/go-square/merkle/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
