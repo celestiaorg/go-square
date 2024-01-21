@@ -1,3 +1,3 @@
 # Namespace
 
-See the specs for [namespace](../../specs/src/specs/namespace.md).
+See the celestia-app specs for [namespace](https://celestiaorg.github.io/celestia-app/specs/namespace.html).
