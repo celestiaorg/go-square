@@ -5,7 +5,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 
-	wire "github.com/celestiaorg/go-square/merkle/proto/gen/merkle/v1"
+	wire "github.com/celestiaorg/go-square/merkle/proto"
 	"google.golang.org/protobuf/proto"
 )
 
