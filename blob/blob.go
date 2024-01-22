@@ -110,7 +110,7 @@ func Sort(blobs []*Blob) {
 // a MsgPayForBlob that has been wrapped with a share index.
 //
 // NOTE: protobuf sometimes does not throw an error if the transaction passed is
-// not a tmproto.IndexWrapper, since the protobuf definition for MsgPayForBlob is
+// not a IndexWrapper, since the protobuf definition for MsgPayForBlob is
 // kept in the app, we cannot perform further checks without creating an import
 // cycle.
 func UnmarshalIndexWrapper(tx []byte) (*IndexWrapper, bool) {
