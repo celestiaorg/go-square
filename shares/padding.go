@@ -59,7 +59,7 @@ func ReservedPaddingShare() Share {
 	return share
 }
 
-// ReservedPaddingShare returns n reserved padding shares.
+// ReservedPaddingShares returns n reserved padding shares.
 func ReservedPaddingShares(n int) []Share {
 	shares, err := NamespacePaddingShares(namespace.PrimaryReservedPaddingNamespace, ShareVersionZero, n)
 	if err != nil {

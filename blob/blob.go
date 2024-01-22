@@ -22,7 +22,7 @@ const ProtoBlobTxTypeID = "BLOB"
 // decoding binaries that are not actually IndexWrappers.
 const ProtoIndexWrapperTypeID = "INDX"
 
-// NewBlob creates a new coretypes.Blob from the provided data after performing
+// New creates a new coretypes.Blob from the provided data after performing
 // basic stateless checks over it.
 func New(ns namespace.Namespace, blob []byte, shareVersion uint8) *Blob {
 	return &Blob{
@@ -104,6 +104,7 @@ func Sort(blobs []*Blob) {
 	})
 }
 
+// UnmarshalIndexWrapper attempts to unmarshal the provided transaction into an
 // IndexWrapper transaction. It returns true if the provided transaction is an
 // IndexWrapper transaction. An IndexWrapper transaction is a transaction that contains
 // a MsgPayForBlob that has been wrapped with a share index.

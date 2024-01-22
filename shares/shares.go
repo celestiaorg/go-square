@@ -190,7 +190,7 @@ func (s *Share) rawDataStartIndex() int {
 	return index
 }
 
-// RawDataWithReserved returns the raw share data while taking reserved bytes into account.
+// RawDataUsingReserved returns the raw share data while taking reserved bytes into account.
 func (s *Share) RawDataUsingReserved() (rawData []byte, err error) {
 	rawDataStartIndexUsingReserved, err := s.rawDataStartIndexUsingReserved()
 	if err != nil {
