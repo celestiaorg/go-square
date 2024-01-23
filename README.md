@@ -1,6 +1,17 @@
 # go-square
 
-`go-square` is a Go library designed to provide utility functions for data square operations.
+[![Go Reference](https://pkg.go.dev/badge/github.com/celestiaorg/go-square.svg)](https://pkg.go.dev/github.com/celestiaorg/go-square)
+
+`go-square` is a Go module that provides types and utilities for interacting with the original data square in a Celestia block.
+
+Directory   | Info
+---         | ---
+blob        |
+inclusion   |
+merkle      |
+namespace   |
+shares      |
+square      |
 
 ## Installation
 
