@@ -3,8 +3,8 @@ DOCKER_BUF := $(DOCKER) run --rm -v $(CURDIR):/workspace --workdir /workspace bu
 PROJECTNAME=$(shell basename "$(PWD)")
 
 .PHONY: help
-help: Makefile ## Display all available make commands
-	@echo " Choose a command run in "$(PROJECTNAME)":"
+help: Makefile ## Display all available make commands.
+	@echo " Choose a command to run in "$(PROJECTNAME)":"
 	@sed -n -e '/^.PHONY: /{N; s/^.PHONY: \(.*\)\n.*:.*## \(.*\)/\1:\2/; p}' $(MAKEFILE_LIST) | \
 	sort | \
 	awk 'BEGIN {FS = ":"; } {printf " \033[36m%-30s\033[0m %s\n", $$1, $$2}'
