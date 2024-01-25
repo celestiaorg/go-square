@@ -2,34 +2,38 @@ DOCKER := $(shell which docker)
 DOCKER_BUF := $(DOCKER) run --rm -v $(CURDIR):/workspace --workdir /workspace bufbuild/buf:1.28.1
 PROJECTNAME=$(shell basename "$(PWD)")
 
+## help: Get more info on make commands.
+help: Makefile
+	@echo " Choose a command run in "$(PROJECTNAME)":"
+	@sed -n 's/^##//p' $< | column -t -s ':' |  sed -e 's/^/ /'
 .PHONY: help
-help: Makefile ## Display all available make commands.
-	@echo " Choose a command to run in "$(PROJECTNAME)":"
-	@sed -n -e '/^.PHONY: /{N; s/^.PHONY: \(.*\)\n.*:.*## \(.*\)/\1:\2/; p}' $(MAKEFILE_LIST) | \
-	sort | \
-	awk 'BEGIN {FS = ":"; } {printf " \033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
-.PHONY: proto-gen-docker
-proto-gen: ## Generate protobuf files. Requires docker.
+## proto-gen: Generate protobuf files. Requires docker.
+proto-gen:
 	@echo "--> Generating Protobuf files"
 	$(DOCKER_BUF) generate
+.PHONY: proto-gen-docker
 
-.PHONY: proto-lint
-proto-lint: ## Lint protobuf files. Requires docker.
+## proto-lint: Lint protobuf files. Requires docker.
+proto-lint:
 	@echo "--> Linting Protobuf files"
 	@$(DOCKER_BUF) lint
+.PHONY: proto-lint
 
-.PHONY: lint
-lint: ## Lint source code. Requires golangci-lint.
+## lint: Lint Go files. Requires golangci-lint.
+lint:
 	@echo "--> Lint source code using golangci-lint"
 	@golangci-lint run
+.PHONY: lint
 
-.PHONY: test
-test: ## Run unit tests.
+## test: Run unit tests.
+test:
 	@echo "--> Run unit tests"
 	@go test -mod=readonly ./...
+.PHONY: test
 
-.PHONY: benchmark
-benchmark: ## Perform benchmark.
+## benchmark: Run tests in benchmark mode.
+benchmark:
 	@echo "--> Perform benchmark"
 	@go test -mod=readonly -bench=. ./...
+.PHONY: benchmark
