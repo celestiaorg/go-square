@@ -1,3 +1,3 @@
 # Shares
 
-See the specs for [shares](../../specs/src/specs/shares.md).
+See the celestia-app specs for [shares](https://celestiaorg.github.io/celestia-app/specs/shares.html).
