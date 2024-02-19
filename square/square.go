@@ -250,7 +250,7 @@ func WriteSquare(
 	}
 
 	square := make([]shares.Share, totalShares)
-	copy(square[:], txShares)
+	copy(square, txShares)
 	copy(square[pfbStartIndex:], pfbShares)
 	if blobWriter.Count() > 0 {
 		copy(square[paddingStartIndex:], padding)

@@ -23,7 +23,7 @@ jobs:
             **/**.go
             go.mod
             go.sum
-      - uses: golangci/golangci-lint-action@v3.7.0
+      - uses: golangci/golangci-lint-action@v4.0.0
         with:
           version: v1.55.2
           args: --timeout 10m
@@ -34,4 +34,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: celestiaorg/.github/.github/actions/yamllint@v0.3.0
+      - uses: celestiaorg/.github/.github/actions/yamllint@v0.3.1

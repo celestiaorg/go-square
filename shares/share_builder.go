@@ -150,7 +150,7 @@ func (b *Builder) MaybeWriteReservedBytes() error {
 	return nil
 }
 
-// writeSequenceLen writes the sequence length to the first share.
+// WriteSequenceLen writes the sequence length to the first share.
 func (b *Builder) WriteSequenceLen(sequenceLen uint32) error {
 	if b == nil {
 		return errors.New("the builder object is not initialized (is nil)")
@@ -174,7 +174,7 @@ func (b *Builder) FlipSequenceStart() {
 
 	// the sequence start indicator is the last bit of the info byte so flip the
 	// last bit
-	b.rawShareData[infoByteIndex] = b.rawShareData[infoByteIndex] ^ 0x01
+	b.rawShareData[infoByteIndex] ^= 0x01
 }
 
 func (b *Builder) prepareCompactShare() error {

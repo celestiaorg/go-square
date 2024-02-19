@@ -23,7 +23,8 @@ func TestSquareConstruction(t *testing.T) {
 	sendTxs := test.GenerateTxs(250, 250, 250)
 	pfbTxs := test.GenerateBlobTxs(10_000, 1, 1024)
 	t.Run("normal transactions after PFB transactions", func(t *testing.T) {
-		txs := append(sendTxs[:5], append(pfbTxs, sendTxs[5:]...)...)
+		txs := sendTxs[:5]
+		txs = append(txs, append(pfbTxs, txs...)...)
 		_, err := square.Construct(txs, defaultMaxSquareSize, defaultSubtreeRootThreshold)
 		require.Error(t, err)
 	})
