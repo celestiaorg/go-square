@@ -43,15 +43,15 @@ func CreateCommitment(blob *blob.Blob, merkleRootFn MerkleRootFn, subtreeRootThr
 		cursor += treeSize
 	}
 
-	// create the commitments by pushing each leaf set onto an nmt
+	// create the commitments by pushing each leaf set onto an NMT
 	subTreeRoots := make([][]byte, len(leafSets))
 	for i, set := range leafSets {
-		// create the nmt todo(evan) use nmt wrapper
+		// Create the NMT. TODO: use NMT wrapper.
 		tree := nmt.New(sha256.New(), nmt.NamespaceIDSize(ns.NamespaceSize), nmt.IgnoreMaxNamespace(true))
 		for _, leaf := range set {
 			// the namespace must be added again here even though it is already
 			// included in the leaf to ensure that the hash will match that of
-			// the nmt wrapper (pkg/wrapper). Each namespace is added to keep
+			// the NMT wrapper (pkg/wrapper). Each namespace is added to keep
 			// the namespace in the share, and therefore the parity data, while
 			// also allowing for the manual addition of the parity namespace to
 			// the parity data.
