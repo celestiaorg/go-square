@@ -2,7 +2,7 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/celestiaorg/go-square.svg)](https://pkg.go.dev/github.com/celestiaorg/go-square)
 
-`go-square` is a Go module that provides types and utilities for interacting with the original data square in a Celestia block.
+`go-square` is a Go module that provides data structures and utilities for interacting with data squares in the Celestia network. The data square is a special form of block serialization in the Celestia blockchain. This repo deals with the original data square which is distinct from the extended data square. Operations on the extended data square are handled by [rsmt2d](https://github.com/celestiaorg/rsmt2d).
 
 Package   | Description
 ----------|---------------------------------------------------------------------------------------------------------------------
