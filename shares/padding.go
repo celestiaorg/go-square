@@ -1,7 +1,6 @@
 package shares
 
 import (
-	"bytes"
 	"errors"
 
 	"github.com/celestiaorg/go-square/namespace"
@@ -20,7 +19,7 @@ func NamespacePaddingShare(ns namespace.Namespace, shareVersion uint8) (Share, e
 	if err := b.WriteSequenceLen(0); err != nil {
 		return Share{}, err
 	}
-	padding := bytes.Repeat([]byte{0}, FirstSparseShareContentSize)
+	padding := make([]byte, FirstSparseShareContentSize)
 	b.AddData(padding)
 
 	share, err := b.Build()
