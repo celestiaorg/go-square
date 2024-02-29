@@ -7,9 +7,9 @@ import (
 	"golang.org/x/exp/constraints"
 )
 
-// BlobSharesUsedNonInteractiveDefaults returns the number of shares used by a given set
-// of blobs share lengths. It follows the blob share commitment rules and
-// returns the share indexes for each blob.
+// BlobSharesUsedNonInteractiveDefaults returns the number of shares used by a
+// given set of blobs share lengths. It follows the blob share commitment rules
+// and returns the total shares used and share indexes for each blob.
 func BlobSharesUsedNonInteractiveDefaults(cursor, subtreeRootThreshold int, blobShareLens ...int) (sharesUsed int, indexes []uint32) {
 	start := cursor
 	indexes = make([]uint32, len(blobShareLens))
@@ -34,13 +34,13 @@ func NextShareIndex(cursor, blobShareLen, subtreeRootThreshold int) int {
 	// merkle mountain range that makes up the blob share commitment (given the
 	// subtreeRootThreshold and the BlobMinSquareSize).
 	treeWidth := SubTreeWidth(blobShareLen, subtreeRootThreshold)
-	// We round up the cursor to the next multiple of this value i.e. if the cursor
-	// was at 13 and the tree width was 4, we return 16.
+	// Round up the cursor to the next multiple of treeWidth. For example, if
+	// the cursor was at 13 and the tree width is 4, return 16.
 	return RoundUpByMultipleOf(cursor, treeWidth)
 }
 
 // RoundUpByMultipleOf rounds cursor up to the next multiple of v. If cursor is divisible
-// by v, then it returns cursor
+// by v, then it returns cursor.
 func RoundUpByMultipleOf(cursor, v int) int {
 	if cursor%v == 0 {
 		return cursor
@@ -54,13 +54,11 @@ func BlobMinSquareSize(shareCount int) int {
 	return shares.RoundUpPowerOfTwo(int(math.Ceil(math.Sqrt(float64(shareCount)))))
 }
 
-// SubTreeWidth determines the maximum number of leaves per subtree in the share
+// SubTreeWidth returns the maximum number of leaves per subtree in the share
 // commitment over a given blob. The input should be the total number of shares
-// used by that blob. The reasoning behind this algorithm is discussed in depth
-// in ADR013
-// (celestia-app/docs/architecture/adr-013-non-interative-default-rules-for-zero-padding).
+// used by that blob. See ADR-013.
 func SubTreeWidth(shareCount, subtreeRootThreshold int) int {
-	// per ADR013, we use a predetermined threshold to determine width of sub
+	// Per ADR-013, we use a predetermined threshold to determine width of sub
 	// trees used to create share commitments
 	s := (shareCount / subtreeRootThreshold)
 
