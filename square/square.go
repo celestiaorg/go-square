@@ -15,8 +15,8 @@ import (
 // in the square and which have all PFBs trailing regular transactions. Note, this function does
 // not check the underlying validity of the transactions.
 // Errors should not occur and would reflect a violation in an invariant.
-func Build(txs [][]byte, maxSquareSize, subtreeRootThreshold int) (Square, [][]byte, error) {
-	builder, err := NewBuilder(maxSquareSize, subtreeRootThreshold)
+func Build(txs [][]byte, maxSquareSize, squareSizeUpperBound, subtreeRootThreshold int) (Square, [][]byte, error) {
+	builder, err := NewBuilder(maxSquareSize, squareSizeUpperBound, subtreeRootThreshold)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -44,8 +44,8 @@ func Build(txs [][]byte, maxSquareSize, subtreeRootThreshold int) (Square, [][]b
 //
 // Note that this function does not check the underlying validity of
 // the transactions.
-func Construct(txs [][]byte, maxSquareSize, subtreeRootThreshold int) (Square, error) {
-	builder, err := NewBuilder(maxSquareSize, subtreeRootThreshold, txs...)
+func Construct(txs [][]byte, maxSquareSize, squareSizeUpperBound, subtreeRootThreshold int) (Square, error) {
+	builder, err := NewBuilder(maxSquareSize, squareSizeUpperBound, subtreeRootThreshold, txs...)
 	if err != nil {
 		return nil, err
 	}
@@ -144,8 +144,8 @@ func Deconstruct(s Square, decoder PFBDecoder) ([][]byte, error) {
 
 // TxShareRange returns the range of share indexes that the tx, specified by txIndex, occupies.
 // The range is end exclusive.
-func TxShareRange(txs [][]byte, txIndex, maxSquareSize, subtreeRootThreshold int) (shares.Range, error) {
-	builder, err := NewBuilder(maxSquareSize, subtreeRootThreshold, txs...)
+func TxShareRange(txs [][]byte, txIndex, maxSquareSize, squareSizeUpperBound, subtreeRootThreshold int) (shares.Range, error) {
+	builder, err := NewBuilder(maxSquareSize, squareSizeUpperBound, subtreeRootThreshold, txs...)
 	if err != nil {
 		return shares.Range{}, err
 	}
@@ -155,8 +155,8 @@ func TxShareRange(txs [][]byte, txIndex, maxSquareSize, subtreeRootThreshold int
 
 // BlobShareRange returns the range of share indexes that the blob, identified by txIndex and blobIndex, occupies.
 // The range is end exclusive.
-func BlobShareRange(txs [][]byte, txIndex, blobIndex, maxSquareSize, subtreeRootThreshold int) (shares.Range, error) {
-	builder, err := NewBuilder(maxSquareSize, subtreeRootThreshold, txs...)
+func BlobShareRange(txs [][]byte, txIndex, blobIndex, maxSquareSize, squareSizeUpperBound, subtreeRootThreshold int) (shares.Range, error) {
+	builder, err := NewBuilder(maxSquareSize, squareSizeUpperBound, subtreeRootThreshold, txs...)
 	if err != nil {
 		return shares.Range{}, err
 	}

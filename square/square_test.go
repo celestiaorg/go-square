@@ -16,6 +16,7 @@ import (
 const (
 	mebibyte                    = 1_048_576 // one mebibyte in bytes
 	defaultMaxSquareSize        = 128
+	defaultSquareSizeUpperBound = 128
 	defaultSubtreeRootThreshold = 64
 )
 
@@ -25,18 +26,18 @@ func TestSquareConstruction(t *testing.T) {
 	t.Run("normal transactions after PFB transactions", func(t *testing.T) {
 		txs := sendTxs[:5]
 		txs = append(txs, append(pfbTxs, txs...)...)
-		_, err := square.Construct(txs, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+		_, err := square.Construct(txs, defaultMaxSquareSize, defaultSquareSizeUpperBound, defaultSubtreeRootThreshold)
 		require.Error(t, err)
 	})
 	t.Run("not enough space to append transactions", func(t *testing.T) {
-		_, err := square.Construct(sendTxs, 2, defaultSubtreeRootThreshold)
+		_, err := square.Construct(sendTxs, 2, defaultSquareSizeUpperBound, defaultSubtreeRootThreshold)
 		require.Error(t, err)
-		_, err = square.Construct(pfbTxs, 2, defaultSubtreeRootThreshold)
+		_, err = square.Construct(pfbTxs, 2, defaultSquareSizeUpperBound, defaultSubtreeRootThreshold)
 		require.Error(t, err)
 	})
 	t.Run("construction should fail if a single PFB tx contains a blob that is too large to fit in the square", func(t *testing.T) {
 		pfbTxs := test.GenerateBlobTxs(1, 1, 2*mebibyte)
-		_, err := square.Construct(pfbTxs, 64, defaultSubtreeRootThreshold)
+		_, err := square.Construct(pfbTxs, 64, defaultSquareSizeUpperBound, defaultSubtreeRootThreshold)
 		require.Error(t, err)
 	})
 }
@@ -100,7 +101,7 @@ func TestSquareTxShareRange(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			shareRange, err := square.TxShareRange(tc.txs, tc.index, 128, 64)
+			shareRange, err := square.TxShareRange(tc.txs, tc.index, 128, defaultSquareSizeUpperBound, 64)
 			if tc.expectErr {
 				require.Error(t, err)
 			} else {
@@ -115,7 +116,7 @@ func TestSquareTxShareRange(t *testing.T) {
 func TestSquareBlobShareRange(t *testing.T) {
 	txs := test.GenerateBlobTxs(10, 1, 1024)
 
-	builder, err := square.NewBuilder(defaultMaxSquareSize, defaultSubtreeRootThreshold, txs...)
+	builder, err := square.NewBuilder(defaultMaxSquareSize, defaultSquareSizeUpperBound, defaultSubtreeRootThreshold, txs...)
 	require.NoError(t, err)
 
 	dataSquare, err := builder.Export()
@@ -125,7 +126,7 @@ func TestSquareBlobShareRange(t *testing.T) {
 		blobTx, isBlobTx := blob.UnmarshalBlobTx(tx)
 		require.True(t, isBlobTx)
 		for blobIdx := range blobTx.Blobs {
-			shareRange, err := square.BlobShareRange(txs, pfbIdx, blobIdx, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+			shareRange, err := square.BlobShareRange(txs, pfbIdx, blobIdx, defaultMaxSquareSize, defaultSquareSizeUpperBound, defaultSubtreeRootThreshold)
 			require.NoError(t, err)
 			require.LessOrEqual(t, shareRange.End, len(dataSquare))
 			blobShares := dataSquare[shareRange.Start:shareRange.End]
@@ -136,16 +137,16 @@ func TestSquareBlobShareRange(t *testing.T) {
 	}
 
 	// error on out of bounds cases
-	_, err = square.BlobShareRange(txs, -1, 0, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+	_, err = square.BlobShareRange(txs, -1, 0, defaultMaxSquareSize, defaultSquareSizeUpperBound, defaultSubtreeRootThreshold)
 	require.Error(t, err)
 
-	_, err = square.BlobShareRange(txs, 0, -1, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+	_, err = square.BlobShareRange(txs, 0, -1, defaultMaxSquareSize, defaultSquareSizeUpperBound, defaultSubtreeRootThreshold)
 	require.Error(t, err)
 
-	_, err = square.BlobShareRange(txs, 10, 0, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+	_, err = square.BlobShareRange(txs, 10, 0, defaultMaxSquareSize, defaultSquareSizeUpperBound, defaultSubtreeRootThreshold)
 	require.Error(t, err)
 
-	_, err = square.BlobShareRange(txs, 0, 10, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+	_, err = square.BlobShareRange(txs, 0, 10, defaultMaxSquareSize, defaultSquareSizeUpperBound, defaultSubtreeRootThreshold)
 	require.Error(t, err)
 }
 
@@ -155,7 +156,7 @@ func TestSquareDeconstruct(t *testing.T) {
 		for _, numTxs := range []int{2, 128, 1024, 8192} {
 			t.Run(fmt.Sprintf("%d", numTxs), func(t *testing.T) {
 				txs := generateOrderedTxs(numTxs/2, numTxs/2, 1, 800)
-				dataSquare, err := square.Construct(txs, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+				dataSquare, err := square.Construct(txs, defaultMaxSquareSize, defaultSquareSizeUpperBound, defaultSubtreeRootThreshold)
 				require.NoError(t, err)
 				recomputedTxs, err := square.Deconstruct(dataSquare, test.DecodeMockPFB)
 				require.NoError(t, err)
@@ -166,7 +167,7 @@ func TestSquareDeconstruct(t *testing.T) {
 	t.Run("NoPFBs", func(t *testing.T) {
 		const numTxs = 10
 		txs := test.GenerateTxs(250, 250, numTxs)
-		dataSquare, err := square.Construct(txs, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+		dataSquare, err := square.Construct(txs, defaultMaxSquareSize, defaultSquareSizeUpperBound, defaultSubtreeRootThreshold)
 		require.NoError(t, err)
 		recomputedTxs, err := square.Deconstruct(dataSquare, test.DecodeMockPFB)
 		require.NoError(t, err)
@@ -174,7 +175,7 @@ func TestSquareDeconstruct(t *testing.T) {
 	})
 	t.Run("PFBsOnly", func(t *testing.T) {
 		txs := test.GenerateBlobTxs(100, 1, 1024)
-		dataSquare, err := square.Construct(txs, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+		dataSquare, err := square.Construct(txs, defaultMaxSquareSize, defaultSquareSizeUpperBound, defaultSubtreeRootThreshold)
 		require.NoError(t, err)
 		recomputedTxs, err := square.Deconstruct(dataSquare, test.DecodeMockPFB)
 		require.NoError(t, err)

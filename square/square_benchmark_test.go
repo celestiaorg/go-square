@@ -14,7 +14,7 @@ func BenchmarkSquareConstruct(b *testing.B) {
 			txs := generateOrderedTxs(txCount/2, txCount/2, 1, 1024)
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				_, err := square.Construct(txs, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+				_, err := square.Construct(txs, defaultMaxSquareSize, defaultSquareSizeUpperBound, defaultSubtreeRootThreshold)
 				require.NoError(b, err)
 			}
 		})
@@ -27,7 +27,7 @@ func BenchmarkSquareBuild(b *testing.B) {
 			txs := generateMixedTxs(txCount/2, txCount/2, 1, 1024)
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				_, _, err := square.Build(txs, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+				_, _, err := square.Build(txs, defaultMaxSquareSize, defaultSquareSizeUpperBound, defaultSubtreeRootThreshold)
 				require.NoError(b, err)
 			}
 		})
@@ -38,7 +38,7 @@ func BenchmarkSquareBuild(b *testing.B) {
 			txs := generateMixedTxs(0, txCount, 1, blobSize)
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				_, _, err := square.Build(txs, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+				_, _, err := square.Build(txs, defaultMaxSquareSize, defaultSquareSizeUpperBound, defaultSubtreeRootThreshold)
 				require.NoError(b, err)
 			}
 		})

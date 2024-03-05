@@ -40,7 +40,7 @@ func TestBuilderSquareSizeEstimation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			txs := generateMixedTxs(tt.normalTxs, tt.pfbCount, 1, tt.pfbSize)
-			square, _, err := square.Build(txs, 64, defaultSubtreeRootThreshold)
+			square, _, err := square.Build(txs, 64, defaultSquareSizeUpperBound, defaultSubtreeRootThreshold)
 			require.NoError(t, err)
 			require.EqualValues(t, tt.expectedSquareSize, square.Size())
 		})
@@ -48,7 +48,7 @@ func TestBuilderSquareSizeEstimation(t *testing.T) {
 }
 
 func TestBuilderRejectsTransactions(t *testing.T) {
-	builder, err := square.NewBuilder(2, 64) // 2 x 2 square
+	builder, err := square.NewBuilder(2, defaultSquareSizeUpperBound, 64) // 2 x 2 square
 	require.NoError(t, err)
 	require.False(t, builder.AppendTx(newTx(shares.AvailableBytesFromCompactShares(4)+1)))
 	require.True(t, builder.AppendTx(newTx(shares.AvailableBytesFromCompactShares(4))))
@@ -81,7 +81,7 @@ func TestBuilderRejectsBlobTransactions(t *testing.T) {
 
 	for idx, tc := range testCases {
 		t.Run(fmt.Sprintf("case%d", idx), func(t *testing.T) {
-			builder, err := square.NewBuilder(2, 64)
+			builder, err := square.NewBuilder(2, defaultSquareSizeUpperBound, 64)
 			require.NoError(t, err)
 			txs := generateBlobTxsWithNamespaces(ns1.Repeat(len(tc.blobSize)), [][]int{tc.blobSize})
 			require.Len(t, txs, 1)
@@ -93,11 +93,11 @@ func TestBuilderRejectsBlobTransactions(t *testing.T) {
 }
 
 func TestBuilderInvalidConstructor(t *testing.T) {
-	_, err := square.NewBuilder(-4, 64)
+	_, err := square.NewBuilder(-4, defaultSquareSizeUpperBound, 64)
 	require.Error(t, err)
-	_, err = square.NewBuilder(0, 64)
+	_, err = square.NewBuilder(0, defaultSquareSizeUpperBound, 64)
 	require.Error(t, err)
-	_, err = square.NewBuilder(13, 64)
+	_, err = square.NewBuilder(13, defaultSquareSizeUpperBound, 64)
 	require.Error(t, err)
 }
 
@@ -109,7 +109,7 @@ func TestBuilderFindTxShareRange(t *testing.T) {
 	blockTxs := generateOrderedTxs(5, 5, 1000, 10)
 	require.Len(t, blockTxs, 10)
 
-	builder, err := square.NewBuilder(128, 64, blockTxs...)
+	builder, err := square.NewBuilder(128, defaultSquareSizeUpperBound, 64, blockTxs...)
 	require.NoError(t, err)
 
 	dataSquare, err := builder.Export()
@@ -293,7 +293,7 @@ func TestSquareBlobPostions(t *testing.T) {
 	}
 	for i, tt := range tests {
 		t.Run(fmt.Sprintf("case%d", i), func(t *testing.T) {
-			builder, err := square.NewBuilder(tt.squareSize, defaultSubtreeRootThreshold)
+			builder, err := square.NewBuilder(tt.squareSize, defaultSquareSizeUpperBound, defaultSubtreeRootThreshold)
 			require.NoError(t, err)
 			for _, tx := range tt.blobTxs {
 				blobTx, isBlobTx := blob.UnmarshalBlobTx(tx)

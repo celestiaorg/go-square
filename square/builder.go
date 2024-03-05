@@ -16,6 +16,8 @@ import (
 type Builder struct {
 	// maxSquareSize is the maximum number of rows (or columns) in the original data square
 	maxSquareSize int
+	// squareSize imposes an upper bound on the max effective square size.
+	squareSizeUpperBound int
 	// currentSize is an overestimate for the number of shares used by this builder.
 	currentSize int
 
@@ -32,15 +34,22 @@ type Builder struct {
 	subtreeRootThreshold int
 }
 
-func NewBuilder(maxSquareSize int, subtreeRootThreshold int, txs ...[]byte) (*Builder, error) {
+func NewBuilder(maxSquareSize int, squareSizeUpperBound int, subtreeRootThreshold int, txs ...[]byte) (*Builder, error) {
 	if maxSquareSize <= 0 {
 		return nil, errors.New("max square size must be strictly positive")
 	}
 	if !shares.IsPowerOfTwo(maxSquareSize) {
 		return nil, errors.New("max square size must be a power of two")
 	}
+	if squareSizeUpperBound <= 0 {
+		return nil, errors.New("square size upper bound must be strictly positive")
+	}
+	if !shares.IsPowerOfTwo(squareSizeUpperBound) {
+		return nil, errors.New("square size upper bound must be a power of two")
+	}
 	builder := &Builder{
 		maxSquareSize:        maxSquareSize,
+		squareSizeUpperBound: squareSizeUpperBound,
 		subtreeRootThreshold: subtreeRootThreshold,
 		Blobs:                make([]*Element, 0),
 		Pfbs:                 make([]*blob.IndexWrapper, 0),
@@ -88,7 +97,7 @@ func (b *Builder) AppendBlobTx(blobTx *blob.BlobTx) bool {
 	iw := &blob.IndexWrapper{
 		Tx:           blobTx.Tx,
 		TypeId:       blob.ProtoIndexWrapperTypeID,
-		ShareIndexes: worstCaseShareIndexes(len(blobTx.Blobs), b.maxSquareSize),
+		ShareIndexes: worstCaseShareIndexes(len(blobTx.Blobs), b.squareSizeUpperBound),
 	}
 	size := proto.Size(iw)
 	pfbShareDiff := b.PfbCounter.Add(size)
@@ -407,14 +416,13 @@ func (e Element) maxShareOffset() int {
 	return e.NumShares + e.MaxPadding
 }
 
-// worstCaseShareIndexes returns the largest possible share indexes for a set
-// of blobs at a given appversion. Largest possible is "worst" in that protobuf
-// uses varints to encode integers, so larger integers can require more bytes to
-// encode.
-func worstCaseShareIndexes(blobs, maxSquareSize int) []uint32 {
-	shareIndexes := make([]uint32, blobs)
+// worstCaseShareIndexes returns the largest possible share indexes for a set of
+// blobs. Largest possible is "worst" in that protobuf uses varints to encode
+// integers, so larger integers can require more bytes to encode.
+func worstCaseShareIndexes(blobCount int, squareSizeUpperBound int) []uint32 {
+	shareIndexes := make([]uint32, blobCount)
 	for i := range shareIndexes {
-		shareIndexes[i] = uint32(maxSquareSize * maxSquareSize)
+		shareIndexes[i] = uint32(squareSizeUpperBound * squareSizeUpperBound)
 	}
 	return shareIndexes
 }
