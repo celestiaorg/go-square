@@ -88,7 +88,7 @@ func (b *Builder) AppendBlobTx(blobTx *blob.BlobTx) bool {
 	iw := &blob.IndexWrapper{
 		Tx:           blobTx.Tx,
 		TypeId:       blob.ProtoIndexWrapperTypeID,
-		ShareIndexes: worstCaseShareIndexes(len(blobTx.Blobs), b.maxSquareSize),
+		ShareIndexes: worstCaseShareIndexes(len(blobTx.Blobs)),
 	}
 	size := proto.Size(iw)
 	pfbShareDiff := b.PfbCounter.Add(size)
@@ -407,14 +407,21 @@ func (e Element) maxShareOffset() int {
 	return e.NumShares + e.MaxPadding
 }
 
-// worstCaseShareIndexes returns the largest possible share indexes for a set
-// of blobs at a given appversion. Largest possible is "worst" in that protobuf
-// uses varints to encode integers, so larger integers can require more bytes to
-// encode.
-func worstCaseShareIndexes(blobs, maxSquareSize int) []uint32 {
+// worstCaseShareIndexes returns the largest possible share indexes for a set of
+// blobs. Largest possible is "worst" in that protobuf uses varints to encode
+// integers, so larger integers can require more bytes to encode.
+//
+// Note: the implementation of this function assumes that the worst case share
+// index is always 128 * 128 to preserve backwards compatability with
+// celestia-app v1.x.
+func worstCaseShareIndexes(blobs int) []uint32 {
+	// TODO: de-duplicate this constant with celestia-app SquareSizeUpperBound constant.
+	// https://github.com/celestiaorg/celestia-app/blob/a93bb625c6dc0ae6c7c357e9991815a68ab33c79/pkg/appconsts/v1/app_consts.go#L5
+	squareSizeUpperBound := 128
+	worstCaseShareIndex := squareSizeUpperBound * squareSizeUpperBound
 	shareIndexes := make([]uint32, blobs)
 	for i := range shareIndexes {
-		shareIndexes[i] = uint32(maxSquareSize * maxSquareSize)
+		shareIndexes[i] = uint32(worstCaseShareIndex)
 	}
 	return shareIndexes
 }
