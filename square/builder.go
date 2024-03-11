@@ -412,7 +412,7 @@ func (e Element) maxShareOffset() int {
 // integers, so larger integers can require more bytes to encode.
 //
 // Note: the implementation of this function assumes that the worst case share
-// index is always 128 * 128 to preserve backwards compatability with
+// index is always 128 * 128 to preserve backwards compatibility with
 // celestia-app v1.x.
 func worstCaseShareIndexes(blobs int) []uint32 {
 	// TODO: de-duplicate this constant with celestia-app SquareSizeUpperBound constant.
