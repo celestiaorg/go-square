@@ -1,3 +1,4 @@
+// Package shares contains the Share data structure.
 package shares
 
 import (

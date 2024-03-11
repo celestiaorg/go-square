@@ -31,8 +31,7 @@ func zeroPadIfNecessary(share []byte, width int) (padded []byte, bytesOfPadding 
 	}
 
 	missingBytes := width - oldLen
-	padByte := []byte{0}
-	padding := bytes.Repeat(padByte, missingBytes)
+	padding := make([]byte, missingBytes)
 	share = append(share, padding...)
 	return share, missingBytes
 }

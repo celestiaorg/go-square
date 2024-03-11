@@ -1,3 +1,4 @@
+// Package namespace contains the Namespace data structure.
 package namespace
 
 import (
