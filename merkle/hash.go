@@ -2,6 +2,8 @@ package merkle
 
 import (
 	"crypto/sha256"
+	shash "hash"
+	"sync"
 )
 
 // TODO: make these have a large predefined capacity
@@ -17,15 +19,26 @@ func emptyHash() []byte {
 
 // returns sha256(0x00 || leaf)
 func leafHash(leaf []byte) []byte {
-	return hash(append(leafPrefix, leaf...))
+	return hash(leafPrefix, leaf)
 }
 
 // returns sha256(0x01 || left || right)
-func innerHash(left []byte, right []byte) []byte {
-	return hash(append(innerPrefix, append(left, right...)...))
+func innerHash(left, right []byte) []byte {
+	return hash(innerPrefix, left, right)
 }
 
-func hash(bz []byte) []byte {
-	h := sha256.Sum256(bz)
-	return h[:]
+var sha256Pool = &sync.Pool{New: func() any { return sha256.New() }}
+
+func hash(slices ...[]byte) []byte {
+	h := sha256Pool.Get().(shash.Hash)
+	defer func() {
+		h.Reset()
+		sha256Pool.Put(h)
+	}()
+
+	for _, slice := range slices {
+		h.Write(slice)
+	}
+
+	return h.Sum(nil)
 }

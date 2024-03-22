@@ -121,12 +121,14 @@ func BenchmarkHashAlternatives(b *testing.B) {
 
 	b.ResetTimer()
 	b.Run("recursive", func(b *testing.B) {
+		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
 			_ = HashFromByteSlices(items)
 		}
 	})
 
 	b.Run("iterative", func(b *testing.B) {
+		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
 			_ = HashFromByteSlicesIterative(items)
 		}
