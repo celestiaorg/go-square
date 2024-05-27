@@ -2,6 +2,8 @@ package square_test
 
 import (
 	"bytes"
+	_ "embed"
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"testing"
@@ -341,3 +343,33 @@ func generateBlobTxsWithNamespaces(namespaces []namespace.Namespace, blobSizes [
 	}
 	return txs
 }
+
+type block struct {
+	Txs [][]byte `protobuf:"bytes,1,rep,name=txs,proto3" json:"txs,omitempty"`
+}
+
+// TestBigBlock indirectly verifies that the worst case share padding
+// calculation is computed using the rules on celestia-app v1.x. This test does
+// so by using a big_block.json file generated via celestia-app v1.x and then
+// verifies the share index of a particular blob. Note: if worst case share
+// padding is modified then we expect this test to fail and need a new valid
+// testdata/big_block.json.
+//
+// https://github.com/celestiaorg/go-square/issues/47
+func TestBigBlock(t *testing.T) {
+	bigBlock := block{}
+	err := json.Unmarshal([]byte(bigBlockJSON), &bigBlock)
+	require.NoError(t, err)
+
+	builder, err := square.NewBuilder(defaultMaxSquareSize, defaultSubtreeRootThreshold, bigBlock.Txs...)
+	require.NoError(t, err)
+	assert.Len(t, builder.Blobs, 84)
+	assert.Len(t, builder.Pfbs, 25)
+
+	index, err := builder.FindBlobStartingIndex(0, 0)
+	require.NoError(t, err)
+	assert.Equal(t, 2234, index)
+}
+
+//go:embed "testdata/big_block.json"
+var bigBlockJSON string

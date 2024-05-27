@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Test_MerkleMountainRangeHeights(t *testing.T) {
+func TestMerkleMountainRangeSizes(t *testing.T) {
 	type test struct {
 		totalSize  uint64
 		squareSize uint64

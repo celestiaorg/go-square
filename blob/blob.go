@@ -1,3 +1,5 @@
+// Package blob provides types and functions for working with blobs, blob
+// transactions, and index wrapper transactions.
 package blob
 
 import (
@@ -98,6 +100,7 @@ func MarshalBlobTx(tx []byte, blobs ...*Blob) ([]byte, error) {
 	return proto.Marshal(bTx)
 }
 
+// Sort sorts the blobs by their namespace.
 func Sort(blobs []*Blob) {
 	sort.SliceStable(blobs, func(i, j int) bool {
 		return bytes.Compare(blobs[i].Namespace().Bytes(), blobs[j].Namespace().Bytes()) < 0

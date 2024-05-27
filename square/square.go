@@ -1,3 +1,5 @@
+// Package square implements the logic to construct the original data square
+// based on a list of transactions.
 package square
 
 import (
