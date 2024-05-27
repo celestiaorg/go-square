@@ -185,7 +185,7 @@ func (s *Share) rawDataStartIndex() int {
 		index += SequenceLenBytes
 	}
 	if isCompact {
-		index += CompactShareReservedBytes
+		index += ShareReservedBytes
 	}
 	return index
 }
@@ -226,7 +226,7 @@ func (s *Share) rawDataStartIndexUsingReserved() (int, error) {
 	}
 
 	if isCompact {
-		reservedBytes, err := ParseReservedBytes(s.data[index : index+CompactShareReservedBytes])
+		reservedBytes, err := ParseReservedBytes(s.data[index : index+ShareReservedBytes])
 		if err != nil {
 			return 0, err
 		}

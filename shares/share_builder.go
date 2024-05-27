@@ -81,7 +81,7 @@ func (b *Builder) Build() (*Share, error) {
 func (b *Builder) IsEmptyShare() bool {
 	expectedLen := namespace.NamespaceSize + ShareInfoBytes
 	if b.isCompactShare {
-		expectedLen += CompactShareReservedBytes
+		expectedLen += ShareReservedBytes
 	}
 	if b.isFirstShare {
 		expectedLen += SequenceLenBytes
@@ -97,7 +97,7 @@ func (b *Builder) ZeroPadIfNecessary() (bytesOfPadding int) {
 // isEmptyReservedBytes returns true if the reserved bytes are empty.
 func (b *Builder) isEmptyReservedBytes() (bool, error) {
 	indexOfReservedBytes := b.indexOfReservedBytes()
-	reservedBytes, err := ParseReservedBytes(b.rawShareData[indexOfReservedBytes : indexOfReservedBytes+CompactShareReservedBytes])
+	reservedBytes, err := ParseReservedBytes(b.rawShareData[indexOfReservedBytes : indexOfReservedBytes+ShareReservedBytes])
 	if err != nil {
 		return false, err
 	}
@@ -144,7 +144,7 @@ func (b *Builder) MaybeWriteReservedBytes() error {
 
 	indexOfReservedBytes := b.indexOfReservedBytes()
 	// overwrite the reserved bytes of the pending share
-	for i := 0; i < CompactShareReservedBytes; i++ {
+	for i := 0; i < ShareReservedBytes; i++ {
 		b.rawShareData[indexOfReservedBytes+i] = reservedBytes[i]
 	}
 	return nil
@@ -184,7 +184,7 @@ func (b *Builder) prepareCompactShare() error {
 		return err
 	}
 	placeholderSequenceLen := make([]byte, SequenceLenBytes)
-	placeholderReservedBytes := make([]byte, CompactShareReservedBytes)
+	placeholderReservedBytes := make([]byte, ShareReservedBytes)
 
 	shareData = append(shareData, b.namespace.Bytes()...)
 	shareData = append(shareData, byte(infoByte))

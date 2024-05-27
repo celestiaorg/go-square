@@ -88,7 +88,7 @@ func TestExport_write(t *testing.T) {
 				[]byte{
 					0x0,                // info byte
 					0x0, 0x0, 0x0, 0x0, // reserved bytes
-				}, bytes.Repeat([]byte{0xf}, namespace.NamespaceSize+ShareInfoBytes+SequenceLenBytes+CompactShareReservedBytes)..., // data
+				}, bytes.Repeat([]byte{0xf}, namespace.NamespaceSize+ShareInfoBytes+SequenceLenBytes+ShareReservedBytes)..., // data
 			)...,
 		),
 		ShareSize)

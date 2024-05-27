@@ -25,15 +25,20 @@ const (
 
 	// CompactShareReservedBytes is the number of bytes reserved for the location of
 	// the first unit (transaction, ISR) in a compact share.
+	// Deprecated: use ShareReservedBytes.
 	CompactShareReservedBytes = 4
+
+	// ShareReservedBytes is the number of bytes reserved for the location of
+	// the first unit (transaction, ISR) in a compact share.
+	ShareReservedBytes = 4
 
 	// FirstCompactShareContentSize is the number of bytes usable for data in
 	// the first compact share of a sequence.
-	FirstCompactShareContentSize = ShareSize - namespace.NamespaceSize - ShareInfoBytes - SequenceLenBytes - CompactShareReservedBytes
+	FirstCompactShareContentSize = ShareSize - namespace.NamespaceSize - ShareInfoBytes - SequenceLenBytes - ShareReservedBytes
 
 	// ContinuationCompactShareContentSize is the number of bytes usable for
 	// data in a continuation compact share of a sequence.
-	ContinuationCompactShareContentSize = ShareSize - namespace.NamespaceSize - ShareInfoBytes - CompactShareReservedBytes
+	ContinuationCompactShareContentSize = ShareSize - namespace.NamespaceSize - ShareInfoBytes - ShareReservedBytes
 
 	// FirstSparseShareContentSize is the number of bytes usable for data in the
 	// first sparse share of a sequence.

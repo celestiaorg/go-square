@@ -164,7 +164,7 @@ func TestShareBuilderAddData(t *testing.T) {
 		{
 			name:    "exact fit first compact share",
 			builder: mustNewBuilder(t, namespace.TxNamespace, ShareVersionZero, true),
-			data:    bytes.Repeat([]byte{1}, ShareSize-namespace.NamespaceSize-ShareInfoBytes-CompactShareReservedBytes-SequenceLenBytes),
+			data:    bytes.Repeat([]byte{1}, ShareSize-namespace.NamespaceSize-ShareInfoBytes-ShareReservedBytes-SequenceLenBytes),
 			want:    nil,
 		},
 		{
@@ -176,7 +176,7 @@ func TestShareBuilderAddData(t *testing.T) {
 		{
 			name:    "exact fit continues compact share",
 			builder: mustNewBuilder(t, namespace.TxNamespace, ShareVersionZero, false),
-			data:    bytes.Repeat([]byte{1}, ShareSize-namespace.NamespaceSize-CompactShareReservedBytes-1 /*1 = info byte*/),
+			data:    bytes.Repeat([]byte{1}, ShareSize-namespace.NamespaceSize-ShareReservedBytes-1 /*1 = info byte*/),
 			want:    nil,
 		},
 		{
@@ -188,7 +188,7 @@ func TestShareBuilderAddData(t *testing.T) {
 		{
 			name:    "oversize first compact share",
 			builder: mustNewBuilder(t, namespace.TxNamespace, ShareVersionZero, true),
-			data:    bytes.Repeat([]byte{1}, 1 /*1 extra byte*/ +ShareSize-namespace.NamespaceSize-CompactShareReservedBytes-SequenceLenBytes-1 /*1 = info byte*/),
+			data:    bytes.Repeat([]byte{1}, 1 /*1 extra byte*/ +ShareSize-namespace.NamespaceSize-ShareReservedBytes-SequenceLenBytes-1 /*1 = info byte*/),
 			want:    []byte{1},
 		},
 		{
@@ -200,7 +200,7 @@ func TestShareBuilderAddData(t *testing.T) {
 		{
 			name:    "oversize continues compact share",
 			builder: mustNewBuilder(t, namespace.TxNamespace, ShareVersionZero, false),
-			data:    bytes.Repeat([]byte{1}, 1 /*1 extra byte*/ +ShareSize-namespace.NamespaceSize-CompactShareReservedBytes-1 /*1 = info byte*/),
+			data:    bytes.Repeat([]byte{1}, 1 /*1 extra byte*/ +ShareSize-namespace.NamespaceSize-ShareReservedBytes-1 /*1 = info byte*/),
 			want:    []byte{1},
 		},
 		{
