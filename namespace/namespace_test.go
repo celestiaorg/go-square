@@ -297,3 +297,39 @@ func TestIsReserved(t *testing.T) {
 		assert.Equal(t, tc.want, got)
 	}
 }
+
+func BenchmarkEqual(b *testing.B) {
+	n1 := RandomNamespace()
+	n2 := RandomNamespace()
+	// repeat until n2 meets our expectations.
+	for n1.Equals(n2) {
+		n2 = RandomNamespace()
+	}
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		if n1.Equals(n2) {
+			b.Fatal()
+		}
+	}
+}
+
+func BenchmarkCompare(b *testing.B) {
+	n1 := RandomNamespace()
+	n2 := RandomNamespace()
+	// repeat until n2 meets our expectations.
+	for n1.Compare(n2) != 1 {
+		n2 = RandomNamespace()
+	}
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		if n1.Compare(n2) != 1 {
+			b.Fatal()
+		}
+	}
+}
