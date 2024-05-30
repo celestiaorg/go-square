@@ -5,8 +5,7 @@ package blob
 import (
 	"bytes"
 	"errors"
-	fmt "fmt"
-	math "math"
+	"fmt"
 	"sort"
 
 	"github.com/celestiaorg/go-square/namespace"
@@ -51,7 +50,7 @@ func (b *Blob) Validate() error {
 	if len(b.NamespaceId) != namespace.NamespaceIDSize {
 		return fmt.Errorf("namespace id must be %d bytes", namespace.NamespaceIDSize)
 	}
-	if b.ShareVersion > math.MaxUint8 {
+	if b.ShareVersion > 127 { // see: share.MaxShareVersion
 		return errors.New("share version can not be greater than MaxShareVersion")
 	}
 	if b.NamespaceVersion > namespace.NamespaceVersionMax {
