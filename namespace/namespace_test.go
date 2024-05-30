@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -298,10 +299,92 @@ func TestIsReserved(t *testing.T) {
 	}
 }
 
+func Test_compareMethods(t *testing.T) {
+	minID := RandomBlobNamespaceID()
+	maxID := RandomBlobNamespaceID()
+	// repeat until maxID meets our expectations (maxID > minID).
+	for bytes.Compare(maxID, minID) != 1 {
+		maxID = RandomBlobNamespaceID()
+	}
+
+	vers := []byte{NamespaceVersionZero, NamespaceVersionMax}
+	ids := [][]byte{minID, maxID}
+
+	// collect all possible pairs: (ver1 ?? ver2) x (id1 ?? id2)
+	var testPairs [][2]Namespace
+	for _, ver1 := range vers {
+		for _, ver2 := range vers {
+			for _, id1 := range ids {
+				for _, id2 := range ids {
+					testPairs = append(testPairs, [2]Namespace{
+						{Version: ver1, ID: id1},
+						{Version: ver2, ID: id2},
+					})
+				}
+			}
+		}
+	}
+	require.Len(t, testPairs, 16) // len(vers) * len(vers) * len(ids) * len(ids)
+
+	type testCase struct {
+		name string
+		fn   func(n, n2 Namespace) bool
+		old  func(n, n2 Namespace) bool
+	}
+	testCases := []testCase{
+		{
+			name: "Equals",
+			fn:   Namespace.Equals,
+			old: func(n, n2 Namespace) bool {
+				return bytes.Equal(n.Bytes(), n2.Bytes())
+			},
+		},
+		{
+			name: "IsLessThan",
+			fn:   Namespace.IsLessThan,
+			old: func(n, n2 Namespace) bool {
+				return bytes.Compare(n.Bytes(), n2.Bytes()) == -1
+			},
+		},
+		{
+			name: "IsLessOrEqualThan",
+			fn:   Namespace.IsLessOrEqualThan,
+			old: func(n, n2 Namespace) bool {
+				return bytes.Compare(n.Bytes(), n2.Bytes()) < 1
+			},
+		},
+		{
+			name: "IsGreaterThan",
+			fn:   Namespace.IsGreaterThan,
+			old: func(n, n2 Namespace) bool {
+				return bytes.Compare(n.Bytes(), n2.Bytes()) == 1
+			},
+		},
+		{
+			name: "IsGreaterOrEqualThan",
+			fn:   Namespace.IsGreaterOrEqualThan,
+			old: func(n, n2 Namespace) bool {
+				return bytes.Compare(n.Bytes(), n2.Bytes()) > -1
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			for i, p := range testPairs {
+				n, n2 := p[0], p[1]
+				got := tc.fn(n, n2)
+				want := tc.old(n, n2)
+				assert.Equal(t, want, got, "for pair %d", i)
+			}
+		})
+	}
+}
+
 func BenchmarkEqual(b *testing.B) {
 	n1 := RandomNamespace()
 	n2 := RandomNamespace()
-	// repeat until n2 meets our expectations.
+	// repeat until n2 meets our expectations (n1 != n2).
 	for n1.Equals(n2) {
 		n2 = RandomNamespace()
 	}
@@ -319,7 +402,7 @@ func BenchmarkEqual(b *testing.B) {
 func BenchmarkCompare(b *testing.B) {
 	n1 := RandomNamespace()
 	n2 := RandomNamespace()
-	// repeat until n2 meets our expectations.
+	// repeat until n2 meets our expectations (n1 > n2).
 	for n1.Compare(n2) != 1 {
 		n2 = RandomNamespace()
 	}
