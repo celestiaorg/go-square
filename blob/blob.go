@@ -23,6 +23,9 @@ const ProtoBlobTxTypeID = "BLOB"
 // decoding binaries that are not actually IndexWrappers.
 const ProtoIndexWrapperTypeID = "INDX"
 
+// MaxShareVersion is the maximum value a share version can be. See: [shares.MaxShareVersion].
+const MaxShareVersion = 127
+
 // New creates a new coretypes.Blob from the provided data after performing
 // basic stateless checks over it.
 func New(ns namespace.Namespace, blob []byte, shareVersion uint8) *Blob {
@@ -50,7 +53,7 @@ func (b *Blob) Validate() error {
 	if len(b.NamespaceId) != namespace.NamespaceIDSize {
 		return fmt.Errorf("namespace id must be %d bytes", namespace.NamespaceIDSize)
 	}
-	if b.ShareVersion > 127 { // see: share.MaxShareVersion
+	if b.ShareVersion > MaxShareVersion {
 		return errors.New("share version can not be greater than MaxShareVersion")
 	}
 	if b.NamespaceVersion > namespace.NamespaceVersionMax {
