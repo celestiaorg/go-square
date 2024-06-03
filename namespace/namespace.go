@@ -119,23 +119,23 @@ func (n Namespace) IsSecondaryReserved() bool {
 }
 
 func (n Namespace) IsParityShares() bool {
-	return bytes.Equal(n.Bytes(), ParitySharesNamespace.Bytes())
+	return n.Equals(ParitySharesNamespace)
 }
 
 func (n Namespace) IsTailPadding() bool {
-	return bytes.Equal(n.Bytes(), TailPaddingNamespace.Bytes())
+	return n.Equals(TailPaddingNamespace)
 }
 
 func (n Namespace) IsPrimaryReservedPadding() bool {
-	return bytes.Equal(n.Bytes(), PrimaryReservedPaddingNamespace.Bytes())
+	return n.Equals(PrimaryReservedPaddingNamespace)
 }
 
 func (n Namespace) IsTx() bool {
-	return bytes.Equal(n.Bytes(), TxNamespace.Bytes())
+	return n.Equals(TxNamespace)
 }
 
 func (n Namespace) IsPayForBlob() bool {
-	return bytes.Equal(n.Bytes(), PayForBlobNamespace.Bytes())
+	return n.Equals(PayForBlobNamespace)
 }
 
 func (n Namespace) Repeat(times int) []Namespace {
@@ -147,23 +147,34 @@ func (n Namespace) Repeat(times int) []Namespace {
 }
 
 func (n Namespace) Equals(n2 Namespace) bool {
-	return bytes.Equal(n.Bytes(), n2.Bytes())
+	return n.Version == n2.Version && bytes.Equal(n.ID, n2.ID)
 }
 
 func (n Namespace) IsLessThan(n2 Namespace) bool {
-	return bytes.Compare(n.Bytes(), n2.Bytes()) == -1
+	return n.Compare(n2) == -1
 }
 
 func (n Namespace) IsLessOrEqualThan(n2 Namespace) bool {
-	return bytes.Compare(n.Bytes(), n2.Bytes()) < 1
+	return n.Compare(n2) < 1
 }
 
 func (n Namespace) IsGreaterThan(n2 Namespace) bool {
-	return bytes.Compare(n.Bytes(), n2.Bytes()) == 1
+	return n.Compare(n2) == 1
 }
 
 func (n Namespace) IsGreaterOrEqualThan(n2 Namespace) bool {
-	return bytes.Compare(n.Bytes(), n2.Bytes()) > -1
+	return n.Compare(n2) > -1
+}
+
+func (n Namespace) Compare(n2 Namespace) int {
+	switch {
+	case n.Version == n2.Version:
+		return bytes.Compare(n.ID, n2.ID)
+	case n.Version < n2.Version:
+		return -1
+	default:
+		return 1
+	}
 }
 
 // leftPad returns a new byte slice with the provided byte slice left-padded to the provided size.
