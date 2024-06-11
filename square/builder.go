@@ -13,7 +13,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-type wBuilder struct {
+type Builder struct {
 	// maxSquareSize is the maximum number of rows (or columns) in the original data square
 	maxSquareSize int
 	// currentSize is an overestimate for the number of shares used by this builder.
