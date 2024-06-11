@@ -277,7 +277,7 @@ func Test_compareMethods(t *testing.T) {
 	}
 
 	vers := []byte{NamespaceVersionZero, NamespaceVersionMax}
-	ids := [][]byte{minID, maxID}
+	ids := [][]byte{append(NamespaceVersionZeroPrefix, minID...), append(NamespaceVersionZeroPrefix, maxID...)}
 
 	// collect all possible pairs: (ver1 ?? ver2) x (id1 ?? id2)
 	var testPairs [][2]Namespace
