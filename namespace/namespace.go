@@ -7,8 +7,7 @@ import (
 )
 
 type Namespace struct {
-	Version uint8
-	ID      []byte
+	data []byte
 }
 
 // New returns a new namespace with the provided version and id.
@@ -23,9 +22,11 @@ func New(version uint8, id []byte) (Namespace, error) {
 		return Namespace{}, err
 	}
 
+	data := []byte{version}
+	data = append(data, id...)
+
 	return Namespace{
-		Version: version,
-		ID:      id,
+		data: data,
 	}, nil
 }
 
@@ -81,7 +82,17 @@ func From(b []byte) (Namespace, error) {
 
 // Bytes returns this namespace as a byte slice.
 func (n Namespace) Bytes() []byte {
-	return append([]byte{n.Version}, n.ID...)
+	return n.data
+}
+
+// Version return this namespace's version
+func (n Namespace) Version() uint8 {
+	return n.data[0]
+}
+
+// ID returns this namespace's ID
+func (n Namespace) ID() []byte {
+	return n.data[1:]
 }
 
 // validateVersionSupported returns an error if the version is not supported.
@@ -147,7 +158,7 @@ func (n Namespace) Repeat(times int) []Namespace {
 }
 
 func (n Namespace) Equals(n2 Namespace) bool {
-	return n.Version == n2.Version && bytes.Equal(n.ID, n2.ID)
+	return bytes.Equal(n.data, n2.data)
 }
 
 func (n Namespace) IsLessThan(n2 Namespace) bool {
@@ -167,14 +178,7 @@ func (n Namespace) IsGreaterOrEqualThan(n2 Namespace) bool {
 }
 
 func (n Namespace) Compare(n2 Namespace) int {
-	switch {
-	case n.Version == n2.Version:
-		return bytes.Compare(n.ID, n2.ID)
-	case n.Version < n2.Version:
-		return -1
-	default:
-		return 1
-	}
+	return bytes.Compare(n.data, n2.data)
 }
 
 // leftPad returns a new byte slice with the provided byte slice left-padded to the provided size.
@@ -190,14 +194,10 @@ func leftPad(b []byte, size int) []byte {
 // deepCopy returns a deep copy of the Namespace object.
 func (n Namespace) deepCopy() Namespace {
 	// Create a deep copy of the ID slice
-	copyID := make([]byte, len(n.ID))
-	copy(copyID, n.ID)
+	copyData := make([]byte, len(n.data))
+	copy(copyData, n.data)
 
-	// Create a new Namespace object with the copied fields
-	copyNamespace := Namespace{
-		Version: n.Version,
-		ID:      copyID,
+	return Namespace{
+		data: copyData,
 	}
-
-	return copyNamespace
 }

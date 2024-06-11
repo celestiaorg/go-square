@@ -32,7 +32,7 @@ func isBlobNamespace(ns Namespace) bool {
 		return false
 	}
 
-	if !slices.Contains(SupportedBlobNamespaceVersions, ns.Version) {
+	if !slices.Contains(SupportedBlobNamespaceVersions, ns.Version()) {
 		return false
 	}
 

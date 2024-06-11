@@ -30,19 +30,16 @@ const MaxShareVersion = 127
 // basic stateless checks over it.
 func New(ns namespace.Namespace, blob []byte, shareVersion uint8) *Blob {
 	return &Blob{
-		NamespaceId:      ns.ID,
+		NamespaceId:      ns.ID(),
 		Data:             blob,
 		ShareVersion:     uint32(shareVersion),
-		NamespaceVersion: uint32(ns.Version),
+		NamespaceVersion: uint32(ns.Version()),
 	}
 }
 
 // Namespace returns the namespace of the blob
-func (b *Blob) Namespace() namespace.Namespace {
-	return namespace.Namespace{
-		Version: uint8(b.NamespaceVersion),
-		ID:      b.NamespaceId,
-	}
+func (b *Blob) Namespace() (namespace.Namespace, error) {
+	return namespace.New(uint8(b.NamespaceVersion), b.NamespaceId)
 }
 
 // Validate runs a stateless validity check on the form of the struct.
@@ -105,7 +102,9 @@ func MarshalBlobTx(tx []byte, blobs ...*Blob) ([]byte, error) {
 // Sort sorts the blobs by their namespace.
 func Sort(blobs []*Blob) {
 	sort.SliceStable(blobs, func(i, j int) bool {
-		return bytes.Compare(blobs[i].Namespace().Bytes(), blobs[j].Namespace().Bytes()) < 0
+		ns1 := append([]byte{byte(blobs[i].NamespaceVersion)}, blobs[i].NamespaceId...)
+		ns2 := append([]byte{byte(blobs[j].NamespaceVersion)}, blobs[j].NamespaceId...)
+		return bytes.Compare(ns1, ns2) < 0
 	})
 }
 
