@@ -26,9 +26,11 @@ func New(version uint8, id []byte) (Namespace, error) {
 }
 
 func newNamespace(version uint8, id []byte) Namespace {
-	data := []byte{version}
+	data := make([]byte, 1+len(id))
+	data[0] = version
+	copy(data[1:], id)
 	return Namespace{
-		data: append(data, id...),
+		data: data,
 	}
 }
 

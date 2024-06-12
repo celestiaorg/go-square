@@ -44,8 +44,9 @@ func (b *Blob) Namespace() (namespace.Namespace, error) {
 
 // Namespace returns the namespace of the blob
 func (b *Blob) RawNamespace() []byte {
-	namespace := []byte{byte(b.NamespaceVersion)}
-	namespace = append(namespace, b.NamespaceId...)
+	namespace := make([]byte, namespace.NamespaceSize)
+	namespace[0] = uint8(b.NamespaceVersion)
+	copy(namespace[1:], b.NamespaceId)
 	return namespace
 }
 
