@@ -69,13 +69,9 @@ var (
 )
 
 func primaryReservedNamespace(lastByte byte) Namespace {
-	return Namespace{
-		data: append([]byte{NamespaceVersionZero}, append(bytes.Repeat([]byte{0x00}, NamespaceIDSize-1), lastByte)...),
-	}
+	return newNamespace(NamespaceVersionZero, append(bytes.Repeat([]byte{0x00}, NamespaceIDSize-1), lastByte))
 }
 
 func secondaryReservedNamespace(lastByte byte) Namespace {
-	return Namespace{
-		data: append([]byte{NamespaceVersionMax}, append(bytes.Repeat([]byte{0xFF}, NamespaceIDSize-1), lastByte)...),
-	}
+	return newNamespace(NamespaceVersionMax, append(bytes.Repeat([]byte{0xFF}, NamespaceIDSize-1), lastByte))
 }

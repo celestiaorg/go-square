@@ -22,12 +22,14 @@ func New(version uint8, id []byte) (Namespace, error) {
 		return Namespace{}, err
 	}
 
-	data := []byte{version}
-	data = append(data, id...)
+	return newNamespace(version, id), nil
+}
 
+func newNamespace(version uint8, id []byte) Namespace {
+	data := []byte{version}
 	return Namespace{
-		data: data,
-	}, nil
+		data: append(data, id...),
+	}
 }
 
 // MustNew returns a new namespace with the provided version and id. It panics
@@ -38,6 +40,27 @@ func MustNew(version uint8, id []byte) Namespace {
 		panic(err)
 	}
 	return ns
+}
+
+// NewFromBytes returns a new namespace from the provided byte slice.
+func NewFromBytes(bytes []byte) (Namespace, error) {
+	if len(bytes) != NamespaceSize {
+		return Namespace{}, fmt.Errorf("invalid namespace length: %v must be %v", len(bytes), NamespaceSize)
+	}
+
+	err := validateVersionSupported(bytes[0])
+	if err != nil {
+		return Namespace{}, err
+	}
+
+	err = validateID(bytes[0], bytes[1:])
+	if err != nil {
+		return Namespace{}, err
+	}
+
+	return Namespace{
+		data: bytes,
+	}, nil
 }
 
 // NewV0 returns a new namespace with version 0 and the provided subID. subID
@@ -71,13 +94,9 @@ func MustNewV0(subID []byte) Namespace {
 }
 
 // From returns a namespace from the provided byte slice.
+// Deprecated: Please use NewFromBytes instead.
 func From(b []byte) (Namespace, error) {
-	if len(b) != NamespaceSize {
-		return Namespace{}, fmt.Errorf("invalid namespace length: %v must be %v", len(b), NamespaceSize)
-	}
-	rawVersion := b[0]
-	rawNamespace := b[1:]
-	return New(rawVersion, rawNamespace)
+	return NewFromBytes(b)
 }
 
 // Bytes returns this namespace as a byte slice.

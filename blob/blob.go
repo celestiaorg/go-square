@@ -39,7 +39,14 @@ func New(ns namespace.Namespace, blob []byte, shareVersion uint8) *Blob {
 
 // Namespace returns the namespace of the blob
 func (b *Blob) Namespace() (namespace.Namespace, error) {
-	return namespace.New(uint8(b.NamespaceVersion), b.NamespaceId)
+	return namespace.NewFromBytes(b.RawNamespace())
+}
+
+// Namespace returns the namespace of the blob
+func (b *Blob) RawNamespace() []byte {
+	namespace := []byte{byte(b.NamespaceVersion)}
+	namespace = append(namespace, b.NamespaceId...)
+	return namespace
 }
 
 // Validate runs a stateless validity check on the form of the struct.
@@ -60,6 +67,10 @@ func (b *Blob) Validate() error {
 		return errors.New("blob data can not be empty")
 	}
 	return nil
+}
+
+func (b *Blob) Compare(other *Blob) int {
+	return bytes.Compare(b.RawNamespace(), other.RawNamespace())
 }
 
 // UnmarshalBlobTx attempts to unmarshal a transaction into blob transaction. If an
@@ -102,9 +113,7 @@ func MarshalBlobTx(tx []byte, blobs ...*Blob) ([]byte, error) {
 // Sort sorts the blobs by their namespace.
 func Sort(blobs []*Blob) {
 	sort.SliceStable(blobs, func(i, j int) bool {
-		ns1 := append([]byte{byte(blobs[i].NamespaceVersion)}, blobs[i].NamespaceId...)
-		ns2 := append([]byte{byte(blobs[j].NamespaceVersion)}, blobs[j].NamespaceId...)
-		return bytes.Compare(ns1, ns2) < 0
+		return blobs[i].Compare(blobs[j]) < 0
 	})
 }
 
