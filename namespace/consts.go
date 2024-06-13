@@ -11,7 +11,7 @@ const (
 
 	// VersionIndex is the index of the version in the namespace. This should
 	// always be the first byte
-	VersionIndex = NamespaceVersionSize - 1 // 0
+	VersionIndex = 0
 
 	// NamespaceIDSize is the size of a namespace ID in bytes.
 	NamespaceIDSize = 28
