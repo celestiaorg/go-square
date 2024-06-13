@@ -46,7 +46,7 @@ func (b *Blob) Namespace() (ns.Namespace, error) {
 func (b *Blob) RawNamespace() []byte {
 	namespace := make([]byte, ns.NamespaceSize)
 	namespace[ns.VersionIndex] = uint8(b.NamespaceVersion)
-	copy(namespace[1:], b.NamespaceId)
+	copy(namespace[ns.NamespaceVersionSize:], b.NamespaceId)
 	return namespace
 }
 

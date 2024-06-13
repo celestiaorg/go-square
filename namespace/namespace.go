@@ -26,9 +26,9 @@ func New(version uint8, id []byte) (Namespace, error) {
 }
 
 func newNamespace(version uint8, id []byte) Namespace {
-	data := make([]byte, 1+len(id))
-	data[0] = version
-	copy(data[1:], id)
+	data := make([]byte, NamespaceVersionSize+len(id))
+	data[VersionIndex] = version
+	copy(data[NamespaceVersionSize:], id)
 	return Namespace{
 		data: data,
 	}
@@ -102,7 +102,7 @@ func (n Namespace) Bytes() []byte {
 
 // Version return this namespace's version
 func (n Namespace) Version() uint8 {
-	return n.data[NamespaceVersionSize-1]
+	return n.data[VersionIndex]
 }
 
 // ID returns this namespace's ID
