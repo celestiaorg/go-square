@@ -50,12 +50,12 @@ func NewFromBytes(bytes []byte) (Namespace, error) {
 		return Namespace{}, fmt.Errorf("invalid namespace length: %v must be %v", len(bytes), NamespaceSize)
 	}
 
-	err := validateVersionSupported(bytes[0])
+	err := validateVersionSupported(bytes[VersionIndex])
 	if err != nil {
 		return Namespace{}, err
 	}
 
-	err = validateID(bytes[0], bytes[1:])
+	err = validateID(bytes[VersionIndex], bytes[NamespaceVersionSize:])
 	if err != nil {
 		return Namespace{}, err
 	}
@@ -73,16 +73,10 @@ func NewV0(subID []byte) (Namespace, error) {
 		return Namespace{}, fmt.Errorf("subID must be <= %v, but it was %v bytes", NamespaceVersionZeroIDSize, lenSubID)
 	}
 
-	subID = leftPad(subID, NamespaceVersionZeroIDSize)
-	id := make([]byte, NamespaceIDSize)
-	copy(id[NamespaceVersionZeroPrefixSize:], subID)
+	namespace := make([]byte, NamespaceSize)
+	copy(namespace[NamespaceSize-len(subID):], subID)
 
-	ns, err := New(NamespaceVersionZero, id)
-	if err != nil {
-		return Namespace{}, err
-	}
-
-	return ns, nil
+	return NewFromBytes(namespace)
 }
 
 // MustNewV0 returns a new namespace with version 0 and the provided subID. This
@@ -108,12 +102,12 @@ func (n Namespace) Bytes() []byte {
 
 // Version return this namespace's version
 func (n Namespace) Version() uint8 {
-	return n.data[0]
+	return n.data[NamespaceVersionSize-1]
 }
 
 // ID returns this namespace's ID
 func (n Namespace) ID() []byte {
-	return n.data[1:]
+	return n.data[NamespaceVersionSize:]
 }
 
 // validateVersionSupported returns an error if the version is not supported.
