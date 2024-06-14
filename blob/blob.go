@@ -24,46 +24,81 @@ const ProtoBlobTxTypeID = "BLOB"
 const ProtoIndexWrapperTypeID = "INDX"
 
 // MaxShareVersion is the maximum value a share version can be. See: [shares.MaxShareVersion].
-const MaxShareVersion = 127
+const MaxShareVersion = 127 
+
+// Blob (stands for binary large object) is a core type that represents data
+// to be submitted to the Celestia network alongside an accompanying namespace
+// and optional signer (for proving the author of the blob)
+type Blob struct {
+	namespace    namespace.Namespace
+	data         []byte
+	shareVersion uint8
+	signer       string
+}
 
 // New creates a new coretypes.Blob from the provided data after performing
 // basic stateless checks over it.
-func New(ns namespace.Namespace, blob []byte, shareVersion uint8) *Blob {
+func New(ns namespace.Namespace, data []byte, shareVersion uint8, signer string) *Blob {
 	return &Blob{
-		NamespaceId:      ns.ID,
-		Data:             blob,
-		ShareVersion:     uint32(shareVersion),
-		NamespaceVersion: uint32(ns.Version),
-		Signer:           "",
+		namespace:    ns,
+		data:         data,
+		shareVersion: shareVersion,
+		signer:       signer,
 	}
+}
+
+// NewFromProto creates a Blob from the proto format and performs
+// rudimentry validation checks on the structure
+func NewFromProto(pb *BlobProto) (*Blob, error) {
+	if pb.ShareVersion > MaxShareVersion {
+		return nil, errors.New("share version can not be greater than MaxShareVersion")
+	}
+	if pb.NamespaceVersion > namespace.NamespaceVersionMax {
+		return nil, errors.New("namespace version can not be greater than MaxNamespaceVersion")
+	}
+	if len(pb.Data) == 0 {
+		return nil, errors.New("blob data can not be empty")
+	}
+	ns, err := namespace.New(uint8(pb.NamespaceVersion), pb.NamespaceId)
+	if err != nil {
+		return nil, fmt.Errorf("invalid namespace: %w", err)
+	}
+	return &Blob{
+		namespace:    ns,
+		data:         pb.Data,
+		shareVersion: uint8(pb.ShareVersion),
+		signer:       pb.Signer,
+	}, nil
 }
 
 // Namespace returns the namespace of the blob
 func (b *Blob) Namespace() namespace.Namespace {
-	return namespace.Namespace{
-		Version: uint8(b.NamespaceVersion),
-		ID:      b.NamespaceId,
-	}
+	return b.namespace
 }
 
-// Validate runs a stateless validity check on the form of the struct.
-func (b *Blob) Validate() error {
-	if b == nil {
-		return errors.New("nil blob")
+// ShareVersion returns the share version of the blob
+func (b *Blob) ShareVersion() uint8 {
+	return b.shareVersion
+}
+
+// Signer returns the signer of the blob
+func (b *Blob) Signer() string {
+	return b.signer
+}
+
+// Data returns the data of the blob
+func (b *Blob) Data() []byte {
+	return b.data
+}
+
+func (b *Blob) ToProto() *BlobProto {
+	return &BlobProto{
+		NamespaceId: b.namespace.Bytes(),
+		NamespaceVersion: uint32(b.namespace.Version()),
+		ShareVersion: uint32(b.shareVersion),
+		Data: b.data,
+		Signer: b.signer,
 	}
-	if len(b.NamespaceId) != namespace.NamespaceIDSize {
-		return fmt.Errorf("namespace id must be %d bytes", namespace.NamespaceIDSize)
-	}
-	if b.ShareVersion > MaxShareVersion {
-		return errors.New("share version can not be greater than MaxShareVersion")
-	}
-	if b.NamespaceVersion > namespace.NamespaceVersionMax {
-		return errors.New("namespace version can not be greater than MaxNamespaceVersion")
-	}
-	if len(b.Data) == 0 {
-		return errors.New("blob data can not be empty")
-	}
-	return nil
 }
 
 // UnmarshalBlobTx attempts to unmarshal a transaction into blob transaction. If an
