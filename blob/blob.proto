@@ -12,6 +12,7 @@ message Blob {
   bytes data = 2;
   uint32 share_version = 3;
   uint32 namespace_version = 4;
+  string signer = 5;
 }
 
 // BlobTx wraps an encoded sdk.Tx with a second field to contain blobs of data.
