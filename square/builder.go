@@ -128,7 +128,9 @@ func (b *Builder) Export() (Square, error) {
 	// of blobs within a namespace because b.Blobs are already ordered by tx
 	// priority.
 	sort.SliceStable(b.Blobs, func(i, j int) bool {
-		return bytes.Compare(b.Blobs[i].Blob.Namespace().Bytes(), b.Blobs[j].Blob.Namespace().Bytes()) < 0
+		ns1 := append([]byte{byte(b.Blobs[i].Blob.NamespaceVersion)}, b.Blobs[i].Blob.NamespaceId...)
+		ns2 := append([]byte{byte(b.Blobs[j].Blob.NamespaceVersion)}, b.Blobs[j].Blob.NamespaceId...)
+		return bytes.Compare(ns1, ns2) < 0
 	})
 
 	// write all the regular transactions into compact shares

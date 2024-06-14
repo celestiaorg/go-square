@@ -20,7 +20,10 @@ func CreateCommitment(blob *blob.Blob, merkleRootFn MerkleRootFn, subtreeRootThr
 	if err := blob.Validate(); err != nil {
 		return nil, err
 	}
-	namespace := blob.Namespace()
+	namespace, err := blob.Namespace()
+	if err != nil {
+		return nil, err
+	}
 
 	shares, err := sh.SplitBlobs(blob)
 	if err != nil {
