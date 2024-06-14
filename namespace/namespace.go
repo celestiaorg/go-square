@@ -7,8 +7,7 @@ import (
 )
 
 type Namespace struct {
-	Version uint8
-	ID      []byte
+	data []byte
 }
 
 // New returns a new namespace with the provided version and id.
@@ -23,10 +22,16 @@ func New(version uint8, id []byte) (Namespace, error) {
 		return Namespace{}, err
 	}
 
+	return newNamespace(version, id), nil
+}
+
+func newNamespace(version uint8, id []byte) Namespace {
+	data := make([]byte, NamespaceVersionSize+len(id))
+	data[VersionIndex] = version
+	copy(data[NamespaceVersionSize:], id)
 	return Namespace{
-		Version: version,
-		ID:      id,
-	}, nil
+		data: data,
+	}
 }
 
 // MustNew returns a new namespace with the provided version and id. It panics
@@ -39,6 +44,27 @@ func MustNew(version uint8, id []byte) Namespace {
 	return ns
 }
 
+// NewFromBytes returns a new namespace from the provided byte slice.
+func NewFromBytes(bytes []byte) (Namespace, error) {
+	if len(bytes) != NamespaceSize {
+		return Namespace{}, fmt.Errorf("invalid namespace length: %v must be %v", len(bytes), NamespaceSize)
+	}
+
+	err := validateVersionSupported(bytes[VersionIndex])
+	if err != nil {
+		return Namespace{}, err
+	}
+
+	err = validateID(bytes[VersionIndex], bytes[NamespaceVersionSize:])
+	if err != nil {
+		return Namespace{}, err
+	}
+
+	return Namespace{
+		data: bytes,
+	}, nil
+}
+
 // NewV0 returns a new namespace with version 0 and the provided subID. subID
 // must be <= 10 bytes. If subID is < 10 bytes, it will be left-padded with 0s
 // to fill 10 bytes.
@@ -47,16 +73,10 @@ func NewV0(subID []byte) (Namespace, error) {
 		return Namespace{}, fmt.Errorf("subID must be <= %v, but it was %v bytes", NamespaceVersionZeroIDSize, lenSubID)
 	}
 
-	subID = leftPad(subID, NamespaceVersionZeroIDSize)
-	id := make([]byte, NamespaceIDSize)
-	copy(id[NamespaceVersionZeroPrefixSize:], subID)
+	namespace := make([]byte, NamespaceSize)
+	copy(namespace[NamespaceSize-len(subID):], subID)
 
-	ns, err := New(NamespaceVersionZero, id)
-	if err != nil {
-		return Namespace{}, err
-	}
-
-	return ns, nil
+	return NewFromBytes(namespace)
 }
 
 // MustNewV0 returns a new namespace with version 0 and the provided subID. This
@@ -70,18 +90,24 @@ func MustNewV0(subID []byte) Namespace {
 }
 
 // From returns a namespace from the provided byte slice.
+// Deprecated: Please use NewFromBytes instead.
 func From(b []byte) (Namespace, error) {
-	if len(b) != NamespaceSize {
-		return Namespace{}, fmt.Errorf("invalid namespace length: %v must be %v", len(b), NamespaceSize)
-	}
-	rawVersion := b[0]
-	rawNamespace := b[1:]
-	return New(rawVersion, rawNamespace)
+	return NewFromBytes(b)
 }
 
 // Bytes returns this namespace as a byte slice.
 func (n Namespace) Bytes() []byte {
-	return append([]byte{n.Version}, n.ID...)
+	return n.data
+}
+
+// Version return this namespace's version
+func (n Namespace) Version() uint8 {
+	return n.data[VersionIndex]
+}
+
+// ID returns this namespace's ID
+func (n Namespace) ID() []byte {
+	return n.data[NamespaceVersionSize:]
 }
 
 // validateVersionSupported returns an error if the version is not supported.
@@ -147,7 +173,7 @@ func (n Namespace) Repeat(times int) []Namespace {
 }
 
 func (n Namespace) Equals(n2 Namespace) bool {
-	return n.Version == n2.Version && bytes.Equal(n.ID, n2.ID)
+	return bytes.Equal(n.data, n2.data)
 }
 
 func (n Namespace) IsLessThan(n2 Namespace) bool {
@@ -167,14 +193,7 @@ func (n Namespace) IsGreaterOrEqualThan(n2 Namespace) bool {
 }
 
 func (n Namespace) Compare(n2 Namespace) int {
-	switch {
-	case n.Version == n2.Version:
-		return bytes.Compare(n.ID, n2.ID)
-	case n.Version < n2.Version:
-		return -1
-	default:
-		return 1
-	}
+	return bytes.Compare(n.data, n2.data)
 }
 
 // leftPad returns a new byte slice with the provided byte slice left-padded to the provided size.
@@ -190,14 +209,10 @@ func leftPad(b []byte, size int) []byte {
 // deepCopy returns a deep copy of the Namespace object.
 func (n Namespace) deepCopy() Namespace {
 	// Create a deep copy of the ID slice
-	copyID := make([]byte, len(n.ID))
-	copy(copyID, n.ID)
+	copyData := make([]byte, len(n.data))
+	copy(copyData, n.data)
 
-	// Create a new Namespace object with the copied fields
-	copyNamespace := Namespace{
-		Version: n.Version,
-		ID:      copyID,
+	return Namespace{
+		data: copyData,
 	}
-
-	return copyNamespace
 }
