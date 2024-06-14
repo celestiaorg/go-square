@@ -91,12 +91,7 @@ func TestCreateCommitment(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			blob := &blob.Blob{
-				NamespaceId:      tt.namespace.ID(),
-				Data:             tt.blob,
-				ShareVersion:     uint32(tt.shareVersion),
-				NamespaceVersion: uint32(tt.namespace.Version()),
-			}
+			blob := blob.New(tt.namespace, tt.blob, tt.shareVersion, "")
 			res, err := inclusion.CreateCommitment(blob, twoLeafMerkleRoot, defaultSubtreeRootThreshold)
 			if tt.expectErr {
 				assert.Error(t, err)

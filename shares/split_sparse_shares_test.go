@@ -15,8 +15,8 @@ func TestSparseShareSplitter(t *testing.T) {
 	ns1 := namespace.MustNewV0(bytes.Repeat([]byte{1}, namespace.NamespaceVersionZeroIDSize))
 	ns2 := namespace.MustNewV0(bytes.Repeat([]byte{2}, namespace.NamespaceVersionZeroIDSize))
 
-	blob1 := blob.New(ns1, []byte("data1"), ShareVersionZero)
-	blob2 := blob.New(ns2, []byte("data2"), ShareVersionZero)
+	blob1 := blob.New(ns1, []byte("data1"), ShareVersionZero, "")
+	blob2 := blob.New(ns2, []byte("data2"), ShareVersionZero, "")
 	sss := NewSparseShareSplitter()
 
 	err := sss.Write(blob1)
@@ -56,5 +56,5 @@ func TestWriteNamespacePaddingShares(t *testing.T) {
 }
 
 func newBlob(ns namespace.Namespace, shareVersion uint8) *blob.Blob {
-	return blob.New(ns, []byte("data"), shareVersion)
+	return blob.New(ns, []byte("data"), shareVersion, "")
 }

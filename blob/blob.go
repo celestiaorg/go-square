@@ -3,7 +3,6 @@
 package blob
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"sort"
@@ -24,7 +23,7 @@ const ProtoBlobTxTypeID = "BLOB"
 const ProtoIndexWrapperTypeID = "INDX"
 
 // MaxShareVersion is the maximum value a share version can be. See: [shares.MaxShareVersion].
-const MaxShareVersion = 127 
+const MaxShareVersion = 127
 
 // Blob (stands for binary large object) is a core type that represents data
 // to be submitted to the Celestia network alongside an accompanying namespace
@@ -48,7 +47,7 @@ func New(ns ns.Namespace, data []byte, shareVersion uint8, signer string) *Blob 
 }
 
 // NewFromProto creates a Blob from the proto format and performs
-// rudimentry validation checks on the structure
+// rudimentary validation checks on the structure
 func NewFromProto(pb *BlobProto) (*Blob, error) {
 	if pb.ShareVersion > MaxShareVersion {
 		return nil, errors.New("share version can not be greater than MaxShareVersion")
@@ -93,11 +92,11 @@ func (b *Blob) Data() []byte {
 
 func (b *Blob) ToProto() *BlobProto {
 	return &BlobProto{
-		NamespaceId: b.namespace.Bytes(),
+		NamespaceId:      b.namespace.Bytes(),
 		NamespaceVersion: uint32(b.namespace.Version()),
-		ShareVersion: uint32(b.shareVersion),
-		Data: b.data,
-		Signer: b.signer,
+		ShareVersion:     uint32(b.shareVersion),
+		Data:             b.data,
+		Signer:           b.signer,
 	}
 }
 
