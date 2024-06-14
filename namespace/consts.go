@@ -9,6 +9,10 @@ const (
 	// NamespaceVersionSize is the size of a namespace version in bytes.
 	NamespaceVersionSize = 1
 
+	// VersionIndex is the index of the version in the namespace. This should
+	// always be the first byte
+	VersionIndex = 0
+
 	// NamespaceIDSize is the size of a namespace ID in bytes.
 	NamespaceIDSize = 28
 
@@ -69,15 +73,9 @@ var (
 )
 
 func primaryReservedNamespace(lastByte byte) Namespace {
-	return Namespace{
-		Version: NamespaceVersionZero,
-		ID:      append(bytes.Repeat([]byte{0x00}, NamespaceIDSize-1), lastByte),
-	}
+	return newNamespace(NamespaceVersionZero, append(bytes.Repeat([]byte{0x00}, NamespaceIDSize-1), lastByte))
 }
 
 func secondaryReservedNamespace(lastByte byte) Namespace {
-	return Namespace{
-		Version: NamespaceVersionMax,
-		ID:      append(bytes.Repeat([]byte{0xFF}, NamespaceIDSize-1), lastByte),
-	}
+	return newNamespace(NamespaceVersionMax, append(bytes.Repeat([]byte{0xFF}, NamespaceIDSize-1), lastByte))
 }
