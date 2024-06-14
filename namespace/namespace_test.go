@@ -32,10 +32,7 @@ func TestNew(t *testing.T) {
 			version: NamespaceVersionZero,
 			id:      validID,
 			wantErr: false,
-			want: Namespace{
-				Version: NamespaceVersionZero,
-				ID:      validID,
-			},
+			want:    MustNew(NamespaceVersionZero, validID),
 		},
 		{
 			name:    "unsupported version",
@@ -76,19 +73,6 @@ func TestNew(t *testing.T) {
 	}
 }
 
-// TestRepeatNonMutability ensures that the output of Repeat method is not mutated when the original namespace is mutated.
-func TestRepeatNonMutability(t *testing.T) {
-	n := 10
-	namespace := Namespace{Version: NamespaceVersionMax, ID: []byte{1, 2, 3, 4}}
-	repeated := namespace.Repeat(n)
-	// mutate the original namespace
-	namespace.ID[0] = 5
-	// ensure the repeated namespaces are not mutated
-	for i := 0; i < n; i++ {
-		assert.NotEqual(t, repeated[i], namespace)
-	}
-}
-
 func TestNewV0(t *testing.T) {
 	type testCase struct {
 		name    string
@@ -99,21 +83,15 @@ func TestNewV0(t *testing.T) {
 
 	testCases := []testCase{
 		{
-			name:  "valid namespace",
-			subID: bytes.Repeat([]byte{1}, NamespaceVersionZeroIDSize),
-			want: Namespace{
-				Version: NamespaceVersionZero,
-				ID:      append(NamespaceVersionZeroPrefix, bytes.Repeat([]byte{1}, NamespaceVersionZeroIDSize)...),
-			},
+			name:    "valid namespace",
+			subID:   bytes.Repeat([]byte{1}, NamespaceVersionZeroIDSize),
+			want:    MustNew(NamespaceVersionZero, append(NamespaceVersionZeroPrefix, bytes.Repeat([]byte{1}, NamespaceVersionZeroIDSize)...)),
 			wantErr: false,
 		},
 		{
-			name:  "left pads subID if too short",
-			subID: []byte{1, 2, 3, 4},
-			want: Namespace{
-				Version: NamespaceVersionZero,
-				ID:      append(NamespaceVersionZeroPrefix, []byte{0, 0, 0, 0, 0, 0, 1, 2, 3, 4}...),
-			},
+			name:    "left pads subID if too short",
+			subID:   []byte{1, 2, 3, 4},
+			want:    MustNew(NamespaceVersionZero, append(NamespaceVersionZeroPrefix, []byte{0, 0, 0, 0, 0, 0, 1, 2, 3, 4}...)),
 			wantErr: false,
 		},
 		{
@@ -153,19 +131,13 @@ func TestFrom(t *testing.T) {
 			name:    "valid namespace",
 			bytes:   validNamespace,
 			wantErr: false,
-			want: Namespace{
-				Version: NamespaceVersionZero,
-				ID:      validID,
-			},
+			want:    MustNew(NamespaceVersionZero, validID),
 		},
 		{
 			name:    "parity namespace",
 			bytes:   parityNamespace,
 			wantErr: false,
-			want: Namespace{
-				Version: NamespaceVersionMax,
-				ID:      bytes.Repeat([]byte{0xFF}, NamespaceIDSize),
-			},
+			want:    MustNew(NamespaceVersionMax, bytes.Repeat([]byte{0xFF}, NamespaceIDSize)),
 		},
 		{
 			name:    "unsupported version",
@@ -285,10 +257,7 @@ func TestIsReserved(t *testing.T) {
 			want: true,
 		},
 		{
-			ns: Namespace{
-				Version: math.MaxUint8,
-				ID:      append(bytes.Repeat([]byte{0xFF}, NamespaceIDSize-1), 1),
-			},
+			ns:   MustNew(math.MaxUint8, append(bytes.Repeat([]byte{0xFF}, NamespaceIDSize-1), 1)),
 			want: true,
 		},
 	}
@@ -308,7 +277,7 @@ func Test_compareMethods(t *testing.T) {
 	}
 
 	vers := []byte{NamespaceVersionZero, NamespaceVersionMax}
-	ids := [][]byte{minID, maxID}
+	ids := [][]byte{append(NamespaceVersionZeroPrefix, minID...), append(NamespaceVersionZeroPrefix, maxID...)}
 
 	// collect all possible pairs: (ver1 ?? ver2) x (id1 ?? id2)
 	var testPairs [][2]Namespace
@@ -317,8 +286,8 @@ func Test_compareMethods(t *testing.T) {
 			for _, id1 := range ids {
 				for _, id2 := range ids {
 					testPairs = append(testPairs, [2]Namespace{
-						{Version: ver1, ID: id1},
-						{Version: ver2, ID: id2},
+						MustNew(ver1, id1),
+						MustNew(ver2, id2),
 					})
 				}
 			}
