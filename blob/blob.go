@@ -34,6 +34,7 @@ func New(ns ns.Namespace, blob []byte, shareVersion uint8) *Blob {
 		Data:             blob,
 		ShareVersion:     uint32(shareVersion),
 		NamespaceVersion: uint32(ns.Version()),
+		Signer:           nil,
 	}
 }
 
