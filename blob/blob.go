@@ -32,12 +32,12 @@ type Blob struct {
 	namespace    ns.Namespace
 	data         []byte
 	shareVersion uint8
-	signer       string
+	signer       []byte
 }
 
 // New creates a new coretypes.Blob from the provided data after performing
 // basic stateless checks over it.
-func New(ns ns.Namespace, data []byte, shareVersion uint8, signer string) *Blob {
+func New(ns ns.Namespace, data []byte, shareVersion uint8, signer []byte) *Blob {
 	return &Blob{
 		namespace:    ns,
 		data:         data,
@@ -81,7 +81,7 @@ func (b *Blob) ShareVersion() uint8 {
 }
 
 // Signer returns the signer of the blob
-func (b *Blob) Signer() string {
+func (b *Blob) Signer() []byte {
 	return b.signer
 }
 

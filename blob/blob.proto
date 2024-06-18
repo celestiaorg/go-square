@@ -12,7 +12,9 @@ message BlobProto {
   bytes data = 2;
   uint32 share_version = 3;
   uint32 namespace_version = 4;
-  string signer = 5;
+  // Signer is sdk.AccAddress that paid for this blob. This field is optional
+  // and can only be used when share_version is set to 1. 
+  bytes signer = 5;
 }
 
 // BlobTx wraps an encoded sdk.Tx with a second field to contain blobs of data.

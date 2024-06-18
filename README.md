@@ -21,6 +21,10 @@ To use `go-square` as a dependency in your Go project, you can use `go get`:
 go get github.com/celestiaorg/go-square
 ```
 
+## Branches and Releasing
+
+This repo has one long living development branch `main`, for changes targeting the next major version as well as long living branches for each prior major version i.e. `v1.x`. Non breaking changes may be backported to these branches. This repo follows [semver](https://www.semver.org) versioning.
+
 ## Contributing
 
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
