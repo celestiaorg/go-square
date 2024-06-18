@@ -44,7 +44,7 @@ func GenerateBlobTxWithNamespace(namespaces []namespace.Namespace, blobSizes []i
 		panic("number of namespaces should match number of blob sizes")
 	}
 	for i, size := range blobSizes {
-		blobs[i] = blob.New(namespaces[i], RandomBytes(size), shares.DefaultShareVersion, "")
+		blobs[i] = blob.New(namespaces[i], RandomBytes(size), shares.DefaultShareVersion, nil)
 	}
 	blobTx, err := blob.MarshalBlobTx(MockPFB(toUint32(blobSizes)), blobs...)
 	if err != nil {

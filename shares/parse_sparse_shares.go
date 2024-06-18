@@ -81,7 +81,7 @@ func parseSparseShares(shares []Share, supportedShareVersions []uint8) (blobs []
 	for _, sequence := range sequences {
 		// trim any padding from the end of the sequence
 		sequence.data = sequence.data[:sequence.sequenceLen]
-		blobs = append(blobs, blob.New(sequence.ns, sequence.data, sequence.shareVersion, ""))
+		blobs = append(blobs, blob.New(sequence.ns, sequence.data, sequence.shareVersion, nil))
 	}
 
 	return blobs, nil
