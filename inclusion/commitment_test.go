@@ -86,7 +86,7 @@ func TestCreateCommitment(t *testing.T) {
 			namespace:    ns1,
 			blob:         bytes.Repeat([]byte{0xFF}, shares.AvailableBytesFromSparseShares(2)),
 			expectErr:    true,
-			shareVersion: uint8(1), // unsupported share version
+			shareVersion: uint8(2), // unsupported share version
 		},
 	}
 	for _, tt := range tests {

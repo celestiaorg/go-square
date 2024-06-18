@@ -92,7 +92,7 @@ func (b *Blob) Data() []byte {
 
 func (b *Blob) ToProto() *BlobProto {
 	return &BlobProto{
-		NamespaceId:      b.namespace.Bytes(),
+		NamespaceId:      b.namespace.ID(),
 		NamespaceVersion: uint32(b.namespace.Version()),
 		ShareVersion:     uint32(b.shareVersion),
 		Data:             b.data,

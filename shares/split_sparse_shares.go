@@ -29,7 +29,6 @@ func (sss *SparseShareSplitter) Write(blob *blob.Blob) error {
 	rawData := blob.Data()
 	blobNamespace := blob.Namespace()
 
-	// First share (note by validating the blob we can safely cast the share version to uint8)
 	b, err := NewBuilder(blobNamespace, blob.ShareVersion(), true)
 	if err != nil {
 		return err

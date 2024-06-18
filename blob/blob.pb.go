@@ -20,7 +20,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// BlobProto the protobuf representation of a blob (binary large object)
+// BlobProto is the protobuf representation of a blob (binary large object)
 // to be published to the Celestia blockchain. The data of a Blob is published
 // to a namespace and is encoded into shares based on the format specified by
 // share_version.
