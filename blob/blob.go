@@ -27,7 +27,7 @@ const MaxShareVersion = 127
 
 // Blob (stands for binary large object) is a core type that represents data
 // to be submitted to the Celestia network alongside an accompanying namespace
-// and optional signer (for proving the author of the blob)
+// and optional signer (for proving the signer of the blob)
 type Blob struct {
 	namespace    ns.Namespace
 	data         []byte
