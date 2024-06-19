@@ -71,12 +71,8 @@ func GenerateBlobTxs(numTxs, blobsPerPfb, blobSize int) [][]byte {
 
 func GenerateBlobs(blobSizes ...int) []*blob.Blob {
 	blobs := make([]*blob.Blob, len(blobSizes))
-	var err error
 	for i, size := range blobSizes {
-		blobs[i], err = blob.New(namespace.RandomBlobNamespace(), RandomBytes(size), shares.ShareVersionZero, nil)
-		if err != nil {
-			panic(err)
-		}
+		blobs[i] = blob.New(namespace.RandomBlobNamespace(), RandomBytes(size), shares.ShareVersionZero)
 	}
 	return blobs
 }
