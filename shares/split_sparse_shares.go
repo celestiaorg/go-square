@@ -36,9 +36,12 @@ func (sss *SparseShareSplitter) Write(blob *blob.Blob) error {
 	if err := b.WriteSequenceLen(uint32(len(rawData))); err != nil {
 		return err
 	}
+	// add the signer to the first share for v1 share versions only
+	if blob.ShareVersion() == ShareVersionOne {
+		b.WriteSigner(blob.Signer())
+	}
 
 	for rawData != nil {
-
 		rawDataLeftOver := b.AddData(rawData)
 		if rawDataLeftOver == nil {
 			// Just call it on the latest share
@@ -80,10 +83,7 @@ func (sss *SparseShareSplitter) WriteNamespacePaddingShares(count int) error {
 	if err != nil {
 		return err
 	}
-	lastBlobInfo, err := lastBlob.InfoByte()
-	if err != nil {
-		return err
-	}
+	lastBlobInfo := lastBlob.InfoByte()
 	nsPaddingShares, err := NamespacePaddingShares(lastBlobNs, lastBlobInfo.Version(), count)
 	if err != nil {
 		return err

@@ -13,6 +13,7 @@ type sequence struct {
 	shareVersion uint8
 	data         []byte
 	sequenceLen  uint32
+	signer       []byte
 }
 
 // parseSparseShares iterates through rawShares and parses out individual
@@ -25,10 +26,7 @@ func parseSparseShares(shares []Share, supportedShareVersions []uint8) (blobs []
 	sequences := make([]sequence, 0)
 
 	for _, share := range shares {
-		version, err := share.Version()
-		if err != nil {
-			return nil, err
-		}
+		version := share.Version()
 		if !bytes.Contains(supportedShareVersions, []byte{version}) {
 			return nil, fmt.Errorf("unsupported share version %v is not present in supported share versions %v", version, supportedShareVersions)
 		}
@@ -41,16 +39,8 @@ func parseSparseShares(shares []Share, supportedShareVersions []uint8) (blobs []
 			continue
 		}
 
-		isStart, err := share.IsSequenceStart()
-		if err != nil {
-			return nil, err
-		}
-
-		if isStart {
-			sequenceLen, err := share.SequenceLen()
-			if err != nil {
-				return nil, err
-			}
+		if share.IsSequenceStart() {
+			sequenceLen := share.SequenceLen()
 			data, err := share.RawData()
 			if err != nil {
 				return nil, err
@@ -64,6 +54,7 @@ func parseSparseShares(shares []Share, supportedShareVersions []uint8) (blobs []
 				shareVersion: version,
 				data:         data,
 				sequenceLen:  sequenceLen,
+				signer:       GetSigner(share),
 			})
 		} else { // continuation share
 			if len(sequences) == 0 {
@@ -81,7 +72,11 @@ func parseSparseShares(shares []Share, supportedShareVersions []uint8) (blobs []
 	for _, sequence := range sequences {
 		// trim any padding from the end of the sequence
 		sequence.data = sequence.data[:sequence.sequenceLen]
-		blobs = append(blobs, blob.New(sequence.ns, sequence.data, sequence.shareVersion, nil))
+		blob, err := blob.New(sequence.ns, sequence.data, sequence.shareVersion, sequence.signer)
+		if err != nil {
+			return nil, err
+		}
+		blobs = append(blobs, blob)
 	}
 
 	return blobs, nil

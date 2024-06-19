@@ -155,13 +155,25 @@ func Test_parseSparseSharesWithNamespacedPadding(t *testing.T) {
 	require.Equal(t, blobs, pblobs)
 }
 
+func Test_parseShareVersionOne(t *testing.T) {
+	v1blob, err := blob.NewV1(ns.MustNewV0(bytes.Repeat([]byte{1}, ns.NamespaceVersionZeroIDSize)), []byte("data"), bytes.Repeat([]byte{1}, blob.SignerSize))
+	require.NoError(t, err)
+	v1shares, err := SplitBlobs(v1blob)
+	require.NoError(t, err)
+
+	parsedBlobs, err := parseSparseShares(v1shares, SupportedShareVersions)
+	require.NoError(t, err)
+	require.Equal(t, v1blob, parsedBlobs[0])
+	require.Len(t, parsedBlobs, 1)
+}
+
 func generateRandomBlobWithNamespace(namespace ns.Namespace, size int) *blob.Blob {
 	data := make([]byte, size)
 	_, err := crand.Read(data)
 	if err != nil {
 		panic(err)
 	}
-	return blob.New(namespace, data, ShareVersionZero, nil)
+	return blob.NewV0(namespace, data)
 }
 
 func generateRandomBlob(dataSize int) *blob.Blob {

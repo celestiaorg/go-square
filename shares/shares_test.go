@@ -14,7 +14,6 @@ func TestSequenceLen(t *testing.T) {
 		name    string
 		share   Share
 		wantLen uint32
-		wantErr bool
 	}
 	firstShare := append(bytes.Repeat([]byte{1}, namespace.NamespaceSize),
 		[]byte{
@@ -36,58 +35,32 @@ func TestSequenceLen(t *testing.T) {
 			1,           // info byte
 			0, 0, 0, 10, // sequence len
 		}...)
-	noInfoByte := namespace.TxNamespace.Bytes()
-	noSequenceLen := append(namespace.TxNamespace.Bytes(),
-		[]byte{
-			1, // info byte
-		}...)
 	testCases := []testCase{
 		{
 			name:    "first share",
 			share:   Share{data: firstShare},
 			wantLen: 10,
-			wantErr: false,
 		},
 		{
 			name:    "first share with long sequence",
 			share:   Share{data: firstShareWithLongSequence},
 			wantLen: 323,
-			wantErr: false,
 		},
 		{
 			name:    "continuation share",
 			share:   Share{data: continuationShare},
 			wantLen: 0,
-			wantErr: false,
 		},
 		{
 			name:    "compact share",
 			share:   Share{data: compactShare},
 			wantLen: 10,
-			wantErr: false,
-		},
-		{
-			name:    "no info byte returns error",
-			share:   Share{data: noInfoByte},
-			wantLen: 0,
-			wantErr: true,
-		},
-		{
-			name:    "no sequence len returns error",
-			share:   Share{data: noSequenceLen},
-			wantLen: 0,
-			wantErr: true,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			length, err := tc.share.SequenceLen()
-
-			if tc.wantErr {
-				assert.Error(t, err)
-				return
-			}
+			length := tc.share.SequenceLen()
 			if tc.wantLen != length {
 				t.Errorf("want %d, got %d", tc.wantLen, length)
 			}
@@ -97,10 +70,9 @@ func TestSequenceLen(t *testing.T) {
 
 func TestRawData(t *testing.T) {
 	type testCase struct {
-		name    string
-		share   Share
-		want    []byte
-		wantErr bool
+		name  string
+		share Share
+		want  []byte
 	}
 	sparseNamespaceID := namespace.MustNewV0(bytes.Repeat([]byte{0x1}, namespace.NamespaceVersionZeroIDSize))
 	firstSparseShare := append(
@@ -129,15 +101,6 @@ func TestRawData(t *testing.T) {
 			0, 0, 0, 0, // reserved bytes
 			1, 2, 3, 4, 5, 6, 7, 8, 9, 10, // data
 		}...)
-	noSequenceLen := append(namespace.TxNamespace.Bytes(),
-		[]byte{
-			1, // info byte
-		}...)
-	notEnoughSequenceLenBytes := append(namespace.TxNamespace.Bytes(),
-		[]byte{
-			1,        // info byte
-			0, 0, 10, // sequence len
-		}...)
 	testCases := []testCase{
 		{
 			name:  "first sparse share",
@@ -159,25 +122,12 @@ func TestRawData(t *testing.T) {
 			share: Share{data: continuationCompactShare},
 			want:  []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
 		},
-		{
-			name:    "no sequence len returns error",
-			share:   Share{data: noSequenceLen},
-			wantErr: true,
-		},
-		{
-			name:    "not enough sequence len bytes returns error",
-			share:   Share{data: notEnoughSequenceLenBytes},
-			wantErr: true,
-		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			rawData, err := tc.share.RawData()
-			if tc.wantErr {
-				assert.Error(t, err)
-				return
-			}
+			require.NoError(t, err)
 			assert.Equal(t, tc.want, rawData)
 		})
 	}
@@ -222,12 +172,10 @@ func TestIsCompactShare(t *testing.T) {
 
 func TestIsPadding(t *testing.T) {
 	type testCase struct {
-		name    string
-		share   Share
-		want    bool
-		wantErr bool
+		name  string
+		share Share
+		want  bool
 	}
-	emptyShare := Share{}
 	blobShare, _ := zeroPadIfNecessary(
 		append(
 			ns1.Bytes(),
@@ -243,11 +191,6 @@ func TestIsPadding(t *testing.T) {
 	require.NoError(t, err)
 
 	testCases := []testCase{
-		{
-			name:    "empty share",
-			share:   emptyShare,
-			wantErr: true,
-		},
 		{
 			name:  "blob share",
 			share: Share{data: blobShare},
@@ -273,10 +216,6 @@ func TestIsPadding(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			got, err := tc.share.IsPadding()
-			if tc.wantErr {
-				assert.Error(t, err)
-				return
-			}
 			require.NoError(t, err)
 			assert.Equal(t, tc.want, got)
 		})

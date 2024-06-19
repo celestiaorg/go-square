@@ -38,7 +38,7 @@ func (s ShareSequence) SequenceLen() (uint32, error) {
 		return 0, fmt.Errorf("invalid sequence length because share sequence %v has no shares", s)
 	}
 	firstShare := s.Shares[0]
-	return firstShare.SequenceLen()
+	return firstShare.SequenceLen(), nil
 }
 
 // validSequenceLen extracts the sequenceLen written to the first share
@@ -84,10 +84,7 @@ func (s ShareSequence) isPadding() (bool, error) {
 // firstShare and returns the number of shares needed to store a sequence of
 // that length.
 func numberOfSharesNeeded(firstShare Share) (sharesUsed int, err error) {
-	sequenceLen, err := firstShare.SequenceLen()
-	if err != nil {
-		return 0, err
-	}
+	sequenceLen := firstShare.SequenceLen()
 
 	isCompact, err := firstShare.IsCompactShare()
 	if err != nil {

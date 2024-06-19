@@ -31,9 +31,6 @@ func TestParseShares(t *testing.T) {
 	blobTwoStart := blobTwoShares[0]
 	blobTwoContinuation := blobTwoShares[1]
 
-	// invalidShare is longer than the length of a valid share
-	invalidShare := Share{data: append(generateRawShare(t, ns1, true, 1), []byte{0}...)}
-
 	// tooLargeSequenceLen is a single share with too large of a sequence len
 	// because it takes more than one share to store a sequence of 1000 bytes
 	tooLargeSequenceLen := generateRawShare(t, ns1, true, uint32(1000))
@@ -115,13 +112,6 @@ func TestParseShares(t *testing.T) {
 				{Namespace: ns2, Shares: []Share{blobTwoStart}},
 			},
 			expectErr: false,
-		},
-		{
-			name:          "one share with invalid size",
-			shares:        []Share{invalidShare},
-			ignorePadding: false,
-			want:          []ShareSequence{},
-			expectErr:     true,
 		},
 		{
 			name:          "blob one start followed by blob two continuation",
