@@ -5,11 +5,14 @@ import (
 	"fmt"
 
 	"github.com/celestiaorg/go-square/blob"
+	ns "github.com/celestiaorg/go-square/namespace"
 )
 
 type sequence struct {
-	blob        *blob.Blob
-	sequenceLen uint32
+	ns           ns.Namespace
+	shareVersion uint8
+	data         []byte
+	sequenceLen  uint32
 }
 
 // parseSparseShares iterates through rawShares and parses out individual
@@ -56,27 +59,29 @@ func parseSparseShares(shares []Share, supportedShareVersions []uint8) (blobs []
 			if err != nil {
 				return nil, err
 			}
-			blob := blob.New(ns, data, version)
 			sequences = append(sequences, sequence{
-				blob:        blob,
-				sequenceLen: sequenceLen,
+				ns:           ns,
+				shareVersion: version,
+				data:         data,
+				sequenceLen:  sequenceLen,
 			})
 		} else { // continuation share
 			if len(sequences) == 0 {
 				return nil, fmt.Errorf("continuation share %v without a sequence start share", share)
 			}
+			// FIXME: it doesn't look like we check whether all the shares belong to the same namespace.
 			prev := &sequences[len(sequences)-1]
 			data, err := share.RawData()
 			if err != nil {
 				return nil, err
 			}
-			prev.blob.Data = append(prev.blob.Data, data...)
+			prev.data = append(prev.data, data...)
 		}
 	}
 	for _, sequence := range sequences {
 		// trim any padding from the end of the sequence
-		sequence.blob.Data = sequence.blob.Data[:sequence.sequenceLen]
-		blobs = append(blobs, sequence.blob)
+		sequence.data = sequence.data[:sequence.sequenceLen]
+		blobs = append(blobs, blob.New(sequence.ns, sequence.data, sequence.shareVersion, nil))
 	}
 
 	return blobs, nil

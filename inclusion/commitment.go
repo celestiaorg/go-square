@@ -17,14 +17,6 @@ type MerkleRootFn func([][]byte) []byte
 // [data square layout rationale]: ../../specs/src/specs/data_square_layout.md
 // [blob share commitment rules]: ../../specs/src/specs/data_square_layout.md#blob-share-commitment-rules
 func CreateCommitment(blob *blob.Blob, merkleRootFn MerkleRootFn, subtreeRootThreshold int) ([]byte, error) {
-	if err := blob.Validate(); err != nil {
-		return nil, err
-	}
-	namespace, err := blob.Namespace()
-	if err != nil {
-		return nil, err
-	}
-
 	shares, err := sh.SplitBlobs(blob)
 	if err != nil {
 		return nil, err
@@ -46,6 +38,7 @@ func CreateCommitment(blob *blob.Blob, merkleRootFn MerkleRootFn, subtreeRootThr
 		cursor += treeSize
 	}
 
+	namespace := blob.Namespace()
 	// create the commitments by pushing each leaf set onto an NMT
 	subTreeRoots := make([][]byte, len(leafSets))
 	for i, set := range leafSets {

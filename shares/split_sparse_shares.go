@@ -22,22 +22,14 @@ func NewSparseShareSplitter() *SparseShareSplitter {
 // Write writes the provided blob to this sparse share splitter. It returns an
 // error or nil if no error is encountered.
 func (sss *SparseShareSplitter) Write(blob *blob.Blob) error {
-	if err := blob.Validate(); err != nil {
-		return err
+	if !slices.Contains(SupportedShareVersions, blob.ShareVersion()) {
+		return fmt.Errorf("unsupported share version: %d", blob.ShareVersion())
 	}
 
-	if !slices.Contains(SupportedShareVersions, uint8(blob.ShareVersion)) {
-		return fmt.Errorf("unsupported share version: %d", blob.ShareVersion)
-	}
+	rawData := blob.Data()
+	blobNamespace := blob.Namespace()
 
-	rawData := blob.Data
-	blobNamespace, err := blob.Namespace()
-	if err != nil {
-		return err
-	}
-
-	// First share (note by validating the blob we can safely cast the share version to uint8)
-	b, err := NewBuilder(blobNamespace, uint8(blob.ShareVersion), true)
+	b, err := NewBuilder(blobNamespace, blob.ShareVersion(), true)
 	if err != nil {
 		return err
 	}
@@ -59,7 +51,7 @@ func (sss *SparseShareSplitter) Write(blob *blob.Blob) error {
 		}
 		sss.shares = append(sss.shares, *share)
 
-		b, err = NewBuilder(blobNamespace, uint8(blob.ShareVersion), false)
+		b, err = NewBuilder(blobNamespace, blob.ShareVersion(), false)
 		if err != nil {
 			return err
 		}

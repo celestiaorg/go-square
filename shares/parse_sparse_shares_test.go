@@ -70,8 +70,8 @@ func Test_parseSparseShares(t *testing.T) {
 
 			// check that the namespaces and data are the same
 			for i := 0; i < len(blobs); i++ {
-				assert.Equal(t, blobs[i].NamespaceId, parsedBlobs[i].NamespaceId, "parsed blob namespace does not match")
-				assert.Equal(t, blobs[i].Data, parsedBlobs[i].Data, "parsed blob data does not match")
+				assert.Equal(t, blobs[i].Namespace(), parsedBlobs[i].Namespace(), "parsed blob namespace does not match")
+				assert.Equal(t, blobs[i].Data(), parsedBlobs[i].Data(), "parsed blob data does not match")
 			}
 		})
 
@@ -87,8 +87,8 @@ func Test_parseSparseShares(t *testing.T) {
 
 			// check that the namespaces and data are the same
 			for i := 0; i < len(blobs); i++ {
-				assert.Equal(t, blobs[i].NamespaceId, parsedBlobs[i].NamespaceId)
-				assert.Equal(t, blobs[i].Data, parsedBlobs[i].Data)
+				assert.Equal(t, blobs[i].Namespace(), parsedBlobs[i].Namespace())
+				assert.Equal(t, blobs[i].Data(), parsedBlobs[i].Data())
 			}
 		})
 	}
@@ -161,7 +161,7 @@ func generateRandomBlobWithNamespace(namespace ns.Namespace, size int) *blob.Blo
 	if err != nil {
 		panic(err)
 	}
-	return blob.New(namespace, data, ShareVersionZero)
+	return blob.New(namespace, data, ShareVersionZero, nil)
 }
 
 func generateRandomBlob(dataSize int) *blob.Blob {
@@ -173,7 +173,7 @@ func GenerateRandomlySizedBlobs(count, maxBlobSize int) []*blob.Blob {
 	blobs := make([]*blob.Blob, count)
 	for i := 0; i < count; i++ {
 		blobs[i] = generateRandomBlob(rand.Intn(maxBlobSize))
-		if len(blobs[i].Data) == 0 {
+		if len(blobs[i].Data()) == 0 {
 			i--
 		}
 	}

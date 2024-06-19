@@ -3,7 +3,6 @@
 package blob
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"sort"
@@ -26,52 +25,83 @@ const ProtoIndexWrapperTypeID = "INDX"
 // MaxShareVersion is the maximum value a share version can be. See: [shares.MaxShareVersion].
 const MaxShareVersion = 127
 
+// Blob (stands for binary large object) is a core type that represents data
+// to be submitted to the Celestia network alongside an accompanying namespace
+// and optional signer (for proving the signer of the blob)
+type Blob struct {
+	namespace    ns.Namespace
+	data         []byte
+	shareVersion uint8
+	signer       []byte
+}
+
 // New creates a new coretypes.Blob from the provided data after performing
 // basic stateless checks over it.
-func New(ns ns.Namespace, blob []byte, shareVersion uint8) *Blob {
+func New(ns ns.Namespace, data []byte, shareVersion uint8, signer []byte) *Blob {
 	return &Blob{
-		NamespaceId:      ns.ID(),
-		Data:             blob,
-		ShareVersion:     uint32(shareVersion),
-		NamespaceVersion: uint32(ns.Version()),
+		namespace:    ns,
+		data:         data,
+		shareVersion: shareVersion,
+		signer:       signer,
 	}
+}
+
+// NewFromProto creates a Blob from the proto format and performs
+// rudimentary validation checks on the structure
+func NewFromProto(pb *BlobProto) (*Blob, error) {
+	if pb.ShareVersion > MaxShareVersion {
+		return nil, errors.New("share version can not be greater than MaxShareVersion")
+	}
+	if pb.NamespaceVersion > ns.NamespaceVersionMax {
+		return nil, errors.New("namespace version can not be greater than MaxNamespaceVersion")
+	}
+	if len(pb.Data) == 0 {
+		return nil, errors.New("blob data can not be empty")
+	}
+	ns, err := ns.New(uint8(pb.NamespaceVersion), pb.NamespaceId)
+	if err != nil {
+		return nil, fmt.Errorf("invalid namespace: %w", err)
+	}
+	return &Blob{
+		namespace:    ns,
+		data:         pb.Data,
+		shareVersion: uint8(pb.ShareVersion),
+		signer:       pb.Signer,
+	}, nil
 }
 
 // Namespace returns the namespace of the blob
-func (b *Blob) Namespace() (ns.Namespace, error) {
-	return ns.NewFromBytes(b.RawNamespace())
+func (b *Blob) Namespace() ns.Namespace {
+	return b.namespace
 }
 
-// RawNamespace returns the namespace of the blob
-func (b *Blob) RawNamespace() []byte {
-	namespace := make([]byte, ns.NamespaceSize)
-	namespace[ns.VersionIndex] = uint8(b.NamespaceVersion)
-	copy(namespace[ns.NamespaceVersionSize:], b.NamespaceId)
-	return namespace
+// ShareVersion returns the share version of the blob
+func (b *Blob) ShareVersion() uint8 {
+	return b.shareVersion
 }
 
-// Validate runs a stateless validity check on the form of the struct.
-func (b *Blob) Validate() error {
-	if b == nil {
-		return errors.New("nil blob")
+// Signer returns the signer of the blob
+func (b *Blob) Signer() []byte {
+	return b.signer
+}
+
+// Data returns the data of the blob
+func (b *Blob) Data() []byte {
+	return b.data
+}
+
+func (b *Blob) ToProto() *BlobProto {
+	return &BlobProto{
+		NamespaceId:      b.namespace.ID(),
+		NamespaceVersion: uint32(b.namespace.Version()),
+		ShareVersion:     uint32(b.shareVersion),
+		Data:             b.data,
+		Signer:           b.signer,
 	}
-	if len(b.NamespaceId) != ns.NamespaceIDSize {
-		return fmt.Errorf("namespace id must be %d bytes", ns.NamespaceIDSize)
-	}
-	if b.ShareVersion > MaxShareVersion {
-		return errors.New("share version can not be greater than MaxShareVersion")
-	}
-	if b.NamespaceVersion > ns.NamespaceVersionMax {
-		return errors.New("namespace version can not be greater than MaxNamespaceVersion")
-	}
-	if len(b.Data) == 0 {
-		return errors.New("blob data can not be empty")
-	}
-	return nil
 }
 
 func (b *Blob) Compare(other *Blob) int {
-	return bytes.Compare(b.RawNamespace(), other.RawNamespace())
+	return b.namespace.Compare(other.namespace)
 }
 
 // UnmarshalBlobTx attempts to unmarshal a transaction into blob transaction. If an
@@ -103,12 +133,23 @@ func UnmarshalBlobTx(tx []byte) (*BlobTx, bool) {
 // NOTE: Any checks on the blobs or the transaction must be performed in the
 // application
 func MarshalBlobTx(tx []byte, blobs ...*Blob) ([]byte, error) {
+	if len(blobs) == 0 {
+		return nil, errors.New("at least one blob must be provided")
+	}
 	bTx := &BlobTx{
 		Tx:     tx,
-		Blobs:  blobs,
+		Blobs:  blobsToProto(blobs),
 		TypeId: ProtoBlobTxTypeID,
 	}
 	return proto.Marshal(bTx)
+}
+
+func blobsToProto(blobs []*Blob) []*BlobProto {
+	pb := make([]*BlobProto, len(blobs))
+	for i, b := range blobs {
+		pb[i] = b.ToProto()
+	}
+	return pb
 }
 
 // Sort sorts the blobs by their namespace.

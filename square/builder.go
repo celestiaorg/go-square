@@ -96,7 +96,13 @@ func (b *Builder) AppendBlobTx(blobTx *blob.BlobTx) bool {
 	// create a new blob element for each blob and track the worst-case share count
 	blobElements := make([]*Element, len(blobTx.Blobs))
 	maxBlobShareCount := 0
-	for idx, blob := range blobTx.Blobs {
+	for idx, protoBlob := range blobTx.Blobs {
+		blob, err := blob.NewFromProto(protoBlob)
+		if err != nil {
+			// TODO: we should look at having a go native BlobTx type
+			// that we have already verified instead of doing it twice here
+			panic(fmt.Sprintf("invalid blob %d: %v", idx, err))
+		}
 		blobElements[idx] = newElement(blob, len(b.Pfbs), idx, b.subtreeRootThreshold)
 		maxBlobShareCount += blobElements[idx].maxShareOffset()
 	}
@@ -128,8 +134,8 @@ func (b *Builder) Export() (Square, error) {
 	// of blobs within a namespace because b.Blobs are already ordered by tx
 	// priority.
 	sort.SliceStable(b.Blobs, func(i, j int) bool {
-		ns1 := append([]byte{byte(b.Blobs[i].Blob.NamespaceVersion)}, b.Blobs[i].Blob.NamespaceId...)
-		ns2 := append([]byte{byte(b.Blobs[j].Blob.NamespaceVersion)}, b.Blobs[j].Blob.NamespaceId...)
+		ns1 := b.Blobs[i].Blob.Namespace().Bytes()
+		ns2 := b.Blobs[j].Blob.Namespace().Bytes()
 		return bytes.Compare(ns1, ns2) < 0
 	})
 
@@ -372,7 +378,7 @@ type Element struct {
 }
 
 func newElement(blob *blob.Blob, pfbIndex, blobIndex, subtreeRootThreshold int) *Element {
-	numShares := shares.SparseSharesNeeded(uint32(len(blob.Data)))
+	numShares := shares.SparseSharesNeeded(uint32(len(blob.Data())))
 	return &Element{
 		Blob:      blob,
 		PfbIndex:  pfbIndex,
