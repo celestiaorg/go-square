@@ -19,6 +19,10 @@ const (
 	// ShareVersionZero is the first share version format.
 	ShareVersionZero = uint8(0)
 
+	// ShareVersionOne is the second share version format.
+	// It requires that a signer is included in the first share in the sequence.
+	ShareVersionOne = uint8(1)
+
 	// DefaultShareVersion is the defacto share version. Use this if you are
 	// unsure of which version to use.
 	DefaultShareVersion = ShareVersionZero
@@ -60,4 +64,4 @@ const (
 )
 
 // SupportedShareVersions is a list of supported share versions.
-var SupportedShareVersions = []uint8{ShareVersionZero}
+var SupportedShareVersions = []uint8{ShareVersionZero, ShareVersionOne}
