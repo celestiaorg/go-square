@@ -1,8 +1,6 @@
 package shares
 
-import (
-	"github.com/celestiaorg/go-square/namespace"
-)
+import "github.com/celestiaorg/go-square/namespace"
 
 const (
 	// ShareSize is the size of a share in bytes.
@@ -61,6 +59,17 @@ const (
 
 	// MaxShareVersion is the maximum value a share version can be.
 	MaxShareVersion = 127
+
+	// ProtoBlobTxTypeID is included in each encoded BlobTx to help prevent
+	// decoding binaries that are not actually BlobTxs.
+	ProtoBlobTxTypeID = "BLOB"
+
+	// ProtoIndexWrapperTypeID is included in each encoded IndexWrapper to help prevent
+	// decoding binaries that are not actually IndexWrappers.
+	ProtoIndexWrapperTypeID = "INDX"
+
+	// SignerSize is the size of the signer in bytes.
+	SignerSize = 20
 )
 
 // SupportedShareVersions is a list of supported share versions.

@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/celestiaorg/go-square/blob"
 	"golang.org/x/exp/slices"
 )
 
@@ -21,7 +20,7 @@ func NewSparseShareSplitter() *SparseShareSplitter {
 
 // Write writes the provided blob to this sparse share splitter. It returns an
 // error or nil if no error is encountered.
-func (sss *SparseShareSplitter) Write(blob *blob.Blob) error {
+func (sss *SparseShareSplitter) Write(blob *Blob) error {
 	if !slices.Contains(SupportedShareVersions, blob.ShareVersion()) {
 		return fmt.Errorf("unsupported share version: %d", blob.ShareVersion())
 	}

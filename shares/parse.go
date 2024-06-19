@@ -3,8 +3,6 @@ package shares
 import (
 	"bytes"
 	"fmt"
-
-	"github.com/celestiaorg/go-square/blob"
 )
 
 // ParseTxs collects all of the transactions from the shares provided
@@ -19,10 +17,10 @@ func ParseTxs(shares []Share) ([][]byte, error) {
 }
 
 // ParseBlobs collects all blobs from the shares provided
-func ParseBlobs(shares []Share) ([]*blob.Blob, error) {
+func ParseBlobs(shares []Share) ([]*Blob, error) {
 	blobList, err := parseSparseShares(shares, SupportedShareVersions)
 	if err != nil {
-		return []*blob.Blob{}, err
+		return []*Blob{}, err
 	}
 
 	return blobList, nil

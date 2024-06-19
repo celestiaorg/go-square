@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/rand"
 
-	"github.com/celestiaorg/go-square/blob"
 	"github.com/celestiaorg/go-square/namespace"
 	"github.com/celestiaorg/go-square/shares"
 )
@@ -39,22 +38,22 @@ func RandomBytes(size int) []byte {
 }
 
 func GenerateBlobTxWithNamespace(namespaces []namespace.Namespace, blobSizes []int, version uint8) []byte {
-	blobs := make([]*blob.Blob, len(blobSizes))
+	blobs := make([]*shares.Blob, len(blobSizes))
 	if len(namespaces) != len(blobSizes) {
 		panic("number of namespaces should match number of blob sizes")
 	}
 	var err error
 	var signer []byte
 	if version == shares.ShareVersionOne {
-		signer = RandomBytes(blob.SignerSize)
+		signer = RandomBytes(shares.SignerSize)
 	}
 	for i, size := range blobSizes {
-		blobs[i], err = blob.New(namespaces[i], RandomBytes(size), version, signer)
+		blobs[i], err = shares.NewBlob(namespaces[i], RandomBytes(size), version, signer)
 		if err != nil {
 			panic(err)
 		}
 	}
-	blobTx, err := blob.MarshalBlobTx(MockPFB(toUint32(blobSizes)), blobs...)
+	blobTx, err := shares.MarshalBlobTx(MockPFB(toUint32(blobSizes)), blobs...)
 	if err != nil {
 		panic(err)
 	}

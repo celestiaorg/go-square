@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/celestiaorg/go-square/blob"
 	ns "github.com/celestiaorg/go-square/namespace"
 )
 
@@ -19,7 +18,7 @@ type sequence struct {
 // parseSparseShares iterates through rawShares and parses out individual
 // blobs. It returns an error if a rawShare contains a share version that
 // isn't present in supportedShareVersions.
-func parseSparseShares(shares []Share, supportedShareVersions []uint8) (blobs []*blob.Blob, err error) {
+func parseSparseShares(shares []Share, supportedShareVersions []uint8) (blobs []*Blob, err error) {
 	if len(shares) == 0 {
 		return nil, nil
 	}
@@ -72,7 +71,7 @@ func parseSparseShares(shares []Share, supportedShareVersions []uint8) (blobs []
 	for _, sequence := range sequences {
 		// trim any padding from the end of the sequence
 		sequence.data = sequence.data[:sequence.sequenceLen]
-		blob, err := blob.New(sequence.ns, sequence.data, sequence.shareVersion, sequence.signer)
+		blob, err := NewBlob(sequence.ns, sequence.data, sequence.shareVersion, sequence.signer)
 		if err != nil {
 			return nil, err
 		}

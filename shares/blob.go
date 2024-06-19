@@ -1,6 +1,4 @@
-// Package blob provides types and functions for working with blobs, blob
-// transactions, and index wrapper transactions.
-package blob
+package shares
 
 import (
 	"errors"
@@ -10,23 +8,6 @@ import (
 	ns "github.com/celestiaorg/go-square/namespace"
 	"google.golang.org/protobuf/proto"
 )
-
-// SupportedBlobNamespaceVersions is a list of namespace versions that can be specified by a user for blobs.
-var SupportedBlobNamespaceVersions = []uint8{ns.NamespaceVersionZero}
-
-// ProtoBlobTxTypeID is included in each encoded BlobTx to help prevent
-// decoding binaries that are not actually BlobTxs.
-const ProtoBlobTxTypeID = "BLOB"
-
-// ProtoIndexWrapperTypeID is included in each encoded IndexWrapper to help prevent
-// decoding binaries that are not actually IndexWrappers.
-const ProtoIndexWrapperTypeID = "INDX"
-
-// MaxShareVersion is the maximum value a share version can be. See: [shares.MaxShareVersion].
-const MaxShareVersion = 127
-
-// SignerSize is the size of the signer in bytes.
-const SignerSize = 20
 
 // Blob (stands for binary large object) is a core type that represents data
 // to be submitted to the Celestia network alongside an accompanying namespace
@@ -40,12 +21,15 @@ type Blob struct {
 
 // New creates a new coretypes.Blob from the provided data after performing
 // basic stateless checks over it.
-func New(ns ns.Namespace, data []byte, shareVersion uint8, signer []byte) (*Blob, error) {
+func NewBlob(ns ns.Namespace, data []byte, shareVersion uint8, signer []byte) (*Blob, error) {
 	if shareVersion == 0 && signer != nil {
 		return nil, errors.New("share version 0 does not support signer")
 	}
 	if shareVersion == 1 && len(signer) != SignerSize {
 		return nil, errors.New("share version 1 requires signer of size 20 bytes")
+	}
+	if shareVersion > MaxShareVersion {
+		return nil, errors.New("share version can not be greater than MaxShareVersion")
 	}
 	return &Blob{
 		namespace:    ns,
@@ -55,24 +39,21 @@ func New(ns ns.Namespace, data []byte, shareVersion uint8, signer []byte) (*Blob
 	}, nil
 }
 
-func NewV0(ns ns.Namespace, data []byte) *Blob {
-	blob, err := New(ns, data, 0, nil)
+func NewV0Blob(ns ns.Namespace, data []byte) *Blob {
+	blob, err := NewBlob(ns, data, 0, nil)
 	if err != nil {
 		panic(err)
 	}
 	return blob
 }
 
-func NewV1(ns ns.Namespace, data []byte, signer []byte) (*Blob, error) {
-	return New(ns, data, 1, signer)
+func NewV1Blob(ns ns.Namespace, data []byte, signer []byte) (*Blob, error) {
+	return NewBlob(ns, data, 1, signer)
 }
 
 // NewFromProto creates a Blob from the proto format and performs
 // rudimentary validation checks on the structure
-func NewFromProto(pb *BlobProto) (*Blob, error) {
-	if pb.ShareVersion > MaxShareVersion {
-		return nil, errors.New("share version can not be greater than MaxShareVersion")
-	}
+func NewBlobFromProto(pb *BlobProto) (*Blob, error) {
 	if pb.NamespaceVersion > ns.NamespaceVersionMax {
 		return nil, errors.New("namespace version can not be greater than MaxNamespaceVersion")
 	}
@@ -83,7 +64,7 @@ func NewFromProto(pb *BlobProto) (*Blob, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid namespace: %w", err)
 	}
-	return New(
+	return NewBlob(
 		ns,
 		pb.Data,
 		uint8(pb.ShareVersion),
@@ -174,7 +155,7 @@ func blobsToProto(blobs []*Blob) []*BlobProto {
 }
 
 // Sort sorts the blobs by their namespace.
-func Sort(blobs []*Blob) {
+func SortBlobs(blobs []*Blob) {
 	sort.SliceStable(blobs, func(i, j int) bool {
 		return blobs[i].Compare(blobs[j]) < 0
 	})

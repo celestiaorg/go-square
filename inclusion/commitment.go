@@ -3,7 +3,6 @@ package inclusion
 import (
 	"crypto/sha256"
 
-	"github.com/celestiaorg/go-square/blob"
 	ns "github.com/celestiaorg/go-square/namespace"
 	sh "github.com/celestiaorg/go-square/shares"
 	"github.com/celestiaorg/nmt"
@@ -16,7 +15,7 @@ type MerkleRootFn func([][]byte) []byte
 //
 // [data square layout rationale]: ../../specs/src/specs/data_square_layout.md
 // [blob share commitment rules]: ../../specs/src/specs/data_square_layout.md#blob-share-commitment-rules
-func CreateCommitment(blob *blob.Blob, merkleRootFn MerkleRootFn, subtreeRootThreshold int) ([]byte, error) {
+func CreateCommitment(blob *sh.Blob, merkleRootFn MerkleRootFn, subtreeRootThreshold int) ([]byte, error) {
 	shares, err := sh.SplitBlobs(blob)
 	if err != nil {
 		return nil, err
@@ -70,7 +69,7 @@ func CreateCommitment(blob *blob.Blob, merkleRootFn MerkleRootFn, subtreeRootThr
 	return merkleRootFn(subTreeRoots), nil
 }
 
-func CreateCommitments(blobs []*blob.Blob, merkleRootFn MerkleRootFn, subtreeRootThreshold int) ([][]byte, error) {
+func CreateCommitments(blobs []*sh.Blob, merkleRootFn MerkleRootFn, subtreeRootThreshold int) ([][]byte, error) {
 	commitments := make([][]byte, len(blobs))
 	for i, blob := range blobs {
 		commitment, err := CreateCommitment(blob, merkleRootFn, subtreeRootThreshold)

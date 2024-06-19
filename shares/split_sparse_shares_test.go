@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/celestiaorg/go-square/blob"
 	"github.com/celestiaorg/go-square/namespace"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -15,10 +14,10 @@ import (
 func TestSparseShareSplitter(t *testing.T) {
 	ns1 := namespace.MustNewV0(bytes.Repeat([]byte{1}, namespace.NamespaceVersionZeroIDSize))
 	ns2 := namespace.MustNewV0(bytes.Repeat([]byte{2}, namespace.NamespaceVersionZeroIDSize))
-	signer := bytes.Repeat([]byte{1}, blob.SignerSize)
+	signer := bytes.Repeat([]byte{1}, SignerSize)
 
-	blob1 := blob.NewV0(ns1, []byte("data1"))
-	blob2, err := blob.NewV1(ns2, []byte("data2"), signer)
+	blob1 := NewV0Blob(ns1, []byte("data1"))
+	blob2, err := NewV1Blob(ns2, []byte("data2"), signer)
 	require.NoError(t, err)
 	sss := NewSparseShareSplitter()
 
@@ -39,7 +38,7 @@ func TestSparseShareSplitter(t *testing.T) {
 
 func TestWriteNamespacePaddingShares(t *testing.T) {
 	ns1 := namespace.MustNewV0(bytes.Repeat([]byte{1}, namespace.NamespaceVersionZeroIDSize))
-	blob1 := blob.NewV0(ns1, []byte("data1"))
+	blob1 := NewV0Blob(ns1, []byte("data1"))
 
 	sss := NewSparseShareSplitter()
 
