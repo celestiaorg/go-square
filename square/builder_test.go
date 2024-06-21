@@ -338,7 +338,7 @@ func generateBlobTxsWithNamespaces(namespaces []namespace.Namespace, blobSizes [
 	counter := 0
 	for i := 0; i < len(txs); i++ {
 		n := namespaces[counter : counter+len(blobSizes[i])]
-		txs[i] = test.GenerateBlobTxWithNamespace(n, blobSizes[i])
+		txs[i] = test.GenerateBlobTxWithNamespace(n, blobSizes[i], shares.ShareVersionZero)
 		counter += len(blobSizes[i])
 	}
 	return txs

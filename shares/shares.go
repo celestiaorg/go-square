@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
+	"github.com/celestiaorg/go-square/blob"
 	"github.com/celestiaorg/go-square/namespace"
 )
 
@@ -14,31 +15,12 @@ type Share struct {
 	data []byte
 }
 
-func (s *Share) Namespace() (namespace.Namespace, error) {
-	if len(s.data) < namespace.NamespaceSize {
-		panic(fmt.Sprintf("share %s is too short to contain a namespace", s))
-	}
-	return namespace.From(s.data[:namespace.NamespaceSize])
-}
-
-func (s *Share) InfoByte() (InfoByte, error) {
-	if len(s.data) < namespace.NamespaceSize+ShareInfoBytes {
-		return 0, fmt.Errorf("share %s is too short to contain an info byte", s)
-	}
-	// the info byte is the first byte after the namespace
-	unparsed := s.data[namespace.NamespaceSize]
-	return ParseInfoByte(unparsed)
-}
-
 func NewShare(data []byte) (*Share, error) {
 	if err := validateSize(data); err != nil {
 		return nil, err
 	}
+	// TODO: we should also validate namespace
 	return &Share{data}, nil
-}
-
-func (s *Share) Validate() error {
-	return validateSize(s.data)
 }
 
 func validateSize(data []byte) error {
@@ -48,23 +30,26 @@ func validateSize(data []byte) error {
 	return nil
 }
 
-func (s *Share) Len() int {
-	return len(s.data)
+// Namespace returns the shares namespace
+// TODO: we could validate it the namespace in the constructor
+// and then return the bytes without needing to validate it every time
+func (s *Share) Namespace() (namespace.Namespace, error) {
+	return namespace.NewFromBytes(s.data[:namespace.NamespaceSize])
 }
 
-func (s *Share) Version() (uint8, error) {
-	infoByte, err := s.InfoByte()
-	if err != nil {
-		return 0, err
-	}
-	return infoByte.Version(), nil
+func (s *Share) InfoByte() InfoByte {
+	// the info byte is the first byte after the namespace
+	unparsed := s.data[namespace.NamespaceSize]
+	return InfoByte(unparsed)
+}
+
+func (s *Share) Version() uint8 {
+	infoByte := s.InfoByte()
+	return infoByte.Version()
 }
 
 func (s *Share) DoesSupportVersions(supportedShareVersions []uint8) error {
-	ver, err := s.Version()
-	if err != nil {
-		return err
-	}
+	ver := s.Version()
 	if !bytes.Contains(supportedShareVersions, []byte{ver}) {
 		return fmt.Errorf("unsupported share version %v is not present in the list of supported share versions %v", ver, supportedShareVersions)
 	}
@@ -72,12 +57,9 @@ func (s *Share) DoesSupportVersions(supportedShareVersions []uint8) error {
 }
 
 // IsSequenceStart returns true if this is the first share in a sequence.
-func (s *Share) IsSequenceStart() (bool, error) {
-	infoByte, err := s.InfoByte()
-	if err != nil {
-		return false, err
-	}
-	return infoByte.IsSequenceStart(), nil
+func (s *Share) IsSequenceStart() bool {
+	infoByte := s.InfoByte()
+	return infoByte.IsSequenceStart()
 }
 
 // IsCompactShare returns true if this is a compact share.
@@ -90,33 +72,38 @@ func (s Share) IsCompactShare() (bool, error) {
 	return isCompact, nil
 }
 
+// GetSigner returns the signer of the share, if the
+// share is not of type v1 and is not the first share in a sequence
+// it returns nil
+func GetSigner(share Share) []byte {
+	infoByte := share.InfoByte()
+	if infoByte.Version() != ShareVersionOne {
+		return nil
+	}
+	if !infoByte.IsSequenceStart() {
+		return nil
+	}
+	startIndex := namespace.NamespaceSize + ShareInfoBytes + SequenceLenBytes
+	endIndex := startIndex + blob.SignerSize
+	return share.data[startIndex:endIndex]
+}
+
 // SequenceLen returns the sequence length of this *share and optionally an
 // error. It returns 0, nil if this is a continuation share (i.e. doesn't
 // contain a sequence length).
-func (s *Share) SequenceLen() (sequenceLen uint32, err error) {
-	isSequenceStart, err := s.IsSequenceStart()
-	if err != nil {
-		return 0, err
-	}
-	if !isSequenceStart {
-		return 0, nil
+func (s *Share) SequenceLen() uint32 {
+	if !s.IsSequenceStart() {
+		return 0
 	}
 
 	start := namespace.NamespaceSize + ShareInfoBytes
 	end := start + SequenceLenBytes
-	if len(s.data) < end {
-		return 0, fmt.Errorf("share %s with length %d is too short to contain a sequence length",
-			s, len(s.data))
-	}
-	return binary.BigEndian.Uint32(s.data[start:end]), nil
+	return binary.BigEndian.Uint32(s.data[start:end])
 }
 
 // IsPadding returns whether this *share is padding or not.
 func (s *Share) IsPadding() (bool, error) {
-	isNamespacePadding, err := s.isNamespacePadding()
-	if err != nil {
-		return false, err
-	}
+	isNamespacePadding := s.isNamespacePadding()
 	isTailPadding, err := s.isTailPadding()
 	if err != nil {
 		return false, err
@@ -128,17 +115,8 @@ func (s *Share) IsPadding() (bool, error) {
 	return isNamespacePadding || isTailPadding || isPrimaryReservedPadding, nil
 }
 
-func (s *Share) isNamespacePadding() (bool, error) {
-	isSequenceStart, err := s.IsSequenceStart()
-	if err != nil {
-		return false, err
-	}
-	sequenceLen, err := s.SequenceLen()
-	if err != nil {
-		return false, err
-	}
-
-	return isSequenceStart && sequenceLen == 0, nil
+func (s *Share) isNamespacePadding() bool {
+	return s.IsSequenceStart() && s.SequenceLen() == 0
 }
 
 func (s *Share) isTailPadding() (bool, error) {
@@ -162,23 +140,21 @@ func (s *Share) ToBytes() []byte {
 }
 
 // RawData returns the raw share data. The raw share data does not contain the
-// namespace ID, info byte, sequence length, or reserved bytes.
-func (s *Share) RawData() (rawData []byte, err error) {
-	if len(s.data) < s.rawDataStartIndex() {
-		return rawData, fmt.Errorf("share %s is too short to contain raw data", s)
+// namespace ID, info byte, sequence length and if they exist: the reserved bytes
+// and signer.
+func (s *Share) RawData() ([]byte, error) {
+	startingIndex, err := s.rawDataStartIndex()
+	if err != nil {
+		return nil, err
 	}
-
-	return s.data[s.rawDataStartIndex():], nil
+	return s.data[startingIndex:], nil
 }
 
-func (s *Share) rawDataStartIndex() int {
-	isStart, err := s.IsSequenceStart()
-	if err != nil {
-		panic(err)
-	}
+func (s *Share) rawDataStartIndex() (int, error) {
+	isStart := s.IsSequenceStart()
 	isCompact, err := s.IsCompactShare()
 	if err != nil {
-		panic(err)
+		return 0, err
 	}
 
 	index := namespace.NamespaceSize + ShareInfoBytes
@@ -188,7 +164,10 @@ func (s *Share) rawDataStartIndex() int {
 	if isCompact {
 		index += ShareReservedBytes
 	}
-	return index
+	if s.Version() == ShareVersionOne {
+		index += blob.SignerSize
+	}
+	return index, nil
 }
 
 // RawDataUsingReserved returns the raw share data while taking reserved bytes into account.
@@ -212,10 +191,7 @@ func (s *Share) RawDataUsingReserved() (rawData []byte, err error) {
 // rawDataStartIndexUsingReserved returns the start index of raw data while accounting for
 // reserved bytes, if it exists in the share.
 func (s *Share) rawDataStartIndexUsingReserved() (int, error) {
-	isStart, err := s.IsSequenceStart()
-	if err != nil {
-		return 0, err
-	}
+	isStart := s.IsSequenceStart()
 	isCompact, err := s.IsCompactShare()
 	if err != nil {
 		return 0, err
@@ -224,6 +200,9 @@ func (s *Share) rawDataStartIndexUsingReserved() (int, error) {
 	index := namespace.NamespaceSize + ShareInfoBytes
 	if isStart {
 		index += SequenceLenBytes
+	}
+	if s.Version() == ShareVersionOne {
+		index += blob.SignerSize
 	}
 
 	if isCompact {

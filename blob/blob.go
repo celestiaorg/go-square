@@ -25,9 +25,12 @@ const ProtoIndexWrapperTypeID = "INDX"
 // MaxShareVersion is the maximum value a share version can be. See: [shares.MaxShareVersion].
 const MaxShareVersion = 127
 
+// SignerSize is the size of the signer in bytes.
+const SignerSize = 20
+
 // Blob (stands for binary large object) is a core type that represents data
 // to be submitted to the Celestia network alongside an accompanying namespace
-// and optional signer (for proving the signer of the blob)
+// and optional signer (for proving the author of the blob)
 type Blob struct {
 	namespace    ns.Namespace
 	data         []byte
@@ -37,13 +40,31 @@ type Blob struct {
 
 // New creates a new coretypes.Blob from the provided data after performing
 // basic stateless checks over it.
-func New(ns ns.Namespace, data []byte, shareVersion uint8, signer []byte) *Blob {
+func New(ns ns.Namespace, data []byte, shareVersion uint8, signer []byte) (*Blob, error) {
+	if shareVersion == 0 && signer != nil {
+		return nil, errors.New("share version 0 does not support signer")
+	}
+	if shareVersion == 1 && len(signer) != SignerSize {
+		return nil, errors.New("share version 1 requires signer of size 20 bytes")
+	}
 	return &Blob{
 		namespace:    ns,
 		data:         data,
 		shareVersion: shareVersion,
 		signer:       signer,
+	}, nil
+}
+
+func NewV0(ns ns.Namespace, data []byte) *Blob {
+	blob, err := New(ns, data, 0, nil)
+	if err != nil {
+		panic(err)
 	}
+	return blob
+}
+
+func NewV1(ns ns.Namespace, data []byte, signer []byte) (*Blob, error) {
+	return New(ns, data, 1, signer)
 }
 
 // NewFromProto creates a Blob from the proto format and performs
@@ -62,12 +83,12 @@ func NewFromProto(pb *BlobProto) (*Blob, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid namespace: %w", err)
 	}
-	return &Blob{
-		namespace:    ns,
-		data:         pb.Data,
-		shareVersion: uint8(pb.ShareVersion),
-		signer:       pb.Signer,
-	}, nil
+	return New(
+		ns,
+		pb.Data,
+		uint8(pb.ShareVersion),
+		pb.Signer,
+	)
 }
 
 // Namespace returns the namespace of the blob

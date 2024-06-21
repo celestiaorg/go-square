@@ -38,13 +38,21 @@ func RandomBytes(size int) []byte {
 	return b
 }
 
-func GenerateBlobTxWithNamespace(namespaces []namespace.Namespace, blobSizes []int) []byte {
+func GenerateBlobTxWithNamespace(namespaces []namespace.Namespace, blobSizes []int, version uint8) []byte {
 	blobs := make([]*blob.Blob, len(blobSizes))
 	if len(namespaces) != len(blobSizes) {
 		panic("number of namespaces should match number of blob sizes")
 	}
+	var err error
+	var signer []byte
+	if version == shares.ShareVersionOne {
+		signer = RandomBytes(blob.SignerSize)
+	}
 	for i, size := range blobSizes {
-		blobs[i] = blob.New(namespaces[i], RandomBytes(size), shares.DefaultShareVersion, nil)
+		blobs[i], err = blob.New(namespaces[i], RandomBytes(size), version, signer)
+		if err != nil {
+			panic(err)
+		}
 	}
 	blobTx, err := blob.MarshalBlobTx(MockPFB(toUint32(blobSizes)), blobs...)
 	if err != nil {
@@ -54,7 +62,7 @@ func GenerateBlobTxWithNamespace(namespaces []namespace.Namespace, blobSizes []i
 }
 
 func GenerateBlobTx(blobSizes []int) []byte {
-	return GenerateBlobTxWithNamespace(Repeat(DefaultTestNamespace, len(blobSizes)), blobSizes)
+	return GenerateBlobTxWithNamespace(Repeat(DefaultTestNamespace, len(blobSizes)), blobSizes, shares.DefaultShareVersion)
 }
 
 func GenerateBlobTxs(numTxs, blobsPerPfb, blobSize int) [][]byte {

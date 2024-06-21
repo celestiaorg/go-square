@@ -168,6 +168,17 @@ func (b *Builder) WriteSequenceLen(sequenceLen uint32) error {
 	return nil
 }
 
+// WriteSigner writes the signer's information to the share.
+func (b *Builder) WriteSigner(signer []byte) {
+	// only write the signer if it is the first share and the share version is 1
+	if b == nil || !b.isFirstShare || b.shareVersion != ShareVersionOne {
+		return
+	}
+	// NOTE: we don't check whether previous data has already been expected
+	// like the sequence length (we just assume it has)
+	b.rawShareData = append(b.rawShareData, signer...)
+}
+
 // FlipSequenceStart flips the sequence start indicator of the share provided
 func (b *Builder) FlipSequenceStart() {
 	infoByteIndex := b.indexOfInfoBytes()

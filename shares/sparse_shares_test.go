@@ -41,8 +41,7 @@ func TestSparseShareContainsInfoByte(t *testing.T) {
 			err := sss.Write(blob)
 			assert.NoError(t, err)
 			shares := sss.Export()
-			got, err := shares[tc.shareIndex].InfoByte()
-			require.NoError(t, err)
+			got := shares[tc.shareIndex].InfoByte()
 			assert.Equal(t, tc.expected, got)
 		})
 	}
