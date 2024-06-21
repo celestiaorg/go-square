@@ -6,7 +6,6 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/celestiaorg/go-square/blob"
 	"github.com/celestiaorg/go-square/namespace"
 )
 
