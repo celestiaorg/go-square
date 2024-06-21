@@ -12,13 +12,7 @@ type Namespace struct {
 
 // New returns a new namespace with the provided version and id.
 func New(version uint8, id []byte) (Namespace, error) {
-	err := validateVersionSupported(version)
-	if err != nil {
-		return Namespace{}, err
-	}
-
-	err = validateID(version, id)
-	if err != nil {
+	if err := Validate(version, id); err != nil {
 		return Namespace{}, err
 	}
 
@@ -46,17 +40,7 @@ func MustNew(version uint8, id []byte) Namespace {
 
 // NewFromBytes returns a new namespace from the provided byte slice.
 func NewFromBytes(bytes []byte) (Namespace, error) {
-	if len(bytes) != NamespaceSize {
-		return Namespace{}, fmt.Errorf("invalid namespace length: %v must be %v", len(bytes), NamespaceSize)
-	}
-
-	err := validateVersionSupported(bytes[VersionIndex])
-	if err != nil {
-		return Namespace{}, err
-	}
-
-	err = validateID(bytes[VersionIndex], bytes[NamespaceVersionSize:])
-	if err != nil {
+	if err := Validate(bytes[VersionIndex], bytes[NamespaceVersionSize:]); err != nil {
 		return Namespace{}, err
 	}
 
@@ -108,6 +92,14 @@ func (n Namespace) Version() uint8 {
 // ID returns this namespace's ID
 func (n Namespace) ID() []byte {
 	return n.data[NamespaceVersionSize:]
+}
+
+func Validate(version uint8, id []byte) error {
+	err := validateVersionSupported(version)
+	if err != nil {
+		return err
+	}
+	return validateID(version, id)
 }
 
 // validateVersionSupported returns an error if the version is not supported.

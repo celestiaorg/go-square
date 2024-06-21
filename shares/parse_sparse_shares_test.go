@@ -172,7 +172,11 @@ func generateRandomBlobWithNamespace(namespace ns.Namespace, size int) *Blob {
 	if err != nil {
 		panic(err)
 	}
-	return NewV0Blob(namespace, data)
+	blob, err := NewV0Blob(namespace, data)
+	if err != nil {
+		panic(err)
+	}
+	return blob
 }
 
 func generateRandomBlob(dataSize int) *Blob {

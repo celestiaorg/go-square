@@ -18,7 +18,9 @@ func NewShare(data []byte) (*Share, error) {
 	if err := validateSize(data); err != nil {
 		return nil, err
 	}
-	// TODO: we should also validate namespace
+	if err := namespace.Validate(data[0], data[1:namespace.NamespaceSize]); err != nil {
+		return nil, err
+	}
 	return &Share{data}, nil
 }
 
@@ -30,21 +32,17 @@ func validateSize(data []byte) error {
 }
 
 // Namespace returns the shares namespace
-// TODO: we could validate it the namespace in the constructor
-// and then return the bytes without needing to validate it every time
 func (s *Share) Namespace() (namespace.Namespace, error) {
 	return namespace.NewFromBytes(s.data[:namespace.NamespaceSize])
 }
 
 func (s *Share) InfoByte() InfoByte {
 	// the info byte is the first byte after the namespace
-	unparsed := s.data[namespace.NamespaceSize]
-	return InfoByte(unparsed)
+	return InfoByte(s.data[namespace.NamespaceSize])
 }
 
 func (s *Share) Version() uint8 {
-	infoByte := s.InfoByte()
-	return infoByte.Version()
+	return s.InfoByte().Version()
 }
 
 func (s *Share) DoesSupportVersions(supportedShareVersions []uint8) error {
@@ -87,9 +85,8 @@ func GetSigner(share Share) []byte {
 	return share.data[startIndex:endIndex]
 }
 
-// SequenceLen returns the sequence length of this *share and optionally an
-// error. It returns 0, nil if this is a continuation share (i.e. doesn't
-// contain a sequence length).
+// SequenceLen returns the sequence length of this share.
+// It returns 0 if this is a continuation share because then it doesn't contain a sequence length.
 func (s *Share) SequenceLen() uint32 {
 	if !s.IsSequenceStart() {
 		return 0
