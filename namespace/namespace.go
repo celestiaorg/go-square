@@ -123,7 +123,8 @@ func validateID(version uint8, id []byte) error {
 	return nil
 }
 
-// IsReserved returns true if the namespace is reserved for protocol-use.
+// IsReserved returns true if the namespace is reserved 
+// for the Celestia state machine
 func (n Namespace) IsReserved() bool {
 	return n.IsPrimaryReserved() || n.IsSecondaryReserved()
 }
@@ -134,6 +135,13 @@ func (n Namespace) IsPrimaryReserved() bool {
 
 func (n Namespace) IsSecondaryReserved() bool {
 	return n.IsGreaterOrEqualThan(MinSecondaryReservedNamespace)
+}
+
+// IsUsableNamespace refers to the range of namespaces that are
+// not reserved by the square protocol i.e. not parity shares or
+// tail padding
+func (n Namespace) IsUsableNamespace() bool {
+	return !n.IsParityShares() && !n.IsTailPadding()
 }
 
 func (n Namespace) IsParityShares() bool {
