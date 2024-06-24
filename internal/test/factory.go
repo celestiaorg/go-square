@@ -76,6 +76,18 @@ func GenerateBlobTxs(numTxs, blobsPerPfb, blobSize int) [][]byte {
 	return txs
 }
 
+func GenerateBlobs(blobSizes ...int) []*shares.Blob {
+	blobs := make([]*shares.Blob, len(blobSizes))
+	var err error
+	for i, size := range blobSizes {
+		blobs[i], err = shares.NewBlob(namespace.RandomBlobNamespace(), RandomBytes(size), shares.ShareVersionZero, nil)
+		if err != nil {
+			panic(err)
+		}
+	}
+	return blobs
+}
+
 const mockPFBExtraBytes = 329
 
 func MockPFB(blobSizes []uint32) []byte {
