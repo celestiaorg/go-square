@@ -32,7 +32,7 @@ func NewBlob(ns ns.Namespace, data []byte, shareVersion uint8, signer []byte) (*
 		return nil, fmt.Errorf("share version 1 requires signer of size %d bytes", SignerSize)
 	}
 	if shareVersion > MaxShareVersion {
-		return nil, errors.New("share version can not be greater than MaxShareVersion")
+		return nil, fmt.Errorf("share version can not be greater than MaxShareVersion %d", MaxShareVersion)
 	}
 	return &Blob{
 		namespace:    ns,

@@ -123,7 +123,7 @@ func validateID(version uint8, id []byte) error {
 	return nil
 }
 
-// IsReserved returns true if the namespace is reserved 
+// IsReserved returns true if the namespace is reserved
 // for the Celestia state machine
 func (n Namespace) IsReserved() bool {
 	return n.IsPrimaryReserved() || n.IsSecondaryReserved()
