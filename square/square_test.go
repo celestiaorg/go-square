@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/celestiaorg/go-square/blob"
 	"github.com/celestiaorg/go-square/internal/test"
 	"github.com/celestiaorg/go-square/shares"
 	"github.com/celestiaorg/go-square/square"
@@ -122,7 +121,7 @@ func TestSquareBlobShareRange(t *testing.T) {
 	require.NoError(t, err)
 
 	for pfbIdx, tx := range txs {
-		blobTx, isBlobTx := blob.UnmarshalBlobTx(tx)
+		blobTx, isBlobTx := shares.UnmarshalBlobTx(tx)
 		require.True(t, isBlobTx)
 		for blobIdx := range blobTx.Blobs {
 			shareRange, err := square.BlobShareRange(txs, pfbIdx, blobIdx, defaultMaxSquareSize, defaultSubtreeRootThreshold)

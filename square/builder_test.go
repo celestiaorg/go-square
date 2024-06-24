@@ -8,7 +8,6 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/celestiaorg/go-square/blob"
 	"github.com/celestiaorg/go-square/internal/test"
 	"github.com/celestiaorg/go-square/namespace"
 	"github.com/celestiaorg/go-square/shares"
@@ -87,7 +86,7 @@ func TestBuilderRejectsBlobTransactions(t *testing.T) {
 			require.NoError(t, err)
 			txs := generateBlobTxsWithNamespaces(ns1.Repeat(len(tc.blobSize)), [][]int{tc.blobSize})
 			require.Len(t, txs, 1)
-			blobTx, isBlobTx := blob.UnmarshalBlobTx(txs[0])
+			blobTx, isBlobTx := shares.UnmarshalBlobTx(txs[0])
 			require.True(t, isBlobTx)
 			require.Equal(t, tc.added, builder.AppendBlobTx(blobTx))
 		})
@@ -120,7 +119,7 @@ func TestBuilderFindTxShareRange(t *testing.T) {
 
 	var lastEnd int
 	for idx, tx := range blockTxs {
-		blobTx, isBlobTx := blob.UnmarshalBlobTx(tx)
+		blobTx, isBlobTx := shares.UnmarshalBlobTx(tx)
 		if isBlobTx {
 			tx = blobTx.Tx
 		}
@@ -298,7 +297,7 @@ func TestSquareBlobPostions(t *testing.T) {
 			builder, err := square.NewBuilder(tt.squareSize, defaultSubtreeRootThreshold)
 			require.NoError(t, err)
 			for _, tx := range tt.blobTxs {
-				blobTx, isBlobTx := blob.UnmarshalBlobTx(tx)
+				blobTx, isBlobTx := shares.UnmarshalBlobTx(tx)
 				require.True(t, isBlobTx)
 				_ = builder.AppendBlobTx(blobTx)
 			}
@@ -307,7 +306,7 @@ func TestSquareBlobPostions(t *testing.T) {
 			txs, err := shares.ParseTxs(square)
 			require.NoError(t, err)
 			for j, tx := range txs {
-				wrappedPFB, isWrappedPFB := blob.UnmarshalIndexWrapper(tx)
+				wrappedPFB, isWrappedPFB := shares.UnmarshalIndexWrapper(tx)
 				assert.True(t, isWrappedPFB)
 				assert.Equal(t, tt.expectedIndexes[j], wrappedPFB.ShareIndexes, j)
 			}

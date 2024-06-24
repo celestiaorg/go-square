@@ -7,7 +7,6 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/celestiaorg/go-square/blob"
 	ns "github.com/celestiaorg/go-square/namespace"
 	"github.com/celestiaorg/nmt/namespace"
 	"github.com/stretchr/testify/assert"
@@ -54,12 +53,12 @@ func Test_parseSparseShares(t *testing.T) {
 	for _, tc := range tests {
 		// run the tests with identically sized blobs
 		t.Run(fmt.Sprintf("%s identically sized ", tc.name), func(t *testing.T) {
-			blobs := make([]*blob.Blob, tc.blobCount)
+			blobs := make([]*Blob, tc.blobCount)
 			for i := 0; i < tc.blobCount; i++ {
 				blobs[i] = generateRandomBlob(tc.blobSize)
 			}
 
-			blob.Sort(blobs)
+			SortBlobs(blobs)
 
 			shares, err := SplitBlobs(blobs...)
 			require.NoError(t, err)
@@ -131,11 +130,11 @@ func Test_parseSparseSharesWithNamespacedPadding(t *testing.T) {
 	sss := NewSparseShareSplitter()
 	randomSmallBlob := generateRandomBlob(ContinuationSparseShareContentSize / 2)
 	randomLargeBlob := generateRandomBlob(ContinuationSparseShareContentSize * 4)
-	blobs := []*blob.Blob{
+	blobs := []*Blob{
 		randomSmallBlob,
 		randomLargeBlob,
 	}
-	blob.Sort(blobs)
+	SortBlobs(blobs)
 
 	err := sss.Write(blobs[0])
 	require.NoError(t, err)
@@ -156,7 +155,7 @@ func Test_parseSparseSharesWithNamespacedPadding(t *testing.T) {
 }
 
 func Test_parseShareVersionOne(t *testing.T) {
-	v1blob, err := blob.NewV1(ns.MustNewV0(bytes.Repeat([]byte{1}, ns.NamespaceVersionZeroIDSize)), []byte("data"), bytes.Repeat([]byte{1}, blob.SignerSize))
+	v1blob, err := NewV1Blob(ns.MustNewV0(bytes.Repeat([]byte{1}, ns.NamespaceVersionZeroIDSize)), []byte("data"), bytes.Repeat([]byte{1}, SignerSize))
 	require.NoError(t, err)
 	v1shares, err := SplitBlobs(v1blob)
 	require.NoError(t, err)
@@ -167,22 +166,22 @@ func Test_parseShareVersionOne(t *testing.T) {
 	require.Len(t, parsedBlobs, 1)
 }
 
-func generateRandomBlobWithNamespace(namespace ns.Namespace, size int) *blob.Blob {
+func generateRandomBlobWithNamespace(namespace ns.Namespace, size int) *Blob {
 	data := make([]byte, size)
 	_, err := crand.Read(data)
 	if err != nil {
 		panic(err)
 	}
-	return blob.NewV0(namespace, data)
+	return NewV0Blob(namespace, data)
 }
 
-func generateRandomBlob(dataSize int) *blob.Blob {
+func generateRandomBlob(dataSize int) *Blob {
 	ns := ns.MustNewV0(bytes.Repeat([]byte{0x1}, ns.NamespaceVersionZeroIDSize))
 	return generateRandomBlobWithNamespace(ns, dataSize)
 }
 
-func GenerateRandomlySizedBlobs(count, maxBlobSize int) []*blob.Blob {
-	blobs := make([]*blob.Blob, count)
+func GenerateRandomlySizedBlobs(count, maxBlobSize int) []*Blob {
+	blobs := make([]*Blob, count)
 	for i := 0; i < count; i++ {
 		blobs[i] = generateRandomBlob(rand.Intn(maxBlobSize))
 		if len(blobs[i].Data()) == 0 {
@@ -195,6 +194,6 @@ func GenerateRandomlySizedBlobs(count, maxBlobSize int) []*blob.Blob {
 		blobs = nil
 	}
 
-	blob.Sort(blobs)
+	SortBlobs(blobs)
 	return blobs
 }

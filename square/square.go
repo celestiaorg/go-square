@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/celestiaorg/go-square/blob"
 	"github.com/celestiaorg/go-square/namespace"
 	"github.com/celestiaorg/go-square/shares"
 )
@@ -25,7 +24,7 @@ func Build(txs [][]byte, maxSquareSize, subtreeRootThreshold int) (Square, [][]b
 	normalTxs := make([][]byte, 0, len(txs))
 	blobTxs := make([][]byte, 0, len(txs))
 	for _, tx := range txs {
-		blobTx, isBlobTx := blob.UnmarshalBlobTx(tx)
+		blobTx, isBlobTx := shares.UnmarshalBlobTx(tx)
 		if isBlobTx {
 			if builder.AppendBlobTx(blobTx) {
 				blobTxs = append(blobTxs, tx)
@@ -105,7 +104,7 @@ func Deconstruct(s Square, decoder PFBDecoder) ([][]byte, error) {
 	// loop through the wrapped pfbs and generate the original
 	// blobTx that they derive from
 	for i, wpfbBytes := range wpfbs {
-		wpfb, isWpfb := blob.UnmarshalIndexWrapper(wpfbBytes)
+		wpfb, isWpfb := shares.UnmarshalIndexWrapper(wpfbBytes)
 		if !isWpfb {
 			return nil, fmt.Errorf("expected wrapped PFB at index %d", i)
 		}
@@ -120,7 +119,7 @@ func Deconstruct(s Square, decoder PFBDecoder) ([][]byte, error) {
 			return nil, fmt.Errorf("expected PFB to have %d blob sizes, but got %d", len(wpfb.ShareIndexes), len(blobSizes))
 		}
 
-		blobs := make([]*blob.Blob, len(wpfb.ShareIndexes))
+		blobs := make([]*shares.Blob, len(wpfb.ShareIndexes))
 		for j, shareIndex := range wpfb.ShareIndexes {
 			end := int(shareIndex) + shares.SparseSharesNeeded(blobSizes[j])
 			parsedBlobs, err := shares.ParseBlobs(s[shareIndex:end])
@@ -134,7 +133,7 @@ func Deconstruct(s Square, decoder PFBDecoder) ([][]byte, error) {
 			blobs[j] = parsedBlobs[0]
 		}
 
-		tx, err := blob.MarshalBlobTx(wpfb.Tx, blobs...)
+		tx, err := shares.MarshalBlobTx(wpfb.Tx, blobs...)
 		if err != nil {
 			return nil, err
 		}

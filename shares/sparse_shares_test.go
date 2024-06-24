@@ -3,7 +3,6 @@ package shares
 import (
 	"testing"
 
-	"github.com/celestiaorg/go-square/blob"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -50,7 +49,7 @@ func TestSparseShareContainsInfoByte(t *testing.T) {
 func TestSparseShareSplitterCount(t *testing.T) {
 	type testCase struct {
 		name     string
-		blob     *blob.Blob
+		blob     *Blob
 		expected int
 	}
 	testCases := []testCase{
@@ -84,7 +83,7 @@ func TestSparseShareSplitterCount(t *testing.T) {
 
 // generateRandomBlobOfShareCount returns a blob that spans the given
 // number of shares
-func generateRandomBlobOfShareCount(count int) *blob.Blob {
+func generateRandomBlobOfShareCount(count int) *Blob {
 	size := rawBlobSize(FirstSparseShareContentSize * count)
 	return generateRandomBlob(size)
 }
