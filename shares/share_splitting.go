@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"errors"
 
-	"github.com/celestiaorg/go-square/blob"
 	"github.com/celestiaorg/go-square/namespace"
 )
 
@@ -23,7 +22,7 @@ var (
 func ExtractShareIndexes(txs [][]byte) []uint32 {
 	var shareIndexes []uint32
 	for _, rawTx := range txs {
-		if indexWrappedTxs, isIndexWrapped := blob.UnmarshalIndexWrapper(rawTx); isIndexWrapped {
+		if indexWrappedTxs, isIndexWrapped := UnmarshalIndexWrapper(rawTx); isIndexWrapped {
 			// Since share index == 0 is invalid, it indicates that we are
 			// attempting to extract share indexes from txs that do not have any
 			// due to them being old. here we return nil to indicate that we are
@@ -46,7 +45,7 @@ func SplitTxs(txs [][]byte) (txShares []Share, pfbShares []Share, shareRanges ma
 	pfbTxWriter := NewCompactShareSplitter(namespace.PayForBlobNamespace, ShareVersionZero)
 
 	for _, tx := range txs {
-		if _, isIndexWrapper := blob.UnmarshalIndexWrapper(tx); isIndexWrapper {
+		if _, isIndexWrapper := UnmarshalIndexWrapper(tx); isIndexWrapper {
 			err = pfbTxWriter.WriteTx(tx)
 		} else {
 			err = txWriter.WriteTx(tx)
@@ -72,7 +71,7 @@ func SplitTxs(txs [][]byte) (txShares []Share, pfbShares []Share, shareRanges ma
 }
 
 // SplitBlobs splits the provided blobs into shares.
-func SplitBlobs(blobs ...*blob.Blob) ([]Share, error) {
+func SplitBlobs(blobs ...*Blob) ([]Share, error) {
 	writer := NewSparseShareSplitter()
 	for _, blob := range blobs {
 		if err := writer.Write(blob); err != nil {

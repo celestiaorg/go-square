@@ -6,7 +6,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/celestiaorg/go-square/blob"
 	"github.com/celestiaorg/go-square/namespace"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -205,7 +204,7 @@ func TestSplitTxs(t *testing.T) {
 		),
 	}
 
-	pfbTx, err := blob.MarshalIndexWrapper([]byte{0xb}, 10) // spans one share
+	pfbTx, err := MarshalIndexWrapper([]byte{0xb}, 10) // spans one share
 	require.NoError(t, err)
 	pfbTxShares := []Share{
 		padShare(Share{

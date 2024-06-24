@@ -6,7 +6,6 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/celestiaorg/go-square/blob"
 	"github.com/celestiaorg/go-square/namespace"
 )
 
@@ -84,7 +83,7 @@ func GetSigner(share Share) []byte {
 		return nil
 	}
 	startIndex := namespace.NamespaceSize + ShareInfoBytes + SequenceLenBytes
-	endIndex := startIndex + blob.SignerSize
+	endIndex := startIndex + SignerSize
 	return share.data[startIndex:endIndex]
 }
 
@@ -165,7 +164,7 @@ func (s *Share) rawDataStartIndex() (int, error) {
 		index += ShareReservedBytes
 	}
 	if s.Version() == ShareVersionOne {
-		index += blob.SignerSize
+		index += SignerSize
 	}
 	return index, nil
 }
@@ -202,7 +201,7 @@ func (s *Share) rawDataStartIndexUsingReserved() (int, error) {
 		index += SequenceLenBytes
 	}
 	if s.Version() == ShareVersionOne {
-		index += blob.SignerSize
+		index += SignerSize
 	}
 
 	if isCompact {
