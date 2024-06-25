@@ -7,7 +7,6 @@ import (
 	"math/rand"
 	"testing"
 
-	ns "github.com/celestiaorg/go-square/namespace"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -101,7 +100,7 @@ func Test_parseSparseSharesErrors(t *testing.T) {
 	unsupportedShareVersion := 5
 	infoByte, _ := NewInfoByte(uint8(unsupportedShareVersion), true)
 
-	rawShare := ns.RandomNamespace().Bytes()
+	rawShare := RandomNamespace().Bytes()
 	rawShare = append(rawShare, byte(infoByte))
 	rawShare = append(rawShare, bytes.Repeat([]byte{0}, ShareSize-len(rawShare))...)
 	share, err := NewShare(rawShare)
@@ -153,7 +152,7 @@ func Test_parseSparseSharesWithNamespacedPadding(t *testing.T) {
 }
 
 func Test_parseShareVersionOne(t *testing.T) {
-	v1blob, err := NewV1Blob(ns.MustNewV0(bytes.Repeat([]byte{1}, ns.NamespaceVersionZeroIDSize)), []byte("data"), bytes.Repeat([]byte{1}, SignerSize))
+	v1blob, err := NewV1Blob(MustNewV0Namespace(bytes.Repeat([]byte{1}, NamespaceVersionZeroIDSize)), []byte("data"), bytes.Repeat([]byte{1}, SignerSize))
 	require.NoError(t, err)
 	v1shares, err := SplitBlobs(v1blob)
 	require.NoError(t, err)
@@ -164,7 +163,7 @@ func Test_parseShareVersionOne(t *testing.T) {
 	require.Len(t, parsedBlobs, 1)
 }
 
-func generateRandomBlobWithNamespace(namespace ns.Namespace, size int) *Blob {
+func generateRandomBlobWithNamespace(namespace Namespace, size int) *Blob {
 	data := make([]byte, size)
 	_, err := crand.Read(data)
 	if err != nil {
@@ -178,7 +177,7 @@ func generateRandomBlobWithNamespace(namespace ns.Namespace, size int) *Blob {
 }
 
 func generateRandomBlob(dataSize int) *Blob {
-	ns := ns.MustNewV0(bytes.Repeat([]byte{0x1}, ns.NamespaceVersionZeroIDSize))
+	ns := MustNewV0Namespace(bytes.Repeat([]byte{0x1}, NamespaceVersionZeroIDSize))
 	return generateRandomBlobWithNamespace(ns, dataSize)
 }
 

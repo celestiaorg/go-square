@@ -7,7 +7,6 @@ import (
 	"sort"
 
 	"github.com/celestiaorg/go-square/inclusion"
-	"github.com/celestiaorg/go-square/namespace"
 	"github.com/celestiaorg/go-square/shares"
 	"google.golang.org/protobuf/proto"
 )
@@ -129,7 +128,7 @@ func (b *Builder) Export() (Square, error) {
 	// interblob padding used when the blobs are correctly ordered instead of using worst case padding.
 	ss := inclusion.BlobMinSquareSize(b.currentSize)
 
-	// Sort the blobs by namespace. This uses SliceStable to preserve the order
+	// Sort the blobs by shares. This uses SliceStable to preserve the order
 	// of blobs within a namespace because b.Blobs are already ordered by tx
 	// priority.
 	sort.SliceStable(b.Blobs, func(i, j int) bool {
@@ -139,7 +138,7 @@ func (b *Builder) Export() (Square, error) {
 	})
 
 	// write all the regular transactions into compact shares
-	txWriter := shares.NewCompactShareSplitter(namespace.TxNamespace, shares.ShareVersionZero)
+	txWriter := shares.NewCompactShareSplitter(shares.TxNamespace, shares.ShareVersionZero)
 	for _, tx := range b.Txs {
 		if err := txWriter.WriteTx(tx); err != nil {
 			return nil, fmt.Errorf("writing tx into compact shares: %w", err)
@@ -185,7 +184,7 @@ func (b *Builder) Export() (Square, error) {
 
 	// write all the pay for blob transactions into compact shares. We need to do this after allocating the blobs to their
 	// appropriate shares as the starting index of each blob needs to be included in the PFB transaction
-	pfbWriter := shares.NewCompactShareSplitter(namespace.PayForBlobNamespace, shares.ShareVersionZero)
+	pfbWriter := shares.NewCompactShareSplitter(shares.PayForBlobNamespace, shares.ShareVersionZero)
 	for _, iw := range b.Pfbs {
 		iwBytes, err := proto.Marshal(iw)
 		if err != nil {

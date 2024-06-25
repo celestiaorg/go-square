@@ -2,15 +2,13 @@ package shares
 
 import (
 	"fmt"
-
-	"github.com/celestiaorg/go-square/namespace"
 )
 
 // ShareSequence represents a contiguous sequence of shares that are part of the
 // same namespace and blob. For compact shares, one share sequence exists per
 // reserved namespace. For sparse shares, one share sequence exists per blob.
 type ShareSequence struct {
-	Namespace namespace.Namespace
+	Namespace Namespace
 	Shares    []Share
 }
 

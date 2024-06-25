@@ -4,12 +4,11 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/celestiaorg/go-square/namespace"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-var ns1 = namespace.MustNewV0(bytes.Repeat([]byte{1}, namespace.NamespaceVersionZeroIDSize))
+var ns1 = MustNewV0Namespace(bytes.Repeat([]byte{1}, NamespaceVersionZeroIDSize))
 
 var nsOnePadding, _ = zeroPadIfNecessary(
 	append(
@@ -22,7 +21,7 @@ var nsOnePadding, _ = zeroPadIfNecessary(
 
 var reservedPadding, _ = zeroPadIfNecessary(
 	append(
-		namespace.PrimaryReservedPaddingNamespace.Bytes(),
+		PrimaryReservedPaddingNamespace.Bytes(),
 		[]byte{
 			1,          // info byte
 			0, 0, 0, 0, // sequence len
@@ -31,7 +30,7 @@ var reservedPadding, _ = zeroPadIfNecessary(
 
 var tailPadding, _ = zeroPadIfNecessary(
 	append(
-		namespace.TailPaddingNamespace.Bytes(),
+		TailPaddingNamespace.Bytes(),
 		[]byte{
 			1,          // info byte
 			0, 0, 0, 0, // sequence len

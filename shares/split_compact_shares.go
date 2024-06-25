@@ -4,8 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
-
-	"github.com/celestiaorg/go-square/namespace"
 )
 
 // CompactShareSplitter will write raw data compactly across a progressively
@@ -15,7 +13,7 @@ type CompactShareSplitter struct {
 	shares []Share
 	// pendingShare Share
 	shareBuilder *Builder
-	namespace    namespace.Namespace
+	namespace    Namespace
 	done         bool
 	shareVersion uint8
 	// shareRanges is a map from a transaction key to the range of shares it
@@ -27,7 +25,7 @@ type CompactShareSplitter struct {
 
 // NewCompactShareSplitter returns a CompactShareSplitter using the provided
 // namespace and shareVersion.
-func NewCompactShareSplitter(ns namespace.Namespace, shareVersion uint8) *CompactShareSplitter {
+func NewCompactShareSplitter(ns Namespace, shareVersion uint8) *CompactShareSplitter {
 	sb, err := NewBuilder(ns, shareVersion, true)
 	if err != nil {
 		panic(err)

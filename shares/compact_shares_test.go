@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/celestiaorg/go-square/namespace"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -15,7 +14,7 @@ import (
 func TestCompactShareSplitter(t *testing.T) {
 	// note that this test is mainly for debugging purposes, the main round trip
 	// tests occur in TestMerge and Test_processCompactShares
-	css := NewCompactShareSplitter(namespace.TxNamespace, ShareVersionZero)
+	css := NewCompactShareSplitter(TxNamespace, ShareVersionZero)
 	txs := GenerateRandomTxs(33, 200)
 	for _, tx := range txs {
 		err := css.WriteTx(tx)
@@ -152,7 +151,7 @@ func TestParseOutOfContextSharesUsingShareRanges(t *testing.T) {
 }
 
 func TestCompactShareContainsInfoByte(t *testing.T) {
-	css := NewCompactShareSplitter(namespace.TxNamespace, ShareVersionZero)
+	css := NewCompactShareSplitter(TxNamespace, ShareVersionZero)
 	txs := GenerateRandomTxs(1, ContinuationCompactShareContentSize/4)
 
 	for _, tx := range txs {
@@ -164,7 +163,7 @@ func TestCompactShareContainsInfoByte(t *testing.T) {
 	require.NoError(t, err)
 	assert.Condition(t, func() bool { return len(shares) == 1 })
 
-	infoByte := shares[0].data[namespace.NamespaceSize : namespace.NamespaceSize+ShareInfoBytes][0]
+	infoByte := shares[0].data[NamespaceSize : NamespaceSize+ShareInfoBytes][0]
 
 	isSequenceStart := true
 	want, err := NewInfoByte(ShareVersionZero, isSequenceStart)
@@ -174,7 +173,7 @@ func TestCompactShareContainsInfoByte(t *testing.T) {
 }
 
 func TestContiguousCompactShareContainsInfoByte(t *testing.T) {
-	css := NewCompactShareSplitter(namespace.TxNamespace, ShareVersionZero)
+	css := NewCompactShareSplitter(TxNamespace, ShareVersionZero)
 	txs := GenerateRandomTxs(1, ContinuationCompactShareContentSize*4)
 
 	for _, tx := range txs {
@@ -186,7 +185,7 @@ func TestContiguousCompactShareContainsInfoByte(t *testing.T) {
 	require.NoError(t, err)
 	assert.Condition(t, func() bool { return len(shares) > 1 })
 
-	infoByte := shares[1].data[namespace.NamespaceSize : namespace.NamespaceSize+ShareInfoBytes][0]
+	infoByte := shares[1].data[NamespaceSize : NamespaceSize+ShareInfoBytes][0]
 
 	isSequenceStart := false
 	want, err := NewInfoByte(ShareVersionZero, isSequenceStart)
@@ -209,7 +208,7 @@ func Test_parseCompactSharesErrors(t *testing.T) {
 	unsupportedShareVersion := 5
 	infoByte, _ := NewInfoByte(uint8(unsupportedShareVersion), true)
 	shareWithUnsupportedShareVersionBytes := rawShares[0]
-	shareWithUnsupportedShareVersionBytes[namespace.NamespaceSize] = byte(infoByte)
+	shareWithUnsupportedShareVersionBytes[NamespaceSize] = byte(infoByte)
 
 	shareWithUnsupportedShareVersion, err := NewShare(shareWithUnsupportedShareVersionBytes)
 	if err != nil {

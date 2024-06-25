@@ -5,8 +5,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-
-	"github.com/celestiaorg/go-square/namespace"
 )
 
 // Share contains the raw share data (including namespace ID).
@@ -18,7 +16,7 @@ func NewShare(data []byte) (*Share, error) {
 	if err := validateSize(data); err != nil {
 		return nil, err
 	}
-	if err := namespace.Validate(data[0], data[1:namespace.NamespaceSize]); err != nil {
+	if err := validate(data[0], data[1:NamespaceSize]); err != nil {
 		return nil, err
 	}
 	return &Share{data}, nil
@@ -32,13 +30,13 @@ func validateSize(data []byte) error {
 }
 
 // Namespace returns the shares namespace
-func (s *Share) Namespace() (namespace.Namespace, error) {
-	return namespace.NewFromBytes(s.data[:namespace.NamespaceSize])
+func (s *Share) Namespace() (Namespace, error) {
+	return NewNamespaceFromBytes(s.data[:NamespaceSize])
 }
 
 func (s *Share) InfoByte() InfoByte {
 	// the info byte is the first byte after the namespace
-	return InfoByte(s.data[namespace.NamespaceSize])
+	return InfoByte(s.data[NamespaceSize])
 }
 
 func (s *Share) Version() uint8 {
@@ -80,7 +78,7 @@ func GetSigner(share Share) []byte {
 	if !infoByte.IsSequenceStart() {
 		return nil
 	}
-	startIndex := namespace.NamespaceSize + ShareInfoBytes + SequenceLenBytes
+	startIndex := NamespaceSize + ShareInfoBytes + SequenceLenBytes
 	endIndex := startIndex + SignerSize
 	return share.data[startIndex:endIndex]
 }
@@ -92,7 +90,7 @@ func (s *Share) SequenceLen() uint32 {
 		return 0
 	}
 
-	start := namespace.NamespaceSize + ShareInfoBytes
+	start := NamespaceSize + ShareInfoBytes
 	end := start + SequenceLenBytes
 	return binary.BigEndian.Uint32(s.data[start:end])
 }
@@ -153,7 +151,7 @@ func (s *Share) rawDataStartIndex() (int, error) {
 		return 0, err
 	}
 
-	index := namespace.NamespaceSize + ShareInfoBytes
+	index := NamespaceSize + ShareInfoBytes
 	if isStart {
 		index += SequenceLenBytes
 	}
@@ -193,7 +191,7 @@ func (s *Share) rawDataStartIndexUsingReserved() (int, error) {
 		return 0, err
 	}
 
-	index := namespace.NamespaceSize + ShareInfoBytes
+	index := NamespaceSize + ShareInfoBytes
 	if isStart {
 		index += SequenceLenBytes
 	}

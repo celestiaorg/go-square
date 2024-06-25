@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/celestiaorg/go-square/namespace"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -17,18 +16,18 @@ func TestShareBuilderIsEmptyShare(t *testing.T) {
 		data    []byte // input data
 		want    bool
 	}
-	ns1 := namespace.MustNewV0(bytes.Repeat([]byte{1}, namespace.NamespaceVersionZeroIDSize))
+	ns1 := MustNewV0Namespace(bytes.Repeat([]byte{1}, NamespaceVersionZeroIDSize))
 
 	testCases := []testCase{
 		{
 			name:    "first compact share empty",
-			builder: mustNewBuilder(t, namespace.TxNamespace, ShareVersionZero, true),
+			builder: mustNewBuilder(t, TxNamespace, ShareVersionZero, true),
 			data:    nil,
 			want:    true,
 		},
 		{
 			name:    "first compact share not empty",
-			builder: mustNewBuilder(t, namespace.TxNamespace, ShareVersionZero, true),
+			builder: mustNewBuilder(t, TxNamespace, ShareVersionZero, true),
 			data:    []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
 			want:    false,
 		},
@@ -46,13 +45,13 @@ func TestShareBuilderIsEmptyShare(t *testing.T) {
 		},
 		{
 			name:    "continues compact share empty",
-			builder: mustNewBuilder(t, namespace.TxNamespace, ShareVersionZero, false),
+			builder: mustNewBuilder(t, TxNamespace, ShareVersionZero, false),
 			data:    nil,
 			want:    true,
 		},
 		{
 			name:    "continues compact share not empty",
-			builder: mustNewBuilder(t, namespace.TxNamespace, ShareVersionZero, false),
+			builder: mustNewBuilder(t, TxNamespace, ShareVersionZero, false),
 			data:    []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
 			want:    false,
 		},
@@ -85,7 +84,7 @@ func TestShareBuilderWriteSequenceLen(t *testing.T) {
 		wantLen uint32
 		wantErr bool
 	}
-	ns1 := namespace.MustNewV0(bytes.Repeat([]byte{1}, namespace.NamespaceVersionZeroIDSize))
+	ns1 := MustNewV0Namespace(bytes.Repeat([]byte{1}, NamespaceVersionZeroIDSize))
 
 	testCases := []testCase{
 		{
@@ -108,7 +107,7 @@ func TestShareBuilderWriteSequenceLen(t *testing.T) {
 		},
 		{
 			name:    "compact share",
-			builder: mustNewBuilder(t, namespace.TxNamespace, 1, true),
+			builder: mustNewBuilder(t, TxNamespace, 1, true),
 			wantLen: 10,
 			wantErr: false,
 		},
@@ -150,7 +149,7 @@ func TestShareBuilderAddData(t *testing.T) {
 		data    []byte // input data
 		want    []byte
 	}
-	ns1 := namespace.MustNewV0(bytes.Repeat([]byte{1}, namespace.NamespaceVersionZeroIDSize))
+	ns1 := MustNewV0Namespace(bytes.Repeat([]byte{1}, NamespaceVersionZeroIDSize))
 
 	testCases := []testCase{
 		{
@@ -161,50 +160,50 @@ func TestShareBuilderAddData(t *testing.T) {
 		},
 		{
 			name:    "exact fit first compact share",
-			builder: mustNewBuilder(t, namespace.TxNamespace, ShareVersionZero, true),
-			data:    bytes.Repeat([]byte{1}, ShareSize-namespace.NamespaceSize-ShareInfoBytes-ShareReservedBytes-SequenceLenBytes),
+			builder: mustNewBuilder(t, TxNamespace, ShareVersionZero, true),
+			data:    bytes.Repeat([]byte{1}, ShareSize-NamespaceSize-ShareInfoBytes-ShareReservedBytes-SequenceLenBytes),
 			want:    nil,
 		},
 		{
 			name:    "exact fit first sparse share",
 			builder: mustNewBuilder(t, ns1, ShareVersionZero, true),
-			data:    bytes.Repeat([]byte{1}, ShareSize-namespace.NamespaceSize-SequenceLenBytes-1 /*1 = info byte*/),
+			data:    bytes.Repeat([]byte{1}, ShareSize-NamespaceSize-SequenceLenBytes-1 /*1 = info byte*/),
 			want:    nil,
 		},
 		{
 			name:    "exact fit continues compact share",
-			builder: mustNewBuilder(t, namespace.TxNamespace, ShareVersionZero, false),
-			data:    bytes.Repeat([]byte{1}, ShareSize-namespace.NamespaceSize-ShareReservedBytes-1 /*1 = info byte*/),
+			builder: mustNewBuilder(t, TxNamespace, ShareVersionZero, false),
+			data:    bytes.Repeat([]byte{1}, ShareSize-NamespaceSize-ShareReservedBytes-1 /*1 = info byte*/),
 			want:    nil,
 		},
 		{
 			name:    "exact fit continues sparse share",
 			builder: mustNewBuilder(t, ns1, ShareVersionZero, false),
-			data:    bytes.Repeat([]byte{1}, ShareSize-namespace.NamespaceSize-1 /*1 = info byte*/),
+			data:    bytes.Repeat([]byte{1}, ShareSize-NamespaceSize-1 /*1 = info byte*/),
 			want:    nil,
 		},
 		{
 			name:    "oversize first compact share",
-			builder: mustNewBuilder(t, namespace.TxNamespace, ShareVersionZero, true),
-			data:    bytes.Repeat([]byte{1}, 1 /*1 extra byte*/ +ShareSize-namespace.NamespaceSize-ShareReservedBytes-SequenceLenBytes-1 /*1 = info byte*/),
+			builder: mustNewBuilder(t, TxNamespace, ShareVersionZero, true),
+			data:    bytes.Repeat([]byte{1}, 1 /*1 extra byte*/ +ShareSize-NamespaceSize-ShareReservedBytes-SequenceLenBytes-1 /*1 = info byte*/),
 			want:    []byte{1},
 		},
 		{
 			name:    "oversize first sparse share",
 			builder: mustNewBuilder(t, ns1, ShareVersionZero, true),
-			data:    bytes.Repeat([]byte{1}, 1 /*1 extra byte*/ +ShareSize-namespace.NamespaceSize-SequenceLenBytes-1 /*1 = info byte*/),
+			data:    bytes.Repeat([]byte{1}, 1 /*1 extra byte*/ +ShareSize-NamespaceSize-SequenceLenBytes-1 /*1 = info byte*/),
 			want:    []byte{1},
 		},
 		{
 			name:    "oversize continues compact share",
-			builder: mustNewBuilder(t, namespace.TxNamespace, ShareVersionZero, false),
-			data:    bytes.Repeat([]byte{1}, 1 /*1 extra byte*/ +ShareSize-namespace.NamespaceSize-ShareReservedBytes-1 /*1 = info byte*/),
+			builder: mustNewBuilder(t, TxNamespace, ShareVersionZero, false),
+			data:    bytes.Repeat([]byte{1}, 1 /*1 extra byte*/ +ShareSize-NamespaceSize-ShareReservedBytes-1 /*1 = info byte*/),
 			want:    []byte{1},
 		},
 		{
 			name:    "oversize continues sparse share",
 			builder: mustNewBuilder(t, ns1, ShareVersionZero, false),
-			data:    bytes.Repeat([]byte{1}, 1 /*1 extra byte*/ +ShareSize-namespace.NamespaceSize-1 /*1 = info byte*/),
+			data:    bytes.Repeat([]byte{1}, 1 /*1 extra byte*/ +ShareSize-NamespaceSize-1 /*1 = info byte*/),
 			want:    []byte{1},
 		},
 	}
@@ -224,7 +223,7 @@ func TestShareBuilderImportRawData(t *testing.T) {
 		want       []byte
 		wantErr    bool
 	}
-	ns1 := namespace.MustNewV0(bytes.Repeat([]byte{1}, namespace.NamespaceVersionZeroIDSize))
+	ns1 := MustNewV0Namespace(bytes.Repeat([]byte{1}, NamespaceVersionZeroIDSize))
 
 	firstSparseShare := append(ns1.Bytes(), []byte{
 		1,           // info byte
@@ -237,14 +236,14 @@ func TestShareBuilderImportRawData(t *testing.T) {
 		1, 2, 3, 4, 5, 6, 7, 8, 9, 10, // data
 	}...)
 
-	firstCompactShare := append(namespace.TxNamespace.Bytes(), []byte{
+	firstCompactShare := append(TxNamespace.Bytes(), []byte{
 		1,           // info byte
 		0, 0, 0, 10, // sequence len
 		0, 0, 0, 15, // reserved bytes
 		1, 2, 3, 4, 5, 6, 7, 8, 9, 10, // data
 	}...)
 
-	continuationCompactShare := append(namespace.TxNamespace.Bytes(), []byte{
+	continuationCompactShare := append(TxNamespace.Bytes(), []byte{
 		0,          // info byte
 		0, 0, 0, 0, // reserved bytes
 		1, 2, 3, 4, 5, 6, 7, 8, 9, 10, // data
@@ -310,7 +309,7 @@ func TestShareBuilderImportRawData(t *testing.T) {
 }
 
 // mustNewBuilder returns a new builder with the given parameters. It fails the test if an error is encountered.
-func mustNewBuilder(t *testing.T, ns namespace.Namespace, shareVersion uint8, isFirstShare bool) *Builder {
+func mustNewBuilder(t *testing.T, ns Namespace, shareVersion uint8, isFirstShare bool) *Builder {
 	b, err := NewBuilder(ns, shareVersion, isFirstShare)
 	require.NoError(t, err)
 	return b

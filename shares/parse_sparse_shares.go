@@ -3,12 +3,10 @@ package shares
 import (
 	"bytes"
 	"fmt"
-
-	ns "github.com/celestiaorg/go-square/namespace"
 )
 
 type sequence struct {
-	ns           ns.Namespace
+	ns           Namespace
 	shareVersion uint8
 	data         []byte
 	sequenceLen  uint32

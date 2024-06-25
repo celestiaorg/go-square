@@ -2,8 +2,6 @@ package shares
 
 import (
 	"fmt"
-
-	"github.com/celestiaorg/go-square/namespace"
 )
 
 // Range is an end exclusive set of share indexes.
@@ -35,7 +33,7 @@ func (r *Range) Add(value int) {
 // namespace. It will return an empty range if the namespace could not be
 // found. This assumes that the slice of shares are lexicographically
 // sorted by namespace. Ranges here are always end exclusive.
-func GetShareRangeForNamespace(shares []Share, ns namespace.Namespace) (Range, error) {
+func GetShareRangeForNamespace(shares []Share, ns Namespace) (Range, error) {
 	if len(shares) == 0 {
 		return EmptyRange(), nil
 	}

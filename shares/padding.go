@@ -2,8 +2,6 @@ package shares
 
 import (
 	"errors"
-
-	"github.com/celestiaorg/go-square/namespace"
 )
 
 // NamespacePaddingShare returns a share that acts as padding. Namespace padding
@@ -11,7 +9,7 @@ import (
 // conforms to blob share commitment rules. The ns and shareVersion parameters
 // provided should be the namespace and shareVersion of the blob that precedes
 // this padding in the data square.
-func NamespacePaddingShare(ns namespace.Namespace, shareVersion uint8) (Share, error) {
+func NamespacePaddingShare(ns Namespace, shareVersion uint8) (Share, error) {
 	b, err := NewBuilder(ns, shareVersion, true)
 	if err != nil {
 		return Share{}, err
@@ -31,7 +29,7 @@ func NamespacePaddingShare(ns namespace.Namespace, shareVersion uint8) (Share, e
 }
 
 // NamespacePaddingShares returns n namespace padding shares.
-func NamespacePaddingShares(ns namespace.Namespace, shareVersion uint8, n int) ([]Share, error) {
+func NamespacePaddingShares(ns Namespace, shareVersion uint8, n int) ([]Share, error) {
 	var err error
 	if n < 0 {
 		return nil, errors.New("n must be positive")
@@ -51,7 +49,7 @@ func NamespacePaddingShares(ns namespace.Namespace, shareVersion uint8, n int) (
 // first blob can start at an index that conforms to non-interactive default
 // rules.
 func ReservedPaddingShare() Share {
-	share, err := NamespacePaddingShare(namespace.PrimaryReservedPaddingNamespace, ShareVersionZero)
+	share, err := NamespacePaddingShare(PrimaryReservedPaddingNamespace, ShareVersionZero)
 	if err != nil {
 		panic(err)
 	}
@@ -60,7 +58,7 @@ func ReservedPaddingShare() Share {
 
 // ReservedPaddingShares returns n reserved padding shares.
 func ReservedPaddingShares(n int) []Share {
-	shares, err := NamespacePaddingShares(namespace.PrimaryReservedPaddingNamespace, ShareVersionZero, n)
+	shares, err := NamespacePaddingShares(PrimaryReservedPaddingNamespace, ShareVersionZero, n)
 	if err != nil {
 		panic(err)
 	}
@@ -71,7 +69,7 @@ func ReservedPaddingShares(n int) []Share {
 // square size. Tail padding shares follow the last blob share in the data
 // square.
 func TailPaddingShare() Share {
-	share, err := NamespacePaddingShare(namespace.TailPaddingNamespace, ShareVersionZero)
+	share, err := NamespacePaddingShare(TailPaddingNamespace, ShareVersionZero)
 	if err != nil {
 		panic(err)
 	}
@@ -80,7 +78,7 @@ func TailPaddingShare() Share {
 
 // TailPaddingShares returns n tail padding shares.
 func TailPaddingShares(n int) []Share {
-	shares, err := NamespacePaddingShares(namespace.TailPaddingNamespace, ShareVersionZero, n)
+	shares, err := NamespacePaddingShares(TailPaddingNamespace, ShareVersionZero, n)
 	if err != nil {
 		panic(err)
 	}

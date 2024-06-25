@@ -1,4 +1,4 @@
-package namespace
+package shares
 
 import (
 	"crypto/rand"
@@ -8,7 +8,7 @@ import (
 func RandomNamespace() Namespace {
 	for {
 		id := RandomVerzionZeroID()
-		namespace, err := New(NamespaceVersionZero, id)
+		namespace, err := NewNamespace(NamespaceVersionZero, id)
 		if err != nil {
 			continue
 		}
@@ -37,7 +37,7 @@ func RandomBlobNamespaceID() []byte {
 func RandomBlobNamespace() Namespace {
 	for {
 		id := RandomBlobNamespaceID()
-		namespace := MustNewV0(id)
+		namespace := MustNewV0Namespace(id)
 		if isBlobNamespace(namespace) {
 			return namespace
 		}

@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"testing"
 
-	"github.com/celestiaorg/go-square/namespace"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -26,7 +25,7 @@ func TestCount(t *testing.T) {
 		{transactions: [][]byte{generateTx(20)}, wantShareCount: 20},
 	}
 	for _, tc := range testCases {
-		css := NewCompactShareSplitter(namespace.TxNamespace, ShareVersionZero)
+		css := NewCompactShareSplitter(TxNamespace, ShareVersionZero)
 		for _, transaction := range tc.transactions {
 			err := css.WriteTx(transaction)
 			require.NoError(t, err)
@@ -37,7 +36,7 @@ func TestCount(t *testing.T) {
 		}
 	}
 
-	css := NewCompactShareSplitter(namespace.TxNamespace, ShareVersionZero)
+	css := NewCompactShareSplitter(TxNamespace, ShareVersionZero)
 	assert.Equal(t, 0, css.Count())
 }
 
@@ -62,7 +61,7 @@ func TestExport_write(t *testing.T) {
 
 	oneShare, _ := zeroPadIfNecessary(
 		append(
-			namespace.TxNamespace.Bytes(),
+			TxNamespace.Bytes(),
 			[]byte{
 				0x1,                // info byte
 				0x0, 0x0, 0x0, 0x1, // sequence len
@@ -73,7 +72,7 @@ func TestExport_write(t *testing.T) {
 		ShareSize)
 
 	firstShare := fillShare(Share{data: append(
-		namespace.TxNamespace.Bytes(),
+		TxNamespace.Bytes(),
 		[]byte{
 			0x1,                // info byte
 			0x0, 0x0, 0x2, 0x0, // sequence len
@@ -83,12 +82,12 @@ func TestExport_write(t *testing.T) {
 
 	continuationShare, _ := zeroPadIfNecessary(
 		append(
-			namespace.TxNamespace.Bytes(),
+			TxNamespace.Bytes(),
 			append(
 				[]byte{
 					0x0,                // info byte
 					0x0, 0x0, 0x0, 0x0, // reserved bytes
-				}, bytes.Repeat([]byte{0xf}, namespace.NamespaceSize+ShareInfoBytes+SequenceLenBytes+ShareReservedBytes)..., // data
+				}, bytes.Repeat([]byte{0xf}, NamespaceSize+ShareInfoBytes+SequenceLenBytes+ShareReservedBytes)..., // data
 			)...,
 		),
 		ShareSize)
@@ -117,7 +116,7 @@ func TestExport_write(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			css := NewCompactShareSplitter(namespace.TxNamespace, ShareVersionZero)
+			css := NewCompactShareSplitter(TxNamespace, ShareVersionZero)
 			for _, bytes := range tc.writeBytes {
 				err := css.write(bytes)
 				require.NoError(t, err)
@@ -186,7 +185,7 @@ func TestWriteAndExportIdempotence(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			css := NewCompactShareSplitter(namespace.TxNamespace, ShareVersionZero)
+			css := NewCompactShareSplitter(TxNamespace, ShareVersionZero)
 
 			for _, tx := range tc.txs {
 				err := css.WriteTx(tx)
@@ -318,7 +317,7 @@ func TestExport(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			css := NewCompactShareSplitter(namespace.TxNamespace, ShareVersionZero)
+			css := NewCompactShareSplitter(TxNamespace, ShareVersionZero)
 
 			for _, tx := range tc.txs {
 				err := css.WriteTx(tx)
@@ -337,7 +336,7 @@ func TestWriteAfterExport(t *testing.T) {
 	c := bytes.Repeat([]byte{0xf}, RawTxSize(ContinuationCompactShareContentSize))
 	d := []byte{0xf}
 
-	css := NewCompactShareSplitter(namespace.TxNamespace, ShareVersionZero)
+	css := NewCompactShareSplitter(TxNamespace, ShareVersionZero)
 	shares, err := css.Export()
 	require.NoError(t, err)
 	assert.Equal(t, 0, len(shares))

@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/celestiaorg/go-square/inclusion"
-	"github.com/celestiaorg/go-square/namespace"
 	"github.com/celestiaorg/go-square/shares"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -62,11 +61,11 @@ func TestMerkleMountainRangeSizes(t *testing.T) {
 // the commitment is calculated. If this is the case, the expected commitment
 // bytes will need to be updated.
 func TestCreateCommitment(t *testing.T) {
-	ns1 := namespace.MustNewV0(bytes.Repeat([]byte{0x1}, namespace.NamespaceVersionZeroIDSize))
+	ns1 := shares.MustNewV0Namespace(bytes.Repeat([]byte{0x1}, shares.NamespaceVersionZeroIDSize))
 
 	type test struct {
 		name         string
-		namespace    namespace.Namespace
+		namespace    shares.Namespace
 		blob         []byte
 		expected     []byte
 		expectErr    bool
