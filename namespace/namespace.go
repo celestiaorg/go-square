@@ -12,13 +12,7 @@ type Namespace struct {
 
 // New returns a new namespace with the provided version and id.
 func New(version uint8, id []byte) (Namespace, error) {
-	err := validateVersionSupported(version)
-	if err != nil {
-		return Namespace{}, err
-	}
-
-	err = validateID(version, id)
-	if err != nil {
+	if err := Validate(version, id); err != nil {
 		return Namespace{}, err
 	}
 
@@ -46,17 +40,7 @@ func MustNew(version uint8, id []byte) Namespace {
 
 // NewFromBytes returns a new namespace from the provided byte slice.
 func NewFromBytes(bytes []byte) (Namespace, error) {
-	if len(bytes) != NamespaceSize {
-		return Namespace{}, fmt.Errorf("invalid namespace length: %v must be %v", len(bytes), NamespaceSize)
-	}
-
-	err := validateVersionSupported(bytes[VersionIndex])
-	if err != nil {
-		return Namespace{}, err
-	}
-
-	err = validateID(bytes[VersionIndex], bytes[NamespaceVersionSize:])
-	if err != nil {
+	if err := Validate(bytes[VersionIndex], bytes[NamespaceVersionSize:]); err != nil {
 		return Namespace{}, err
 	}
 
@@ -110,6 +94,14 @@ func (n Namespace) ID() []byte {
 	return n.data[NamespaceVersionSize:]
 }
 
+func Validate(version uint8, id []byte) error {
+	err := validateVersionSupported(version)
+	if err != nil {
+		return err
+	}
+	return validateID(version, id)
+}
+
 // validateVersionSupported returns an error if the version is not supported.
 func validateVersionSupported(version uint8) error {
 	if version != NamespaceVersionZero && version != NamespaceVersionMax {
@@ -131,7 +123,8 @@ func validateID(version uint8, id []byte) error {
 	return nil
 }
 
-// IsReserved returns true if the namespace is reserved for protocol-use.
+// IsReserved returns true if the namespace is reserved
+// for the Celestia state machine
 func (n Namespace) IsReserved() bool {
 	return n.IsPrimaryReserved() || n.IsSecondaryReserved()
 }
@@ -142,6 +135,13 @@ func (n Namespace) IsPrimaryReserved() bool {
 
 func (n Namespace) IsSecondaryReserved() bool {
 	return n.IsGreaterOrEqualThan(MinSecondaryReservedNamespace)
+}
+
+// IsUsableNamespace refers to the range of namespaces that are
+// not reserved by the square protocol i.e. not parity shares or
+// tail padding
+func (n Namespace) IsUsableNamespace() bool {
+	return !n.IsParityShares() && !n.IsTailPadding()
 }
 
 func (n Namespace) IsParityShares() bool {

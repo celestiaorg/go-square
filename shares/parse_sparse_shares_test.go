@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	ns "github.com/celestiaorg/go-square/namespace"
-	"github.com/celestiaorg/nmt/namespace"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -102,8 +101,7 @@ func Test_parseSparseSharesErrors(t *testing.T) {
 	unsupportedShareVersion := 5
 	infoByte, _ := NewInfoByte(uint8(unsupportedShareVersion), true)
 
-	rawShare := []byte{}
-	rawShare = append(rawShare, namespace.ID{1, 1, 1, 1, 1, 1, 1, 1}...)
+	rawShare := ns.RandomNamespace().Bytes()
 	rawShare = append(rawShare, byte(infoByte))
 	rawShare = append(rawShare, bytes.Repeat([]byte{0}, ShareSize-len(rawShare))...)
 	share, err := NewShare(rawShare)
@@ -172,7 +170,11 @@ func generateRandomBlobWithNamespace(namespace ns.Namespace, size int) *Blob {
 	if err != nil {
 		panic(err)
 	}
-	return NewV0Blob(namespace, data)
+	blob, err := NewV0Blob(namespace, data)
+	if err != nil {
+		panic(err)
+	}
+	return blob
 }
 
 func generateRandomBlob(dataSize int) *Blob {
@@ -183,7 +185,7 @@ func generateRandomBlob(dataSize int) *Blob {
 func GenerateRandomlySizedBlobs(count, maxBlobSize int) []*Blob {
 	blobs := make([]*Blob, count)
 	for i := 0; i < count; i++ {
-		blobs[i] = generateRandomBlob(rand.Intn(maxBlobSize))
+		blobs[i] = generateRandomBlob(rand.Intn(maxBlobSize-1) + 1)
 		if len(blobs[i].Data()) == 0 {
 			i--
 		}

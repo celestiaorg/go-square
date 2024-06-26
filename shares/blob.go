@@ -11,7 +11,7 @@ import (
 
 // Blob (stands for binary large object) is a core type that represents data
 // to be submitted to the Celestia network alongside an accompanying namespace
-// and optional signer (for proving the author of the blob)
+// and optional signer (for proving the signer of the blob)
 type Blob struct {
 	namespace    ns.Namespace
 	data         []byte
@@ -22,14 +22,17 @@ type Blob struct {
 // New creates a new coretypes.Blob from the provided data after performing
 // basic stateless checks over it.
 func NewBlob(ns ns.Namespace, data []byte, shareVersion uint8, signer []byte) (*Blob, error) {
+	if len(data) == 0 {
+		return nil, errors.New("data can not be empty")
+	}
 	if shareVersion == 0 && signer != nil {
 		return nil, errors.New("share version 0 does not support signer")
 	}
 	if shareVersion == 1 && len(signer) != SignerSize {
-		return nil, errors.New("share version 1 requires signer of size 20 bytes")
+		return nil, fmt.Errorf("share version 1 requires signer of size %d bytes", SignerSize)
 	}
 	if shareVersion > MaxShareVersion {
-		return nil, errors.New("share version can not be greater than MaxShareVersion")
+		return nil, fmt.Errorf("share version can not be greater than MaxShareVersion %d", MaxShareVersion)
 	}
 	return &Blob{
 		namespace:    ns,
@@ -39,12 +42,8 @@ func NewBlob(ns ns.Namespace, data []byte, shareVersion uint8, signer []byte) (*
 	}, nil
 }
 
-func NewV0Blob(ns ns.Namespace, data []byte) *Blob {
-	blob, err := NewBlob(ns, data, 0, nil)
-	if err != nil {
-		panic(err)
-	}
-	return blob
+func NewV0Blob(ns ns.Namespace, data []byte) (*Blob, error) {
+	return NewBlob(ns, data, 0, nil)
 }
 
 func NewV1Blob(ns ns.Namespace, data []byte, signer []byte) (*Blob, error) {
