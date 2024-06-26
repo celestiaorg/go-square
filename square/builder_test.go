@@ -149,7 +149,7 @@ func rawData(shares []shares.Share) ([]byte, error) {
 }
 
 // TestSquareBlobPositions ensures that the share commitment rules which dictate the padding
-// between blobs is followed as well as the ordering of blobs by shares.
+// between blobs is followed as well as the ordering of blobs by namespace.
 func TestSquareBlobPostions(t *testing.T) {
 	ns1 := shares.MustNewV0Namespace(bytes.Repeat([]byte{1}, shares.NamespaceVersionZeroIDSize))
 	ns2 := shares.MustNewV0Namespace(bytes.Repeat([]byte{2}, shares.NamespaceVersionZeroIDSize))

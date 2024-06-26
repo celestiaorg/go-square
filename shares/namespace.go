@@ -1,4 +1,3 @@
-// Package namespace contains the Namespace data structure.
 package shares
 
 import (
@@ -52,7 +51,7 @@ func NewNamespaceFromBytes(bytes []byte) (Namespace, error) {
 	}, nil
 }
 
-// NewV0 returns a new namespace with version 0 and the provided subID. subID
+// NewV0Namespace returns a new namespace with version 0 and the provided subID. subID
 // must be <= 10 bytes. If subID is < 10 bytes, it will be left-padded with 0s
 // to fill 10 bytes.
 func NewV0Namespace(subID []byte) (Namespace, error) {
@@ -66,7 +65,7 @@ func NewV0Namespace(subID []byte) (Namespace, error) {
 	return NewNamespaceFromBytes(namespace)
 }
 
-// MustNewV0 returns a new namespace with version 0 and the provided subID. This
+// MustNewV0Namespace returns a new namespace with version 0 and the provided subID. This
 // function panics if the provided subID would result in an invalid namespace.
 func MustNewV0Namespace(subID []byte) Namespace {
 	ns, err := NewV0Namespace(subID)
