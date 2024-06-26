@@ -53,9 +53,7 @@ func TestWriteNamespacePaddingShares(t *testing.T) {
 	assert.Len(t, got, 2)
 
 	// verify that the second share is padding
-	isPadding, err := got[1].IsPadding()
-	assert.NoError(t, err)
-	assert.True(t, isPadding)
+	assert.True(t, got[1].IsPadding())
 
 	// verify that the padding share has the same share version as blob1
 	version := got[1].Version()

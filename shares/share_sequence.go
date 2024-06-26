@@ -16,11 +16,7 @@ type ShareSequence struct {
 // not contain the namespace ID, info byte, sequence length, or reserved bytes.
 func (s ShareSequence) RawData() (data []byte, err error) {
 	for _, share := range s.Shares {
-		raw, err := share.RawData()
-		if err != nil {
-			return []byte{}, err
-		}
-		data = append(data, raw...)
+		data = append(data, share.RawData()...)
 	}
 
 	sequenceLen, err := s.SequenceLen()
@@ -47,11 +43,7 @@ func (s ShareSequence) validSequenceLen() error {
 	if len(s.Shares) == 0 {
 		return fmt.Errorf("invalid sequence length because share sequence %v has no shares", s)
 	}
-	isPadding, err := s.isPadding()
-	if err != nil {
-		return err
-	}
-	if isPadding {
+	if s.isPadding() {
 		return nil
 	}
 
@@ -67,15 +59,11 @@ func (s ShareSequence) validSequenceLen() error {
 	return nil
 }
 
-func (s ShareSequence) isPadding() (bool, error) {
+func (s ShareSequence) isPadding() bool {
 	if len(s.Shares) != 1 {
-		return false, nil
+		return false
 	}
-	isPadding, err := s.Shares[0].IsPadding()
-	if err != nil {
-		return false, err
-	}
-	return isPadding, nil
+	return s.Shares[0].IsPadding()
 }
 
 // numberOfSharesNeeded extracts the sequenceLen written to the share
@@ -83,13 +71,8 @@ func (s ShareSequence) isPadding() (bool, error) {
 // that length.
 func numberOfSharesNeeded(firstShare Share) (sharesUsed int, err error) {
 	sequenceLen := firstShare.SequenceLen()
-
-	isCompact, err := firstShare.IsCompactShare()
-	if err != nil {
-		return 0, err
-	}
-	if isCompact {
-		return CompactSharesNeeded(int(sequenceLen)), nil
+	if firstShare.IsCompactShare() {
+		return CompactSharesNeeded(sequenceLen), nil
 	}
 	return SparseSharesNeeded(sequenceLen), nil
 }
@@ -97,7 +80,7 @@ func numberOfSharesNeeded(firstShare Share) (sharesUsed int, err error) {
 // CompactSharesNeeded returns the number of compact shares needed to store a
 // sequence of length sequenceLen. The parameter sequenceLen is the number
 // of bytes of transactions or intermediate state roots in a sequence.
-func CompactSharesNeeded(sequenceLen int) (sharesNeeded int) {
+func CompactSharesNeeded(sequenceLen uint32) (sharesNeeded int) {
 	if sequenceLen == 0 {
 		return 0
 	}
@@ -106,7 +89,7 @@ func CompactSharesNeeded(sequenceLen int) (sharesNeeded int) {
 		return 1
 	}
 
-	bytesAvailable := FirstCompactShareContentSize
+	bytesAvailable := uint32(FirstCompactShareContentSize)
 	sharesNeeded++
 	for bytesAvailable < sequenceLen {
 		bytesAvailable += ContinuationCompactShareContentSize

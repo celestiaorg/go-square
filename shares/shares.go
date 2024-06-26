@@ -30,8 +30,8 @@ func validateSize(data []byte) error {
 }
 
 // Namespace returns the shares namespace
-func (s *Share) Namespace() (Namespace, error) {
-	return NewNamespaceFromBytes(s.data[:NamespaceSize])
+func (s *Share) Namespace() Namespace {
+	return Namespace{data: s.data[:NamespaceSize]}
 }
 
 func (s *Share) InfoByte() InfoByte {
@@ -58,13 +58,10 @@ func (s *Share) IsSequenceStart() bool {
 }
 
 // IsCompactShare returns true if this is a compact share.
-func (s Share) IsCompactShare() (bool, error) {
-	ns, err := s.Namespace()
-	if err != nil {
-		return false, err
-	}
+func (s Share) IsCompactShare() bool {
+	ns := s.Namespace()
 	isCompact := ns.IsTx() || ns.IsPayForBlob()
-	return isCompact, nil
+	return isCompact
 }
 
 // GetSigner returns the signer of the share, if the
@@ -96,37 +93,25 @@ func (s *Share) SequenceLen() uint32 {
 }
 
 // IsPadding returns whether this *share is padding or not.
-func (s *Share) IsPadding() (bool, error) {
+func (s *Share) IsPadding() bool {
 	isNamespacePadding := s.isNamespacePadding()
-	isTailPadding, err := s.isTailPadding()
-	if err != nil {
-		return false, err
-	}
-	isPrimaryReservedPadding, err := s.isPrimaryReservedPadding()
-	if err != nil {
-		return false, err
-	}
-	return isNamespacePadding || isTailPadding || isPrimaryReservedPadding, nil
+	isTailPadding := s.isTailPadding()
+	isPrimaryReservedPadding := s.isPrimaryReservedPadding()
+	return isNamespacePadding || isTailPadding || isPrimaryReservedPadding
 }
 
 func (s *Share) isNamespacePadding() bool {
 	return s.IsSequenceStart() && s.SequenceLen() == 0
 }
 
-func (s *Share) isTailPadding() (bool, error) {
-	ns, err := s.Namespace()
-	if err != nil {
-		return false, err
-	}
-	return ns.IsTailPadding(), nil
+func (s *Share) isTailPadding() bool {
+	ns := s.Namespace()
+	return ns.IsTailPadding()
 }
 
-func (s *Share) isPrimaryReservedPadding() (bool, error) {
-	ns, err := s.Namespace()
-	if err != nil {
-		return false, err
-	}
-	return ns.IsPrimaryReservedPadding(), nil
+func (s *Share) isPrimaryReservedPadding() bool {
+	ns := s.Namespace()
+	return ns.IsPrimaryReservedPadding()
 }
 
 func (s *Share) ToBytes() []byte {
@@ -136,21 +121,14 @@ func (s *Share) ToBytes() []byte {
 // RawData returns the raw share data. The raw share data does not contain the
 // namespace ID, info byte, sequence length and if they exist: the reserved bytes
 // and signer.
-func (s *Share) RawData() ([]byte, error) {
-	startingIndex, err := s.rawDataStartIndex()
-	if err != nil {
-		return nil, err
-	}
-	return s.data[startingIndex:], nil
+func (s *Share) RawData() []byte {
+	startingIndex := s.rawDataStartIndex()
+	return s.data[startingIndex:]
 }
 
-func (s *Share) rawDataStartIndex() (int, error) {
+func (s *Share) rawDataStartIndex() int {
 	isStart := s.IsSequenceStart()
-	isCompact, err := s.IsCompactShare()
-	if err != nil {
-		return 0, err
-	}
-
+	isCompact := s.IsCompactShare()
 	index := NamespaceSize + ShareInfoBytes
 	if isStart {
 		index += SequenceLenBytes
@@ -161,7 +139,7 @@ func (s *Share) rawDataStartIndex() (int, error) {
 	if s.Version() == ShareVersionOne {
 		index += SignerSize
 	}
-	return index, nil
+	return index
 }
 
 // RawDataUsingReserved returns the raw share data while taking reserved bytes into account.
@@ -186,10 +164,7 @@ func (s *Share) RawDataUsingReserved() (rawData []byte, err error) {
 // reserved bytes, if it exists in the share.
 func (s *Share) rawDataStartIndexUsingReserved() (int, error) {
 	isStart := s.IsSequenceStart()
-	isCompact, err := s.IsCompactShare()
-	if err != nil {
-		return 0, err
-	}
+	isCompact := s.IsCompactShare()
 
 	index := NamespaceSize + ShareInfoBytes
 	if isStart {

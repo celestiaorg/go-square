@@ -78,7 +78,7 @@ func TestShareSequenceRawData(t *testing.T) {
 
 func TestCompactSharesNeeded(t *testing.T) {
 	type testCase struct {
-		sequenceLen int
+		sequenceLen uint32
 		want        int
 	}
 	testCases := []testCase{

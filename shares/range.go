@@ -1,9 +1,5 @@
 package shares
 
-import (
-	"fmt"
-)
-
 // Range is an end exclusive set of share indexes.
 type Range struct {
 	// Start is the index of the first share occupied by this range.
@@ -33,40 +29,31 @@ func (r *Range) Add(value int) {
 // namespace. It will return an empty range if the namespace could not be
 // found. This assumes that the slice of shares are lexicographically
 // sorted by namespace. Ranges here are always end exclusive.
-func GetShareRangeForNamespace(shares []Share, ns Namespace) (Range, error) {
+func GetShareRangeForNamespace(shares []Share, ns Namespace) Range {
 	if len(shares) == 0 {
-		return EmptyRange(), nil
+		return EmptyRange()
 	}
-	n0, err := shares[0].Namespace()
-	if err != nil {
-		return EmptyRange(), err
-	}
+	n0 := shares[0].Namespace()
 	if ns.IsLessThan(n0) {
-		return EmptyRange(), nil
+		return EmptyRange()
 	}
-	n1, err := shares[len(shares)-1].Namespace()
-	if err != nil {
-		return EmptyRange(), err
-	}
+	n1 := shares[len(shares)-1].Namespace()
 	if ns.IsGreaterThan(n1) {
-		return EmptyRange(), nil
+		return EmptyRange()
 	}
 
 	start := -1
 	for i, share := range shares {
-		shareNS, err := share.Namespace()
-		if err != nil {
-			return EmptyRange(), fmt.Errorf("failed to get namespace from share %d: %w", i, err)
-		}
+		shareNS := share.Namespace()
 		if shareNS.IsGreaterThan(ns) && start != -1 {
-			return Range{start, i}, nil
+			return Range{start, i}
 		}
 		if ns.Equals(shareNS) && start == -1 {
 			start = i
 		}
 	}
 	if start == -1 {
-		return EmptyRange(), nil
+		return EmptyRange()
 	}
-	return Range{start, len(shares)}, nil
+	return Range{start, len(shares)}
 }

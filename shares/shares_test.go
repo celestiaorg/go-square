@@ -125,9 +125,7 @@ func TestRawData(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			rawData, err := tc.share.RawData()
-			require.NoError(t, err)
-			assert.Equal(t, tc.want, rawData)
+			assert.Equal(t, tc.want, tc.share.RawData())
 		})
 	}
 }
@@ -163,9 +161,7 @@ func TestIsCompactShare(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		got, err := tc.share.IsCompactShare()
-		assert.NoError(t, err)
-		assert.Equal(t, tc.want, got)
+		assert.Equal(t, tc.want, tc.share.IsCompactShare())
 	}
 }
 
@@ -214,9 +210,7 @@ func TestIsPadding(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := tc.share.IsPadding()
-			require.NoError(t, err)
-			assert.Equal(t, tc.want, got)
+			assert.Equal(t, tc.want, tc.share.IsPadding())
 		})
 	}
 }

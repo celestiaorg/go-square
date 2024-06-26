@@ -295,11 +295,7 @@ func TestShareBuilderImportRawData(t *testing.T) {
 				return
 			}
 
-			rawData, err := builtShare.RawData()
-			if tc.wantErr {
-				assert.Error(t, err)
-				return
-			}
+			rawData := builtShare.RawData()
 			// Since rawData has padding, we need to use contains
 			if !bytes.Contains(rawData, tc.want) {
 				t.Errorf(fmt.Sprintf("%#v does not contain %#v", rawData, tc.want))

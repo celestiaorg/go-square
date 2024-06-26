@@ -143,11 +143,7 @@ func TestBuilderFindTxShareRange(t *testing.T) {
 func rawData(shares []shares.Share) ([]byte, error) {
 	var data []byte
 	for _, share := range shares {
-		rawData, err := share.RawData()
-		if err != nil {
-			return nil, err
-		}
-		data = append(data, rawData...)
+		data = append(data, share.RawData()...)
 	}
 	return data, nil
 }
