@@ -6,11 +6,9 @@
 
 Package   | Description
 ----------|---------------------------------------------------------------------------------------------------------------------
-blob      | Package blob provides types and functions for working with blobs, blob transactions, and index wrapper transactions.
 inclusion | Package inclusion contains functions to generate the blob share commitment from a given blob.
 merkle    | Package merkle computes a deterministic minimal height Merkle tree hash.
-namespace | Package namespace contains the Namespace data structure.
-shares    | package share contains the Share data structure.
+share    | package share contains the Share data structure.
 square    | Package square implements the logic to construct the original data square based on a list of transactions.
 
 ## Installation
