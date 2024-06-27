@@ -3,7 +3,7 @@ package inclusion
 import (
 	"crypto/sha256"
 
-	sh "github.com/celestiaorg/go-square/shares"
+	sh "github.com/celestiaorg/go-square/share"
 	"github.com/celestiaorg/nmt"
 )
 
