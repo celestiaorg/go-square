@@ -41,7 +41,7 @@ func TestParseShares(t *testing.T) {
 		name          string
 		shares        []Share
 		ignorePadding bool
-		want          []ShareSequence
+		want          []Sequence
 		expectErr     bool
 	}
 
@@ -50,42 +50,42 @@ func TestParseShares(t *testing.T) {
 			name:          "empty",
 			shares:        []Share{},
 			ignorePadding: false,
-			want:          []ShareSequence{},
+			want:          []Sequence{},
 			expectErr:     false,
 		},
 		{
 			name:          "one transaction share",
 			shares:        []Share{txShareStart},
 			ignorePadding: false,
-			want:          []ShareSequence{{Namespace: TxNamespace, Shares: []Share{txShareStart}}},
+			want:          []Sequence{{Namespace: TxNamespace, Shares: []Share{txShareStart}}},
 			expectErr:     false,
 		},
 		{
 			name:          "two transaction shares",
 			shares:        []Share{txShareStart, txShareContinuation},
 			ignorePadding: false,
-			want:          []ShareSequence{{Namespace: TxNamespace, Shares: []Share{txShareStart, txShareContinuation}}},
+			want:          []Sequence{{Namespace: TxNamespace, Shares: []Share{txShareStart, txShareContinuation}}},
 			expectErr:     false,
 		},
 		{
 			name:          "one blob share",
 			shares:        []Share{blobOneStart},
 			ignorePadding: false,
-			want:          []ShareSequence{{Namespace: ns1, Shares: []Share{blobOneStart}}},
+			want:          []Sequence{{Namespace: ns1, Shares: []Share{blobOneStart}}},
 			expectErr:     false,
 		},
 		{
 			name:          "two blob shares",
 			shares:        []Share{blobOneStart, blobOneContinuation},
 			ignorePadding: false,
-			want:          []ShareSequence{{Namespace: ns1, Shares: []Share{blobOneStart, blobOneContinuation}}},
+			want:          []Sequence{{Namespace: ns1, Shares: []Share{blobOneStart, blobOneContinuation}}},
 			expectErr:     false,
 		},
 		{
 			name:          "two blobs with two shares each",
 			shares:        []Share{blobOneStart, blobOneContinuation, blobTwoStart, blobTwoContinuation},
 			ignorePadding: false,
-			want: []ShareSequence{
+			want: []Sequence{
 				{Namespace: ns1, Shares: []Share{blobOneStart, blobOneContinuation}},
 				{Namespace: ns2, Shares: []Share{blobTwoStart, blobTwoContinuation}},
 			},
@@ -95,7 +95,7 @@ func TestParseShares(t *testing.T) {
 			name:          "one transaction, one blob",
 			shares:        []Share{txShareStart, blobOneStart},
 			ignorePadding: false,
-			want: []ShareSequence{
+			want: []Sequence{
 				{Namespace: TxNamespace, Shares: []Share{txShareStart}},
 				{Namespace: ns1, Shares: []Share{blobOneStart}},
 			},
@@ -105,7 +105,7 @@ func TestParseShares(t *testing.T) {
 			name:          "one transaction, two blobs",
 			shares:        []Share{txShareStart, blobOneStart, blobTwoStart},
 			ignorePadding: false,
-			want: []ShareSequence{
+			want: []Sequence{
 				{Namespace: TxNamespace, Shares: []Share{txShareStart}},
 				{Namespace: ns1, Shares: []Share{blobOneStart}},
 				{Namespace: ns2, Shares: []Share{blobTwoStart}},
@@ -116,21 +116,21 @@ func TestParseShares(t *testing.T) {
 			name:          "blob one start followed by blob two continuation",
 			shares:        []Share{blobOneStart, blobTwoContinuation},
 			ignorePadding: false,
-			want:          []ShareSequence{},
+			want:          []Sequence{},
 			expectErr:     true,
 		},
 		{
 			name:          "one share with too large sequence length",
 			shares:        []Share{{data: tooLargeSequenceLen}},
 			ignorePadding: false,
-			want:          []ShareSequence{},
+			want:          []Sequence{},
 			expectErr:     true,
 		},
 		{
 			name:          "tail padding shares",
 			shares:        TailPaddingShares(2),
 			ignorePadding: false,
-			want: []ShareSequence{
+			want: []Sequence{
 				{
 					Namespace: TailPaddingNamespace,
 					Shares:    []Share{TailPaddingShare()},
@@ -146,7 +146,7 @@ func TestParseShares(t *testing.T) {
 			name:          "reserve padding shares",
 			shares:        ReservedPaddingShares(2),
 			ignorePadding: false,
-			want: []ShareSequence{
+			want: []Sequence{
 				{
 					Namespace: PrimaryReservedPaddingNamespace,
 					Shares:    []Share{ReservedPaddingShare()},
@@ -162,7 +162,7 @@ func TestParseShares(t *testing.T) {
 			name:          "namespace padding shares",
 			shares:        []Share{ns1Padding, ns1Padding},
 			ignorePadding: false,
-			want: []ShareSequence{
+			want: []Sequence{
 				{
 					Namespace: ns1,
 					Shares:    []Share{ns1Padding},
@@ -178,7 +178,7 @@ func TestParseShares(t *testing.T) {
 			name:          "ignores all types of padding shares",
 			shares:        []Share{TailPaddingShare(), ReservedPaddingShare(), ns1Padding},
 			ignorePadding: true,
-			want:          []ShareSequence{},
+			want:          []Sequence{},
 			expectErr:     false,
 		},
 	}

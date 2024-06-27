@@ -26,12 +26,12 @@ func ParseBlobs(shares []Share) ([]*Blob, error) {
 	return blobList, nil
 }
 
-// ParseShares parses the shares provided and returns a list of ShareSequences.
-// If ignorePadding is true then the returned ShareSequences will not contain
+// ParseShares parses the shares provided and returns a list of Sequences.
+// If ignorePadding is true then the returned Sequences will not contain
 // any padding sequences.
-func ParseShares(shares []Share, ignorePadding bool) ([]ShareSequence, error) {
-	sequences := []ShareSequence{}
-	currentSequence := ShareSequence{}
+func ParseShares(shares []Share, ignorePadding bool) ([]Sequence, error) {
+	sequences := []Sequence{}
+	currentSequence := Sequence{}
 
 	for _, share := range shares {
 		ns := share.Namespace()
@@ -39,7 +39,7 @@ func ParseShares(shares []Share, ignorePadding bool) ([]ShareSequence, error) {
 			if len(currentSequence.Shares) > 0 {
 				sequences = append(sequences, currentSequence)
 			}
-			currentSequence = ShareSequence{
+			currentSequence = Sequence{
 				Shares:    []Share{share},
 				Namespace: ns,
 			}
@@ -61,7 +61,7 @@ func ParseShares(shares []Share, ignorePadding bool) ([]ShareSequence, error) {
 		}
 	}
 
-	result := []ShareSequence{}
+	result := []Sequence{}
 	for _, sequence := range sequences {
 		if ignorePadding && sequence.isPadding() {
 			continue

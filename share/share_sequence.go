@@ -4,17 +4,17 @@ import (
 	"fmt"
 )
 
-// ShareSequence represents a contiguous sequence of shares that are part of the
+// Sequence represents a contiguous sequence of shares that are part of the
 // same namespace and blob. For compact shares, one share sequence exists per
 // reserved namespace. For sparse shares, one share sequence exists per blob.
-type ShareSequence struct {
+type Sequence struct {
 	Namespace Namespace
 	Shares    []Share
 }
 
 // RawData returns the raw share data of this share sequence. The raw data does
 // not contain the namespace ID, info byte, sequence length, or reserved bytes.
-func (s ShareSequence) RawData() (data []byte, err error) {
+func (s Sequence) RawData() (data []byte, err error) {
 	for _, share := range s.Shares {
 		data = append(data, share.RawData()...)
 	}
@@ -27,7 +27,7 @@ func (s ShareSequence) RawData() (data []byte, err error) {
 	return data[:sequenceLen], nil
 }
 
-func (s ShareSequence) SequenceLen() (uint32, error) {
+func (s Sequence) SequenceLen() (uint32, error) {
 	if len(s.Shares) == 0 {
 		return 0, fmt.Errorf("invalid sequence length because share sequence %v has no shares", s)
 	}
@@ -39,7 +39,7 @@ func (s ShareSequence) SequenceLen() (uint32, error) {
 // and returns an error if the number of shares needed to store a sequence of
 // length sequenceLen doesn't match the number of shares in this share
 // sequence. Returns nil if there is no error.
-func (s ShareSequence) validSequenceLen() error {
+func (s Sequence) validSequenceLen() error {
 	if len(s.Shares) == 0 {
 		return fmt.Errorf("invalid sequence length because share sequence %v has no shares", s)
 	}
@@ -59,7 +59,7 @@ func (s ShareSequence) validSequenceLen() error {
 	return nil
 }
 
-func (s ShareSequence) isPadding() bool {
+func (s Sequence) isPadding() bool {
 	if len(s.Shares) != 1 {
 		return false
 	}

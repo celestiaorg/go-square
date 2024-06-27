@@ -9,19 +9,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestShareSequenceRawData(t *testing.T) {
+func TestSequenceRawData(t *testing.T) {
 	type testCase struct {
-		name          string
-		shareSequence ShareSequence
-		want          []byte
-		wantErr       bool
+		name     string
+		Sequence Sequence
+		want     []byte
+		wantErr  bool
 	}
 	blobNamespace := RandomBlobNamespace()
 
 	testCases := []testCase{
 		{
 			name: "empty share sequence",
-			shareSequence: ShareSequence{
+			Sequence: Sequence{
 				Namespace: TxNamespace,
 				Shares:    []Share{},
 			},
@@ -30,7 +30,7 @@ func TestShareSequenceRawData(t *testing.T) {
 		},
 		{
 			name: "one empty share",
-			shareSequence: ShareSequence{
+			Sequence: Sequence{
 				Namespace: TxNamespace,
 				Shares: []Share{
 					shareWithData(blobNamespace, true, 0, []byte{}),
@@ -41,7 +41,7 @@ func TestShareSequenceRawData(t *testing.T) {
 		},
 		{
 			name: "one share with one byte",
-			shareSequence: ShareSequence{
+			Sequence: Sequence{
 				Namespace: TxNamespace,
 				Shares: []Share{
 					shareWithData(blobNamespace, true, 1, []byte{0x0f}),
@@ -52,7 +52,7 @@ func TestShareSequenceRawData(t *testing.T) {
 		},
 		{
 			name: "removes padding from last share",
-			shareSequence: ShareSequence{
+			Sequence: Sequence{
 				Namespace: TxNamespace,
 				Shares: []Share{
 					shareWithData(blobNamespace, true, FirstSparseShareContentSize+1, bytes.Repeat([]byte{0xf}, FirstSparseShareContentSize)),
@@ -66,7 +66,7 @@ func TestShareSequenceRawData(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := tc.shareSequence.RawData()
+			got, err := tc.Sequence.RawData()
 			if tc.wantErr {
 				assert.Error(t, err)
 				return
@@ -137,12 +137,12 @@ func shareWithData(namespace Namespace, isSequenceStart bool, sequenceLen uint32
 
 func Test_validSequenceLen(t *testing.T) {
 	type testCase struct {
-		name          string
-		shareSequence ShareSequence
-		wantErr       bool
+		name     string
+		Sequence Sequence
+		wantErr  bool
 	}
 
-	tailPadding := ShareSequence{
+	tailPadding := Sequence{
 		Namespace: TailPaddingNamespace,
 		Shares:    []Share{TailPaddingShare()},
 	}
@@ -150,17 +150,17 @@ func Test_validSequenceLen(t *testing.T) {
 	ns1 := MustNewV0Namespace(bytes.Repeat([]byte{0x1}, NamespaceVersionZeroIDSize))
 	share, err := NamespacePaddingShare(ns1, ShareVersionZero)
 	require.NoError(t, err)
-	namespacePadding := ShareSequence{
+	namespacePadding := Sequence{
 		Namespace: ns1,
 		Shares:    []Share{share},
 	}
 
-	reservedPadding := ShareSequence{
+	reservedPadding := Sequence{
 		Namespace: PrimaryReservedPaddingNamespace,
 		Shares:    []Share{ReservedPaddingShare()},
 	}
 
-	notSequenceStart := ShareSequence{
+	notSequenceStart := Sequence{
 		Namespace: ns1,
 		Shares: []Share{
 			shareWithData(ns1, false, 0, []byte{0x0f}),
@@ -169,40 +169,40 @@ func Test_validSequenceLen(t *testing.T) {
 
 	testCases := []testCase{
 		{
-			name:          "empty share sequence",
-			shareSequence: ShareSequence{},
-			wantErr:       true,
+			name:     "empty share sequence",
+			Sequence: Sequence{},
+			wantErr:  true,
 		},
 		{
-			name:          "valid share sequence",
-			shareSequence: generateValidShareSequence(t),
-			wantErr:       false,
+			name:     "valid share sequence",
+			Sequence: generateValidSequence(t),
+			wantErr:  false,
 		},
 		{
-			name:          "tail padding",
-			shareSequence: tailPadding,
-			wantErr:       false,
+			name:     "tail padding",
+			Sequence: tailPadding,
+			wantErr:  false,
 		},
 		{
-			name:          "namespace padding",
-			shareSequence: namespacePadding,
-			wantErr:       false,
+			name:     "namespace padding",
+			Sequence: namespacePadding,
+			wantErr:  false,
 		},
 		{
-			name:          "reserved padding",
-			shareSequence: reservedPadding,
-			wantErr:       false,
+			name:     "reserved padding",
+			Sequence: reservedPadding,
+			wantErr:  false,
 		},
 		{
-			name:          "sequence length where first share is not sequence start",
-			shareSequence: notSequenceStart,
-			wantErr:       true, // error: "share sequence has 1 shares but needed 0 shares"
+			name:     "sequence length where first share is not sequence start",
+			Sequence: notSequenceStart,
+			wantErr:  true, // error: "share sequence has 1 shares but needed 0 shares"
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := tc.shareSequence.validSequenceLen()
+			err := tc.Sequence.validSequenceLen()
 			if tc.wantErr {
 				assert.Error(t, err)
 				return
@@ -212,7 +212,7 @@ func Test_validSequenceLen(t *testing.T) {
 	}
 }
 
-func generateValidShareSequence(t *testing.T) ShareSequence {
+func generateValidSequence(t *testing.T) Sequence {
 	css := NewCompactShareSplitter(TxNamespace, ShareVersionZero)
 	txs := GenerateRandomTxs(5, 200)
 	for _, tx := range txs {
@@ -222,7 +222,7 @@ func generateValidShareSequence(t *testing.T) ShareSequence {
 	shares, err := css.Export()
 	require.NoError(t, err)
 
-	return ShareSequence{
+	return Sequence{
 		Namespace: TxNamespace,
 		Shares:    shares,
 	}
@@ -240,13 +240,13 @@ func FuzzValidSequenceLen(f *testing.F) {
 			t.Skip()
 		}
 
-		shareSequence := ShareSequence{
+		Sequence := Sequence{
 			Namespace: ns,
 			Shares:    []Share{*share},
 		}
 
 		// want := fmt.Errorf("share sequence has 1 shares but needed 0 shares")
-		err = shareSequence.validSequenceLen()
+		err = Sequence.validSequenceLen()
 		assert.NoError(t, err)
 	})
 }
