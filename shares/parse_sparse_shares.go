@@ -3,12 +3,10 @@ package shares
 import (
 	"bytes"
 	"fmt"
-
-	ns "github.com/celestiaorg/go-square/namespace"
 )
 
 type sequence struct {
-	ns           ns.Namespace
+	ns           Namespace
 	shareVersion uint8
 	data         []byte
 	sequenceLen  uint32
@@ -30,29 +28,16 @@ func parseSparseShares(shares []Share, supportedShareVersions []uint8) (blobs []
 			return nil, fmt.Errorf("unsupported share version %v is not present in supported share versions %v", version, supportedShareVersions)
 		}
 
-		isPadding, err := share.IsPadding()
-		if err != nil {
-			return nil, err
-		}
-		if isPadding {
+		if share.IsPadding() {
 			continue
 		}
 
 		if share.IsSequenceStart() {
-			sequenceLen := share.SequenceLen()
-			data, err := share.RawData()
-			if err != nil {
-				return nil, err
-			}
-			ns, err := share.Namespace()
-			if err != nil {
-				return nil, err
-			}
 			sequences = append(sequences, sequence{
-				ns:           ns,
+				ns:           share.Namespace(),
 				shareVersion: version,
-				data:         data,
-				sequenceLen:  sequenceLen,
+				data:         share.RawData(),
+				sequenceLen:  share.SequenceLen(),
 				signer:       GetSigner(share),
 			})
 		} else { // continuation share
@@ -61,11 +46,7 @@ func parseSparseShares(shares []Share, supportedShareVersions []uint8) (blobs []
 			}
 			// FIXME: it doesn't look like we check whether all the shares belong to the same namespace.
 			prev := &sequences[len(sequences)-1]
-			data, err := share.RawData()
-			if err != nil {
-				return nil, err
-			}
-			prev.data = append(prev.data, data...)
+			prev.data = append(prev.data, share.RawData()...)
 		}
 	}
 	for _, sequence := range sequences {

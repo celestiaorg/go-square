@@ -1,4 +1,4 @@
-package namespace
+package shares
 
 import (
 	"bytes"
@@ -32,7 +32,7 @@ func TestNew(t *testing.T) {
 			version: NamespaceVersionZero,
 			id:      validID,
 			wantErr: false,
-			want:    MustNew(NamespaceVersionZero, validID),
+			want:    MustNewNamespace(NamespaceVersionZero, validID),
 		},
 		{
 			name:    "unsupported version",
@@ -62,7 +62,7 @@ func TestNew(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := New(tc.version, tc.id)
+			got, err := NewNamespace(tc.version, tc.id)
 			if tc.wantErr {
 				assert.Error(t, err)
 				return
@@ -85,13 +85,13 @@ func TestNewV0(t *testing.T) {
 		{
 			name:    "valid namespace",
 			subID:   bytes.Repeat([]byte{1}, NamespaceVersionZeroIDSize),
-			want:    MustNew(NamespaceVersionZero, append(NamespaceVersionZeroPrefix, bytes.Repeat([]byte{1}, NamespaceVersionZeroIDSize)...)),
+			want:    MustNewNamespace(NamespaceVersionZero, append(NamespaceVersionZeroPrefix, bytes.Repeat([]byte{1}, NamespaceVersionZeroIDSize)...)),
 			wantErr: false,
 		},
 		{
 			name:    "left pads subID if too short",
 			subID:   []byte{1, 2, 3, 4},
-			want:    MustNew(NamespaceVersionZero, append(NamespaceVersionZeroPrefix, []byte{0, 0, 0, 0, 0, 0, 1, 2, 3, 4}...)),
+			want:    MustNewNamespace(NamespaceVersionZero, append(NamespaceVersionZeroPrefix, []byte{0, 0, 0, 0, 0, 0, 1, 2, 3, 4}...)),
 			wantErr: false,
 		},
 		{
@@ -103,7 +103,7 @@ func TestNewV0(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		got, err := NewV0(tc.subID)
+		got, err := NewV0Namespace(tc.subID)
 		if tc.wantErr {
 			assert.Error(t, err)
 			return
@@ -131,13 +131,13 @@ func TestFrom(t *testing.T) {
 			name:    "valid namespace",
 			bytes:   validNamespace,
 			wantErr: false,
-			want:    MustNew(NamespaceVersionZero, validID),
+			want:    MustNewNamespace(NamespaceVersionZero, validID),
 		},
 		{
 			name:    "parity namespace",
 			bytes:   parityNamespace,
 			wantErr: false,
-			want:    MustNew(NamespaceVersionMax, bytes.Repeat([]byte{0xFF}, NamespaceIDSize)),
+			want:    MustNewNamespace(NamespaceVersionMax, bytes.Repeat([]byte{0xFF}, NamespaceIDSize)),
 		},
 		{
 			name:    "unsupported version",
@@ -163,7 +163,7 @@ func TestFrom(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := From(tc.bytes)
+			got, err := NewNamespaceFromBytes(tc.bytes)
 			if tc.wantErr {
 				assert.Error(t, err)
 				return
@@ -175,7 +175,7 @@ func TestFrom(t *testing.T) {
 }
 
 func TestBytes(t *testing.T) {
-	namespace, err := New(NamespaceVersionZero, validID)
+	namespace, err := NewNamespace(NamespaceVersionZero, validID)
 	assert.NoError(t, err)
 
 	want := append([]byte{NamespaceVersionZero}, validID...)
@@ -221,7 +221,7 @@ func TestIsReserved(t *testing.T) {
 	}
 	testCases := []testCase{
 		{
-			ns:   MustNewV0(bytes.Repeat([]byte{1}, NamespaceVersionZeroIDSize)),
+			ns:   MustNewV0Namespace(bytes.Repeat([]byte{1}, NamespaceVersionZeroIDSize)),
 			want: false,
 		},
 		{
@@ -257,7 +257,7 @@ func TestIsReserved(t *testing.T) {
 			want: true,
 		},
 		{
-			ns:   MustNew(math.MaxUint8, append(bytes.Repeat([]byte{0xFF}, NamespaceIDSize-1), 1)),
+			ns:   MustNewNamespace(math.MaxUint8, append(bytes.Repeat([]byte{0xFF}, NamespaceIDSize-1), 1)),
 			want: true,
 		},
 	}
@@ -286,8 +286,8 @@ func Test_compareMethods(t *testing.T) {
 			for _, id1 := range ids {
 				for _, id2 := range ids {
 					testPairs = append(testPairs, [2]Namespace{
-						MustNew(ver1, id1),
-						MustNew(ver2, id2),
+						MustNewNamespace(ver1, id1),
+						MustNewNamespace(ver2, id2),
 					})
 				}
 			}

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/celestiaorg/go-square/namespace"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -12,8 +11,8 @@ import (
 // TestSparseShareSplitter tests that the spare share splitter can split blobs
 // with different namespaces.
 func TestSparseShareSplitter(t *testing.T) {
-	ns1 := namespace.MustNewV0(bytes.Repeat([]byte{1}, namespace.NamespaceVersionZeroIDSize))
-	ns2 := namespace.MustNewV0(bytes.Repeat([]byte{2}, namespace.NamespaceVersionZeroIDSize))
+	ns1 := MustNewV0Namespace(bytes.Repeat([]byte{1}, NamespaceVersionZeroIDSize))
+	ns2 := MustNewV0Namespace(bytes.Repeat([]byte{2}, NamespaceVersionZeroIDSize))
 	signer := bytes.Repeat([]byte{1}, SignerSize)
 
 	blob1, err := NewV0Blob(ns1, []byte("data1"))
@@ -38,7 +37,7 @@ func TestSparseShareSplitter(t *testing.T) {
 }
 
 func TestWriteNamespacePaddingShares(t *testing.T) {
-	ns1 := namespace.MustNewV0(bytes.Repeat([]byte{1}, namespace.NamespaceVersionZeroIDSize))
+	ns1 := MustNewV0Namespace(bytes.Repeat([]byte{1}, NamespaceVersionZeroIDSize))
 	blob1, err := NewV0Blob(ns1, []byte("data1"))
 	require.NoError(t, err)
 
@@ -54,9 +53,7 @@ func TestWriteNamespacePaddingShares(t *testing.T) {
 	assert.Len(t, got, 2)
 
 	// verify that the second share is padding
-	isPadding, err := got[1].IsPadding()
-	assert.NoError(t, err)
-	assert.True(t, isPadding)
+	assert.True(t, got[1].IsPadding())
 
 	// verify that the padding share has the same share version as blob1
 	version := got[1].Version()

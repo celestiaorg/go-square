@@ -6,7 +6,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/celestiaorg/go-square/namespace"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -33,7 +32,7 @@ func TestSplitTxs_forTxShares(t *testing.T) {
 			want: []Share{
 				padShare(Share{
 					data: append(
-						namespace.TxNamespace.Bytes(),
+						TxNamespace.Bytes(),
 						[]byte{
 							0x1,                // info byte
 							0x0, 0x0, 0x0, 0x2, // 1 byte (unit) + 1 byte (unit length) = 2 bytes sequence length
@@ -52,7 +51,7 @@ func TestSplitTxs_forTxShares(t *testing.T) {
 			want: []Share{
 				padShare(Share{
 					data: append(
-						namespace.TxNamespace.Bytes(),
+						TxNamespace.Bytes(),
 						[]byte{
 							0x1,                // info byte
 							0x0, 0x0, 0x0, 0x4, // 2 bytes (first transaction) + 2 bytes (second transaction) = 4 bytes sequence length
@@ -73,7 +72,7 @@ func TestSplitTxs_forTxShares(t *testing.T) {
 			want: []Share{
 				fillShare(Share{
 					data: append(
-						namespace.TxNamespace.Bytes(),
+						TxNamespace.Bytes(),
 						[]byte{
 							0x1,                // info byte
 							0x0, 0x0, 0x2, 0x2, // 512 (unit) + 2 (unit length) = 514 sequence length
@@ -87,7 +86,7 @@ func TestSplitTxs_forTxShares(t *testing.T) {
 				padShare(Share{
 					data: append(
 						append(
-							namespace.TxNamespace.Bytes(),
+							TxNamespace.Bytes(),
 							[]byte{
 								0x0,                // info byte
 								0x0, 0x0, 0x0, 0x0, // reserved bytes
@@ -105,7 +104,7 @@ func TestSplitTxs_forTxShares(t *testing.T) {
 			want: []Share{
 				fillShare(Share{
 					data: append(
-						namespace.TxNamespace.Bytes(),
+						TxNamespace.Bytes(),
 						[]byte{
 							0x1,                // info byte
 							0x0, 0x0, 0x2, 0x4, // 2 bytes (first transaction) + 514 bytes (second transaction) = 516 bytes sequence length
@@ -121,7 +120,7 @@ func TestSplitTxs_forTxShares(t *testing.T) {
 				padShare(Share{
 					data: append(
 						append(
-							namespace.TxNamespace.Bytes(),
+							TxNamespace.Bytes(),
 							[]byte{
 								0x0,                // info byte
 								0x0, 0x0, 0x0, 0x0, // reserved bytes
@@ -139,7 +138,7 @@ func TestSplitTxs_forTxShares(t *testing.T) {
 			want: []Share{
 				fillShare(Share{
 					data: append(
-						namespace.TxNamespace.Bytes(),
+						TxNamespace.Bytes(),
 						[]byte{
 							0x1,                // info byte
 							0x0, 0x0, 0x2, 0x4, // 514 bytes (first transaction) + 2 bytes (second transaction) = 516 bytes sequence length
@@ -152,7 +151,7 @@ func TestSplitTxs_forTxShares(t *testing.T) {
 				),
 				padShare(Share{
 					data: append(
-						namespace.TxNamespace.Bytes(),
+						TxNamespace.Bytes(),
 						[]byte{
 							0x0,                 // info byte
 							0x0, 0x0, 0x0, 0x4a, // reserved bytes
@@ -191,7 +190,7 @@ func TestSplitTxs(t *testing.T) {
 	smallTx := []byte{0xa} // spans one share
 	smallTxShares := []Share{
 		padShare(Share{
-			data: append(namespace.TxNamespace.Bytes(),
+			data: append(TxNamespace.Bytes(),
 				[]byte{
 					0x1,                // info byte
 					0x0, 0x0, 0x0, 0x2, // 1 byte (unit) + 1 byte (unit length) = 2 bytes sequence length
@@ -209,7 +208,7 @@ func TestSplitTxs(t *testing.T) {
 	pfbTxShares := []Share{
 		padShare(Share{
 			data: append(
-				namespace.PayForBlobNamespace.Bytes(),
+				PayForBlobNamespace.Bytes(),
 				[]uint8{
 					0x1,               // info byte
 					0x0, 0x0, 0x0, 13, // 1 byte (unit) + 1 byte (unit length) = 2 bytes sequence length
@@ -225,7 +224,7 @@ func TestSplitTxs(t *testing.T) {
 	largeTx := bytes.Repeat([]byte{0xc}, ShareSize) // spans two shares
 	largeTxShares := []Share{
 		fillShare(Share{
-			data: append(namespace.TxNamespace.Bytes(),
+			data: append(TxNamespace.Bytes(),
 				[]uint8{
 					0x1,                // info byte
 					0x0, 0x0, 0x2, 0x2, // 512 (unit) + 2 (unit length) = 514 sequence length
@@ -238,7 +237,7 @@ func TestSplitTxs(t *testing.T) {
 		padShare(Share{
 			data: append(
 				append(
-					namespace.TxNamespace.Bytes(),
+					TxNamespace.Bytes(),
 					[]uint8{
 						0x0,                // info byte
 						0x0, 0x0, 0x0, 0x0, // reserved bytes

@@ -6,11 +6,10 @@ import (
 	"fmt"
 	"math/rand"
 
-	"github.com/celestiaorg/go-square/namespace"
 	"github.com/celestiaorg/go-square/shares"
 )
 
-var DefaultTestNamespace = namespace.MustNewV0([]byte("test"))
+var DefaultTestNamespace = shares.MustNewV0Namespace([]byte("test"))
 
 func GenerateTxs(minSize, maxSize, numTxs int) [][]byte {
 	txs := make([][]byte, numTxs)
@@ -37,7 +36,7 @@ func RandomBytes(size int) []byte {
 	return b
 }
 
-func GenerateBlobTxWithNamespace(namespaces []namespace.Namespace, blobSizes []int, version uint8) []byte {
+func GenerateBlobTxWithNamespace(namespaces []shares.Namespace, blobSizes []int, version uint8) []byte {
 	blobs := make([]*shares.Blob, len(blobSizes))
 	if len(namespaces) != len(blobSizes) {
 		panic("number of namespaces should match number of blob sizes")
@@ -80,7 +79,7 @@ func GenerateBlobs(blobSizes ...int) []*shares.Blob {
 	blobs := make([]*shares.Blob, len(blobSizes))
 	var err error
 	for i, size := range blobSizes {
-		blobs[i], err = shares.NewBlob(namespace.RandomBlobNamespace(), RandomBytes(size), shares.ShareVersionZero, nil)
+		blobs[i], err = shares.NewBlob(shares.RandomBlobNamespace(), RandomBytes(size), shares.ShareVersionZero, nil)
 		if err != nil {
 			panic(err)
 		}

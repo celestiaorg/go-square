@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/celestiaorg/go-square/namespace"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -15,22 +14,22 @@ func TestSequenceLen(t *testing.T) {
 		share   Share
 		wantLen uint32
 	}
-	firstShare := append(bytes.Repeat([]byte{1}, namespace.NamespaceSize),
+	firstShare := append(bytes.Repeat([]byte{1}, NamespaceSize),
 		[]byte{
 			1,           // info byte
 			0, 0, 0, 10, // sequence len
 			1, 2, 3, 4, 5, 6, 7, 8, 9, 10, // data
 		}...)
-	firstShareWithLongSequence := append(bytes.Repeat([]byte{1}, namespace.NamespaceSize),
+	firstShareWithLongSequence := append(bytes.Repeat([]byte{1}, NamespaceSize),
 		[]byte{
 			1,           // info byte
 			0, 0, 1, 67, // sequence len
 		}...)
-	continuationShare := append(bytes.Repeat([]byte{1}, namespace.NamespaceSize),
+	continuationShare := append(bytes.Repeat([]byte{1}, NamespaceSize),
 		[]byte{
 			0, // info byte
 		}...)
-	compactShare := append(namespace.TxNamespace.Bytes(),
+	compactShare := append(TxNamespace.Bytes(),
 		[]byte{
 			1,           // info byte
 			0, 0, 0, 10, // sequence len
@@ -74,7 +73,7 @@ func TestRawData(t *testing.T) {
 		share Share
 		want  []byte
 	}
-	sparseNamespaceID := namespace.MustNewV0(bytes.Repeat([]byte{0x1}, namespace.NamespaceVersionZeroIDSize))
+	sparseNamespaceID := MustNewV0Namespace(bytes.Repeat([]byte{0x1}, NamespaceVersionZeroIDSize))
 	firstSparseShare := append(
 		sparseNamespaceID.Bytes(),
 		[]byte{
@@ -88,14 +87,14 @@ func TestRawData(t *testing.T) {
 			0,                             // info byte
 			1, 2, 3, 4, 5, 6, 7, 8, 9, 10, // data
 		}...)
-	firstCompactShare := append(namespace.TxNamespace.Bytes(),
+	firstCompactShare := append(TxNamespace.Bytes(),
 		[]byte{
 			1,           // info byte
 			0, 0, 0, 10, // sequence len
 			0, 0, 0, 15, // reserved bytes
 			1, 2, 3, 4, 5, 6, 7, 8, 9, 10, // data
 		}...)
-	continuationCompactShare := append(namespace.TxNamespace.Bytes(),
+	continuationCompactShare := append(TxNamespace.Bytes(),
 		[]byte{
 			0,          // info byte
 			0, 0, 0, 0, // reserved bytes
@@ -126,9 +125,7 @@ func TestRawData(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			rawData, err := tc.share.RawData()
-			require.NoError(t, err)
-			assert.Equal(t, tc.want, rawData)
+			assert.Equal(t, tc.want, tc.share.RawData())
 		})
 	}
 }
@@ -140,9 +137,9 @@ func TestIsCompactShare(t *testing.T) {
 		want  bool
 	}
 
-	ns1 := namespace.MustNewV0(bytes.Repeat([]byte{1}, namespace.NamespaceVersionZeroIDSize))
-	txShare, _ := zeroPadIfNecessary(namespace.TxNamespace.Bytes(), ShareSize)
-	pfbTxShare, _ := zeroPadIfNecessary(namespace.PayForBlobNamespace.Bytes(), ShareSize)
+	ns1 := MustNewV0Namespace(bytes.Repeat([]byte{1}, NamespaceVersionZeroIDSize))
+	txShare, _ := zeroPadIfNecessary(TxNamespace.Bytes(), ShareSize)
+	pfbTxShare, _ := zeroPadIfNecessary(PayForBlobNamespace.Bytes(), ShareSize)
 	blobShare, _ := zeroPadIfNecessary(ns1.Bytes(), ShareSize)
 
 	testCases := []testCase{
@@ -164,9 +161,7 @@ func TestIsCompactShare(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		got, err := tc.share.IsCompactShare()
-		assert.NoError(t, err)
-		assert.Equal(t, tc.want, got)
+		assert.Equal(t, tc.want, tc.share.IsCompactShare())
 	}
 }
 
@@ -215,9 +210,7 @@ func TestIsPadding(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := tc.share.IsPadding()
-			require.NoError(t, err)
-			assert.Equal(t, tc.want, got)
+			assert.Equal(t, tc.want, tc.share.IsPadding())
 		})
 	}
 }

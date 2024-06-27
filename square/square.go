@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/celestiaorg/go-square/namespace"
 	"github.com/celestiaorg/go-square/shares"
 )
 
@@ -66,19 +65,12 @@ func Deconstruct(s Square, decoder PFBDecoder) ([][]byte, error) {
 
 	// Work out which range of shares are non-pfb transactions
 	// and which ones are pfb transactions
-	txShareRange, err := shares.GetShareRangeForNamespace(s, namespace.TxNamespace)
-	if err != nil {
-		return nil, err
-	}
+	txShareRange := shares.GetShareRangeForNamespace(s, shares.TxNamespace)
 	if txShareRange.Start != 0 {
 		return nil, fmt.Errorf("expected txs to start at index 0, but got %d", txShareRange.Start)
 	}
 
-	wpfbShareRange, err := shares.GetShareRangeForNamespace(s[txShareRange.End:], namespace.PayForBlobNamespace)
-	if err != nil {
-		return nil, err
-	}
-
+	wpfbShareRange := shares.GetShareRangeForNamespace(s[txShareRange.End:], shares.PayForBlobNamespace)
 	// If there are no pfb transactions, then we can just return the txs
 	if wpfbShareRange.IsEmpty() {
 		return shares.ParseTxs(s[txShareRange.Start:txShareRange.End])
@@ -207,8 +199,8 @@ func (s Square) Equals(other Square) bool {
 
 // WrappedPFBs returns the wrapped PFBs in a square
 func (s Square) WrappedPFBs() ([][]byte, error) {
-	wpfbShareRange, err := shares.GetShareRangeForNamespace(s, namespace.PayForBlobNamespace)
-	if err != nil {
+	wpfbShareRange := shares.GetShareRangeForNamespace(s, shares.PayForBlobNamespace)
+	if wpfbShareRange.IsEmpty() {
 		return [][]byte{}, nil
 	}
 	return shares.ParseTxs(s[wpfbShareRange.Start:wpfbShareRange.End])

@@ -3,8 +3,6 @@ package shares
 import (
 	"crypto/sha256"
 	"errors"
-
-	"github.com/celestiaorg/go-square/namespace"
 )
 
 var (
@@ -41,8 +39,8 @@ func ExtractShareIndexes(txs [][]byte) []uint32 {
 }
 
 func SplitTxs(txs [][]byte) (txShares []Share, pfbShares []Share, shareRanges map[[sha256.Size]byte]Range, err error) {
-	txWriter := NewCompactShareSplitter(namespace.TxNamespace, ShareVersionZero)
-	pfbTxWriter := NewCompactShareSplitter(namespace.PayForBlobNamespace, ShareVersionZero)
+	txWriter := NewCompactShareSplitter(TxNamespace, ShareVersionZero)
+	pfbTxWriter := NewCompactShareSplitter(PayForBlobNamespace, ShareVersionZero)
 
 	for _, tx := range txs {
 		if _, isIndexWrapper := UnmarshalIndexWrapper(tx); isIndexWrapper {

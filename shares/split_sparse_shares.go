@@ -78,10 +78,7 @@ func (sss *SparseShareSplitter) WriteNamespacePaddingShares(count int) error {
 		return errors.New("cannot write namespace padding shares on an empty SparseShareSplitter")
 	}
 	lastBlob := sss.shares[len(sss.shares)-1]
-	lastBlobNs, err := lastBlob.Namespace()
-	if err != nil {
-		return err
-	}
+	lastBlobNs := lastBlob.Namespace()
 	lastBlobInfo := lastBlob.InfoByte()
 	nsPaddingShares, err := NamespacePaddingShares(lastBlobNs, lastBlobInfo.Version(), count)
 	if err != nil {

@@ -34,12 +34,8 @@ func ParseShares(shares []Share, ignorePadding bool) ([]ShareSequence, error) {
 	currentSequence := ShareSequence{}
 
 	for _, share := range shares {
-		isStart := share.IsSequenceStart()
-		ns, err := share.Namespace()
-		if err != nil {
-			return sequences, err
-		}
-		if isStart {
+		ns := share.Namespace()
+		if share.IsSequenceStart() {
 			if len(currentSequence.Shares) > 0 {
 				sequences = append(sequences, currentSequence)
 			}
@@ -67,11 +63,7 @@ func ParseShares(shares []Share, ignorePadding bool) ([]ShareSequence, error) {
 
 	result := []ShareSequence{}
 	for _, sequence := range sequences {
-		isPadding, err := sequence.isPadding()
-		if err != nil {
-			return nil, err
-		}
-		if ignorePadding && isPadding {
+		if ignorePadding && sequence.isPadding() {
 			continue
 		}
 		result = append(result, sequence)

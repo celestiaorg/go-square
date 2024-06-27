@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/celestiaorg/go-square/internal/test"
-	"github.com/celestiaorg/go-square/namespace"
 	"github.com/celestiaorg/go-square/shares"
 	"github.com/celestiaorg/go-square/square"
 	"github.com/stretchr/testify/assert"
@@ -57,7 +56,7 @@ func TestBuilderRejectsTransactions(t *testing.T) {
 }
 
 func TestBuilderRejectsBlobTransactions(t *testing.T) {
-	ns1 := namespace.MustNewV0(bytes.Repeat([]byte{1}, namespace.NamespaceVersionZeroIDSize))
+	ns1 := shares.MustNewV0Namespace(bytes.Repeat([]byte{1}, shares.NamespaceVersionZeroIDSize))
 	testCases := []struct {
 		blobSize []int
 		added    bool
@@ -144,11 +143,7 @@ func TestBuilderFindTxShareRange(t *testing.T) {
 func rawData(shares []shares.Share) ([]byte, error) {
 	var data []byte
 	for _, share := range shares {
-		rawData, err := share.RawData()
-		if err != nil {
-			return nil, err
-		}
-		data = append(data, rawData...)
+		data = append(data, share.RawData()...)
 	}
 	return data, nil
 }
@@ -156,9 +151,9 @@ func rawData(shares []shares.Share) ([]byte, error) {
 // TestSquareBlobPositions ensures that the share commitment rules which dictate the padding
 // between blobs is followed as well as the ordering of blobs by namespace.
 func TestSquareBlobPostions(t *testing.T) {
-	ns1 := namespace.MustNewV0(bytes.Repeat([]byte{1}, namespace.NamespaceVersionZeroIDSize))
-	ns2 := namespace.MustNewV0(bytes.Repeat([]byte{2}, namespace.NamespaceVersionZeroIDSize))
-	ns3 := namespace.MustNewV0(bytes.Repeat([]byte{3}, namespace.NamespaceVersionZeroIDSize))
+	ns1 := shares.MustNewV0Namespace(bytes.Repeat([]byte{1}, shares.NamespaceVersionZeroIDSize))
+	ns2 := shares.MustNewV0Namespace(bytes.Repeat([]byte{2}, shares.NamespaceVersionZeroIDSize))
+	ns3 := shares.MustNewV0Namespace(bytes.Repeat([]byte{3}, shares.NamespaceVersionZeroIDSize))
 
 	type testCase struct {
 		squareSize      int
@@ -169,7 +164,7 @@ func TestSquareBlobPostions(t *testing.T) {
 		{
 			squareSize: 4,
 			blobTxs: generateBlobTxsWithNamespaces(
-				[]namespace.Namespace{ns1},
+				[]shares.Namespace{ns1},
 				[][]int{{1}},
 			),
 			expectedIndexes: [][]uint32{{1}},
@@ -177,7 +172,7 @@ func TestSquareBlobPostions(t *testing.T) {
 		{
 			squareSize: 4,
 			blobTxs: generateBlobTxsWithNamespaces(
-				[]namespace.Namespace{ns1, ns1},
+				[]shares.Namespace{ns1, ns1},
 				test.Repeat([]int{100}, 2),
 			),
 			expectedIndexes: [][]uint32{{2}, {3}},
@@ -185,7 +180,7 @@ func TestSquareBlobPostions(t *testing.T) {
 		{
 			squareSize: 4,
 			blobTxs: generateBlobTxsWithNamespaces(
-				[]namespace.Namespace{ns1, ns1, ns1, ns1, ns1, ns1, ns1, ns1, ns1},
+				[]shares.Namespace{ns1, ns1, ns1, ns1, ns1, ns1, ns1, ns1, ns1},
 				test.Repeat([]int{100}, 9),
 			),
 			expectedIndexes: [][]uint32{{7}, {8}, {9}, {10}, {11}, {12}, {13}, {14}, {15}},
@@ -193,7 +188,7 @@ func TestSquareBlobPostions(t *testing.T) {
 		{
 			squareSize: 4,
 			blobTxs: generateBlobTxsWithNamespaces(
-				[]namespace.Namespace{ns1, ns1, ns1},
+				[]shares.Namespace{ns1, ns1, ns1},
 				[][]int{{10000}, {10000}, {1000000}},
 			),
 			expectedIndexes: [][]uint32{},
@@ -201,7 +196,7 @@ func TestSquareBlobPostions(t *testing.T) {
 		{
 			squareSize: 64,
 			blobTxs: generateBlobTxsWithNamespaces(
-				[]namespace.Namespace{ns1, ns1, ns1},
+				[]shares.Namespace{ns1, ns1, ns1},
 				[][]int{{1000}, {10000}, {10000}},
 			),
 			expectedIndexes: [][]uint32{{3}, {6}, {27}},
@@ -209,7 +204,7 @@ func TestSquareBlobPostions(t *testing.T) {
 		{
 			squareSize: 32,
 			blobTxs: generateBlobTxsWithNamespaces(
-				[]namespace.Namespace{ns2, ns1, ns1},
+				[]shares.Namespace{ns2, ns1, ns1},
 				[][]int{{100}, {100}, {100}},
 			),
 			expectedIndexes: [][]uint32{{5}, {3}, {4}},
@@ -217,7 +212,7 @@ func TestSquareBlobPostions(t *testing.T) {
 		{
 			squareSize: 16,
 			blobTxs: generateBlobTxsWithNamespaces(
-				[]namespace.Namespace{ns1, ns2, ns1},
+				[]shares.Namespace{ns1, ns2, ns1},
 				[][]int{{100}, {900}, {900}}, // 1, 2, 2 shares respectively
 			),
 			expectedIndexes: [][]uint32{{3}, {6}, {4}},
@@ -225,7 +220,7 @@ func TestSquareBlobPostions(t *testing.T) {
 		{
 			squareSize: 4,
 			blobTxs: generateBlobTxsWithNamespaces(
-				[]namespace.Namespace{ns1, ns3, ns3, ns2},
+				[]shares.Namespace{ns1, ns3, ns3, ns2},
 				[][]int{{100}, {1000, 1000}, {420}},
 			),
 			expectedIndexes: [][]uint32{{3}, {5, 8}, {4}},
@@ -234,7 +229,7 @@ func TestSquareBlobPostions(t *testing.T) {
 			// no blob txs should make it in the square
 			squareSize: 1,
 			blobTxs: generateBlobTxsWithNamespaces(
-				[]namespace.Namespace{ns1, ns2, ns3},
+				[]shares.Namespace{ns1, ns2, ns3},
 				[][]int{{1000}, {1000}, {1000}},
 			),
 			expectedIndexes: [][]uint32{},
@@ -243,7 +238,7 @@ func TestSquareBlobPostions(t *testing.T) {
 			// only two blob txs should make it in the square (after reordering)
 			squareSize: 4,
 			blobTxs: generateBlobTxsWithNamespaces(
-				[]namespace.Namespace{ns3, ns2, ns1},
+				[]shares.Namespace{ns3, ns2, ns1},
 				[][]int{{2000}, {2000}, {5000}},
 			),
 			expectedIndexes: [][]uint32{{7}, {2}},
@@ -251,7 +246,7 @@ func TestSquareBlobPostions(t *testing.T) {
 		{
 			squareSize: 4,
 			blobTxs: generateBlobTxsWithNamespaces(
-				[]namespace.Namespace{ns3, ns3, ns2, ns1},
+				[]shares.Namespace{ns3, ns3, ns2, ns1},
 				[][]int{{1800, 1000}, {22000}, {1800}},
 			),
 			// should be ns1 and {ns3, ns3} as ns2 is too large
@@ -260,7 +255,7 @@ func TestSquareBlobPostions(t *testing.T) {
 		{
 			squareSize: 4,
 			blobTxs: generateBlobTxsWithNamespaces(
-				[]namespace.Namespace{ns1, ns3, ns3, ns1, ns2, ns2},
+				[]shares.Namespace{ns1, ns3, ns3, ns1, ns2, ns2},
 				[][]int{{100}, {1400, 900, 200, 200}, {420}},
 			),
 			expectedIndexes: [][]uint32{{3}, {7, 10, 4, 5}, {6}},
@@ -268,7 +263,7 @@ func TestSquareBlobPostions(t *testing.T) {
 		{
 			squareSize: 4,
 			blobTxs: generateBlobTxsWithNamespaces(
-				[]namespace.Namespace{ns1, ns3, ns3, ns1, ns2, ns2},
+				[]shares.Namespace{ns1, ns3, ns3, ns1, ns2, ns2},
 				[][]int{{100}, {900, 1400, 200, 200}, {420}},
 			),
 			expectedIndexes: [][]uint32{{3}, {7, 9, 4, 5}, {6}},
@@ -276,7 +271,7 @@ func TestSquareBlobPostions(t *testing.T) {
 		{
 			squareSize: 16,
 			blobTxs: generateBlobTxsWithNamespaces(
-				[]namespace.Namespace{ns1, ns1},
+				[]shares.Namespace{ns1, ns1},
 				[][]int{{100}, {shares.AvailableBytesFromSparseShares(64)}},
 			),
 			// There should be one share padding between the two blobs
@@ -285,7 +280,7 @@ func TestSquareBlobPostions(t *testing.T) {
 		{
 			squareSize: 16,
 			blobTxs: generateBlobTxsWithNamespaces(
-				[]namespace.Namespace{ns1, ns1},
+				[]shares.Namespace{ns1, ns1},
 				[][]int{{100}, {shares.AvailableBytesFromSparseShares(64) + 1}},
 			),
 			// There should be one share padding between the two blobs
@@ -332,7 +327,7 @@ func shuffle(slice [][]byte) [][]byte {
 	return slice
 }
 
-func generateBlobTxsWithNamespaces(namespaces []namespace.Namespace, blobSizes [][]int) [][]byte {
+func generateBlobTxsWithNamespaces(namespaces []shares.Namespace, blobSizes [][]int) [][]byte {
 	txs := make([][]byte, len(blobSizes))
 	counter := 0
 	for i := 0; i < len(txs); i++ {

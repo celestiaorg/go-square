@@ -74,11 +74,11 @@ func extractRawData(shares []Share) (rawData []byte, err error) {
 		var raw []byte
 		if i == 0 {
 			raw, err = shares[i].RawDataUsingReserved()
+			if err != nil {
+				return nil, err
+			}
 		} else {
-			raw, err = shares[i].RawData()
-		}
-		if err != nil {
-			return nil, err
+			raw = shares[i].RawData()
 		}
 		rawData = append(rawData, raw...)
 	}

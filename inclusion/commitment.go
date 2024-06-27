@@ -3,7 +3,6 @@ package inclusion
 import (
 	"crypto/sha256"
 
-	ns "github.com/celestiaorg/go-square/namespace"
 	sh "github.com/celestiaorg/go-square/shares"
 	"github.com/celestiaorg/nmt"
 )
@@ -42,7 +41,7 @@ func CreateCommitment(blob *sh.Blob, merkleRootFn MerkleRootFn, subtreeRootThres
 	subTreeRoots := make([][]byte, len(leafSets))
 	for i, set := range leafSets {
 		// Create the NMT. TODO: use NMT wrapper.
-		tree := nmt.New(sha256.New(), nmt.NamespaceIDSize(ns.NamespaceSize), nmt.IgnoreMaxNamespace(true))
+		tree := nmt.New(sha256.New(), nmt.NamespaceIDSize(sh.NamespaceSize), nmt.IgnoreMaxNamespace(true))
 		for _, leaf := range set {
 			// the namespace must be added again here even though it is already
 			// included in the leaf to ensure that the hash will match that of

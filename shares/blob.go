@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"sort"
 
-	ns "github.com/celestiaorg/go-square/namespace"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -13,7 +12,7 @@ import (
 // to be submitted to the Celestia network alongside an accompanying namespace
 // and optional signer (for proving the signer of the blob)
 type Blob struct {
-	namespace    ns.Namespace
+	namespace    Namespace
 	data         []byte
 	shareVersion uint8
 	signer       []byte
@@ -21,7 +20,7 @@ type Blob struct {
 
 // New creates a new coretypes.Blob from the provided data after performing
 // basic stateless checks over it.
-func NewBlob(ns ns.Namespace, data []byte, shareVersion uint8, signer []byte) (*Blob, error) {
+func NewBlob(ns Namespace, data []byte, shareVersion uint8, signer []byte) (*Blob, error) {
 	if len(data) == 0 {
 		return nil, errors.New("data can not be empty")
 	}
@@ -42,24 +41,26 @@ func NewBlob(ns ns.Namespace, data []byte, shareVersion uint8, signer []byte) (*
 	}, nil
 }
 
-func NewV0Blob(ns ns.Namespace, data []byte) (*Blob, error) {
+// NewV0Blob creates a new blob with share version 0
+func NewV0Blob(ns Namespace, data []byte) (*Blob, error) {
 	return NewBlob(ns, data, 0, nil)
 }
 
-func NewV1Blob(ns ns.Namespace, data []byte, signer []byte) (*Blob, error) {
+// NewV1Blob creates a new blob with share version 1
+func NewV1Blob(ns Namespace, data []byte, signer []byte) (*Blob, error) {
 	return NewBlob(ns, data, 1, signer)
 }
 
 // NewFromProto creates a Blob from the proto format and performs
 // rudimentary validation checks on the structure
 func NewBlobFromProto(pb *BlobProto) (*Blob, error) {
-	if pb.NamespaceVersion > ns.NamespaceVersionMax {
+	if pb.NamespaceVersion > NamespaceVersionMax {
 		return nil, errors.New("namespace version can not be greater than MaxNamespaceVersion")
 	}
 	if len(pb.Data) == 0 {
 		return nil, errors.New("blob data can not be empty")
 	}
-	ns, err := ns.New(uint8(pb.NamespaceVersion), pb.NamespaceId)
+	ns, err := NewNamespace(uint8(pb.NamespaceVersion), pb.NamespaceId)
 	if err != nil {
 		return nil, fmt.Errorf("invalid namespace: %w", err)
 	}
@@ -72,7 +73,7 @@ func NewBlobFromProto(pb *BlobProto) (*Blob, error) {
 }
 
 // Namespace returns the namespace of the blob
-func (b *Blob) Namespace() ns.Namespace {
+func (b *Blob) Namespace() Namespace {
 	return b.namespace
 }
 
@@ -121,7 +122,7 @@ func UnmarshalBlobTx(tx []byte) (*BlobTx, bool) {
 		return &bTx, false
 	}
 	for _, b := range bTx.Blobs {
-		if len(b.NamespaceId) != ns.NamespaceIDSize {
+		if len(b.NamespaceId) != NamespaceIDSize {
 			return &bTx, false
 		}
 	}

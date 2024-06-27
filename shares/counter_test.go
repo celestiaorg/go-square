@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/celestiaorg/go-square/namespace"
 	"github.com/celestiaorg/go-square/shares"
 	"github.com/stretchr/testify/require"
 )
@@ -28,7 +27,7 @@ func TestCounterMatchesCompactShareSplitter(t *testing.T) {
 
 	for idx, tc := range testCases {
 		t.Run(fmt.Sprintf("case%d", idx), func(t *testing.T) {
-			writer := shares.NewCompactShareSplitter(namespace.PayForBlobNamespace, shares.ShareVersionZero)
+			writer := shares.NewCompactShareSplitter(shares.PayForBlobNamespace, shares.ShareVersionZero)
 			counter := shares.NewCompactShareCounter()
 
 			sum := 0
@@ -46,7 +45,7 @@ func TestCounterMatchesCompactShareSplitter(t *testing.T) {
 		})
 	}
 
-	writer := shares.NewCompactShareSplitter(namespace.PayForBlobNamespace, shares.ShareVersionZero)
+	writer := shares.NewCompactShareSplitter(shares.PayForBlobNamespace, shares.ShareVersionZero)
 	counter := shares.NewCompactShareCounter()
 	require.Equal(t, counter.Size(), 0)
 	require.Equal(t, writer.Count(), counter.Size())

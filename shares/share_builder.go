@@ -3,12 +3,10 @@ package shares
 import (
 	"encoding/binary"
 	"errors"
-
-	"github.com/celestiaorg/go-square/namespace"
 )
 
 type Builder struct {
-	namespace      namespace.Namespace
+	namespace      Namespace
 	shareVersion   uint8
 	isFirstShare   bool
 	isCompactShare bool
@@ -22,7 +20,7 @@ func NewEmptyBuilder() *Builder {
 }
 
 // NewBuilder returns a new share builder.
-func NewBuilder(ns namespace.Namespace, shareVersion uint8, isFirstShare bool) (*Builder, error) {
+func NewBuilder(ns Namespace, shareVersion uint8, isFirstShare bool) (*Builder, error) {
 	b := Builder{
 		namespace:      ns,
 		shareVersion:   shareVersion,
@@ -79,7 +77,7 @@ func (b *Builder) Build() (*Share, error) {
 
 // IsEmptyShare returns true if no data has been written to the share
 func (b *Builder) IsEmptyShare() bool {
-	expectedLen := namespace.NamespaceSize + ShareInfoBytes
+	expectedLen := NamespaceSize + ShareInfoBytes
 	if b.isCompactShare {
 		expectedLen += ShareReservedBytes
 	}
@@ -108,16 +106,16 @@ func (b *Builder) isEmptyReservedBytes() (bool, error) {
 func (b *Builder) indexOfReservedBytes() int {
 	if b.isFirstShare {
 		// if the share is the first share, the reserved bytes follow the namespace, info byte, and sequence length
-		return namespace.NamespaceSize + ShareInfoBytes + SequenceLenBytes
+		return NamespaceSize + ShareInfoBytes + SequenceLenBytes
 	}
 	// if the share is not the first share, the reserved bytes follow the namespace and info byte
-	return namespace.NamespaceSize + ShareInfoBytes
+	return NamespaceSize + ShareInfoBytes
 }
 
 // indexOfInfoBytes returns the index of the InfoBytes.
 func (b *Builder) indexOfInfoBytes() int {
 	// the info byte is immediately after the namespace
-	return namespace.NamespaceSize
+	return NamespaceSize
 }
 
 // MaybeWriteReservedBytes will be a no-op if the reserved bytes
@@ -162,7 +160,7 @@ func (b *Builder) WriteSequenceLen(sequenceLen uint32) error {
 	binary.BigEndian.PutUint32(sequenceLenBuf, sequenceLen)
 
 	for i := 0; i < SequenceLenBytes; i++ {
-		b.rawShareData[namespace.NamespaceSize+ShareInfoBytes+i] = sequenceLenBuf[i]
+		b.rawShareData[NamespaceSize+ShareInfoBytes+i] = sequenceLenBuf[i]
 	}
 
 	return nil
@@ -230,6 +228,6 @@ func (b *Builder) prepareSparseShare() error {
 	return nil
 }
 
-func isCompactShare(ns namespace.Namespace) bool {
+func isCompactShare(ns Namespace) bool {
 	return ns.IsTx() || ns.IsPayForBlob()
 }

@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"testing"
 
-	"github.com/celestiaorg/go-square/namespace"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -17,13 +16,13 @@ func TestShareSequenceRawData(t *testing.T) {
 		want          []byte
 		wantErr       bool
 	}
-	blobNamespace := namespace.RandomBlobNamespace()
+	blobNamespace := RandomBlobNamespace()
 
 	testCases := []testCase{
 		{
 			name: "empty share sequence",
 			shareSequence: ShareSequence{
-				Namespace: namespace.TxNamespace,
+				Namespace: TxNamespace,
 				Shares:    []Share{},
 			},
 			want:    []byte{},
@@ -32,7 +31,7 @@ func TestShareSequenceRawData(t *testing.T) {
 		{
 			name: "one empty share",
 			shareSequence: ShareSequence{
-				Namespace: namespace.TxNamespace,
+				Namespace: TxNamespace,
 				Shares: []Share{
 					shareWithData(blobNamespace, true, 0, []byte{}),
 				},
@@ -43,7 +42,7 @@ func TestShareSequenceRawData(t *testing.T) {
 		{
 			name: "one share with one byte",
 			shareSequence: ShareSequence{
-				Namespace: namespace.TxNamespace,
+				Namespace: TxNamespace,
 				Shares: []Share{
 					shareWithData(blobNamespace, true, 1, []byte{0x0f}),
 				},
@@ -54,7 +53,7 @@ func TestShareSequenceRawData(t *testing.T) {
 		{
 			name: "removes padding from last share",
 			shareSequence: ShareSequence{
-				Namespace: namespace.TxNamespace,
+				Namespace: TxNamespace,
 				Shares: []Share{
 					shareWithData(blobNamespace, true, FirstSparseShareContentSize+1, bytes.Repeat([]byte{0xf}, FirstSparseShareContentSize)),
 					shareWithData(blobNamespace, false, 0, []byte{0x0f}),
@@ -79,7 +78,7 @@ func TestShareSequenceRawData(t *testing.T) {
 
 func TestCompactSharesNeeded(t *testing.T) {
 	type testCase struct {
-		sequenceLen int
+		sequenceLen uint32
 		want        int
 	}
 	testCases := []testCase{
@@ -121,7 +120,7 @@ func TestSparseSharesNeeded(t *testing.T) {
 	}
 }
 
-func shareWithData(namespace namespace.Namespace, isSequenceStart bool, sequenceLen uint32, data []byte) (rawShare Share) {
+func shareWithData(namespace Namespace, isSequenceStart bool, sequenceLen uint32, data []byte) (rawShare Share) {
 	infoByte, _ := NewInfoByte(ShareVersionZero, isSequenceStart)
 	rawShareBytes := make([]byte, 0, ShareSize)
 	rawShareBytes = append(rawShareBytes, namespace.Bytes()...)
@@ -144,11 +143,11 @@ func Test_validSequenceLen(t *testing.T) {
 	}
 
 	tailPadding := ShareSequence{
-		Namespace: namespace.TailPaddingNamespace,
+		Namespace: TailPaddingNamespace,
 		Shares:    []Share{TailPaddingShare()},
 	}
 
-	ns1 := namespace.MustNewV0(bytes.Repeat([]byte{0x1}, namespace.NamespaceVersionZeroIDSize))
+	ns1 := MustNewV0Namespace(bytes.Repeat([]byte{0x1}, NamespaceVersionZeroIDSize))
 	share, err := NamespacePaddingShare(ns1, ShareVersionZero)
 	require.NoError(t, err)
 	namespacePadding := ShareSequence{
@@ -157,7 +156,7 @@ func Test_validSequenceLen(t *testing.T) {
 	}
 
 	reservedPadding := ShareSequence{
-		Namespace: namespace.PrimaryReservedPaddingNamespace,
+		Namespace: PrimaryReservedPaddingNamespace,
 		Shares:    []Share{ReservedPaddingShare()},
 	}
 
@@ -214,7 +213,7 @@ func Test_validSequenceLen(t *testing.T) {
 }
 
 func generateValidShareSequence(t *testing.T) ShareSequence {
-	css := NewCompactShareSplitter(namespace.TxNamespace, ShareVersionZero)
+	css := NewCompactShareSplitter(TxNamespace, ShareVersionZero)
 	txs := GenerateRandomTxs(5, 200)
 	for _, tx := range txs {
 		err := css.WriteTx(tx)
@@ -224,7 +223,7 @@ func generateValidShareSequence(t *testing.T) ShareSequence {
 	require.NoError(t, err)
 
 	return ShareSequence{
-		Namespace: namespace.TxNamespace,
+		Namespace: TxNamespace,
 		Shares:    shares,
 	}
 }
@@ -236,7 +235,7 @@ func FuzzValidSequenceLen(f *testing.F) {
 			t.Skip()
 		}
 
-		ns, err := namespace.From(rawNamespace)
+		ns, err := NewNamespaceFromBytes(rawNamespace)
 		if err != nil {
 			t.Skip()
 		}
