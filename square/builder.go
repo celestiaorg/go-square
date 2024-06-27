@@ -8,6 +8,7 @@ import (
 
 	"github.com/celestiaorg/go-square/inclusion"
 	"github.com/celestiaorg/go-square/share"
+	"golang.org/x/exp/constraints"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -34,7 +35,7 @@ func NewBuilder(maxSquareSize int, subtreeRootThreshold int, txs ...[]byte) (*Bu
 	if maxSquareSize <= 0 {
 		return nil, errors.New("max square size must be strictly positive")
 	}
-	if !share.IsPowerOfTwo(maxSquareSize) {
+	if !IsPowerOfTwo(maxSquareSize) {
 		return nil, errors.New("max square size must be a power of two")
 	}
 	builder := &Builder{
@@ -430,4 +431,9 @@ func worstCaseShareIndexes(blobs int) []uint32 {
 		shareIndexes[i] = uint32(worstCaseShareIndex)
 	}
 	return shareIndexes
+}
+
+// IsPowerOfTwo returns true if input is a power of two.
+func IsPowerOfTwo[I constraints.Integer](input I) bool {
+	return input&(input-1) == 0 && input != 0
 }

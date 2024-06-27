@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/celestiaorg/go-square/inclusion"
-	"github.com/celestiaorg/go-square/share"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -133,7 +133,7 @@ func TestNextShareIndex(t *testing.T) {
 			name:          "at threshold",
 			cursor:        11,
 			blobLen:       defaultSubtreeRootThreshold,
-			squareSize:    share.RoundUpPowerOfTwo(defaultSubtreeRootThreshold),
+			squareSize:    inclusion.RoundUpPowerOfTwo(defaultSubtreeRootThreshold),
 			expectedIndex: 11,
 		},
 		{
@@ -257,6 +257,28 @@ func TestRoundUpByMultipleOf(t *testing.T) {
 	}
 }
 
+func TestRoundUpPowerOfTwo(t *testing.T) {
+	type testCase struct {
+		input int
+		want  int
+	}
+	testCases := []testCase{
+		{input: -1, want: 1},
+		{input: 0, want: 1},
+		{input: 1, want: 1},
+		{input: 2, want: 2},
+		{input: 4, want: 4},
+		{input: 5, want: 8},
+		{input: 8, want: 8},
+		{input: 11, want: 16},
+		{input: 511, want: 512},
+	}
+	for _, tc := range testCases {
+		got := inclusion.RoundUpPowerOfTwo(tc.input)
+		assert.Equal(t, tc.want, got)
+	}
+}
+
 func TestBlobMinSquareSize(t *testing.T) {
 	type testCase struct {
 		shareCount int
@@ -364,5 +386,26 @@ func TestSubTreeWidth(t *testing.T) {
 			got := inclusion.SubTreeWidth(tc.shareCount, defaultSubtreeRootThreshold)
 			assert.Equal(t, tc.want, got, i)
 		})
+	}
+}
+
+func TestRoundDownPowerOfTwo(t *testing.T) {
+	type testCase struct {
+		input int
+		want  int
+	}
+	testCases := []testCase{
+		{input: 1, want: 1},
+		{input: 2, want: 2},
+		{input: 4, want: 4},
+		{input: 5, want: 4},
+		{input: 8, want: 8},
+		{input: 11, want: 8},
+		{input: 511, want: 256},
+	}
+	for _, tc := range testCases {
+		got, err := inclusion.RoundDownPowerOfTwo(tc.input)
+		require.NoError(t, err)
+		assert.Equal(t, tc.want, got)
 	}
 }

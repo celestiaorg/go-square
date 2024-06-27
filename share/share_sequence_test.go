@@ -214,7 +214,7 @@ func Test_validSequenceLen(t *testing.T) {
 
 func generateValidSequence(t *testing.T) Sequence {
 	css := NewCompactShareSplitter(TxNamespace, ShareVersionZero)
-	txs := GenerateRandomTxs(5, 200)
+	txs := generateRandomTxs(5, 200)
 	for _, tx := range txs {
 		err := css.WriteTx(tx)
 		require.NoError(t, err)

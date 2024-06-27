@@ -1,9 +1,9 @@
 package inclusion
 
 import (
+	"fmt"
 	"math"
 
-	"github.com/celestiaorg/go-square/share"
 	"golang.org/x/exp/constraints"
 )
 
@@ -48,10 +48,31 @@ func RoundUpByMultipleOf(cursor, v int) int {
 	return ((cursor / v) + 1) * v
 }
 
+// RoundUpPowerOfTwo returns the next power of two greater than or equal to input.
+func RoundUpPowerOfTwo[I constraints.Integer](input I) I {
+	var result I = 1
+	for result < input {
+		result <<= 1
+	}
+	return result
+}
+
+// RoundDownPowerOfTwo returns the next power of two less than or equal to input.
+func RoundDownPowerOfTwo[I constraints.Integer](input I) (I, error) {
+	if input <= 0 {
+		return 0, fmt.Errorf("input %v must be positive", input)
+	}
+	roundedUp := RoundUpPowerOfTwo(input)
+	if roundedUp == input {
+		return roundedUp, nil
+	}
+	return roundedUp / 2, nil
+}
+
 // BlobMinSquareSize returns the minimum square size that can contain shareCount
 // number of shares.
 func BlobMinSquareSize(shareCount int) int {
-	return share.RoundUpPowerOfTwo(int(math.Ceil(math.Sqrt(float64(shareCount)))))
+	return RoundUpPowerOfTwo(int(math.Ceil(math.Sqrt(float64(shareCount)))))
 }
 
 // SubTreeWidth returns the maximum number of leaves per subtree in the share
@@ -69,7 +90,7 @@ func SubTreeWidth(shareCount, subtreeRootThreshold int) int {
 
 	// use a power of two equal to or larger than the multiple of the subtree
 	// root threshold
-	s = share.RoundUpPowerOfTwo(s)
+	s = RoundUpPowerOfTwo(s)
 
 	// use the minimum of the subtree width and the min square size, this
 	// gurarantees that a valid value is returned

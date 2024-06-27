@@ -8,6 +8,7 @@ import (
 	"math"
 
 	"github.com/celestiaorg/go-square/share"
+	"golang.org/x/exp/constraints"
 )
 
 // Build takes an arbitrary long list of (prioritized) transactions and builds a square that is never
@@ -181,7 +182,16 @@ func (s Square) Size() int {
 // avoid breaking the api. In future versions there will not be a copy of this
 // code here.
 func Size(len int) int {
-	return share.RoundUpPowerOfTwo(int(math.Ceil(math.Sqrt(float64(len)))))
+	return RoundUpPowerOfTwo(int(math.Ceil(math.Sqrt(float64(len)))))
+}
+
+// RoundUpPowerOfTwo returns the next power of two greater than or equal to input.
+func RoundUpPowerOfTwo[I constraints.Integer](input I) I {
+	var result I = 1
+	for result < input {
+		result <<= 1
+	}
+	return result
 }
 
 // Equals returns true if two squares are equal
