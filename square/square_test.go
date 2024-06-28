@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/celestiaorg/go-square/internal/test"
-	"github.com/celestiaorg/go-square/shares"
+	"github.com/celestiaorg/go-square/share"
 	"github.com/celestiaorg/go-square/square"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -121,7 +121,7 @@ func TestSquareBlobShareRange(t *testing.T) {
 	require.NoError(t, err)
 
 	for pfbIdx, tx := range txs {
-		blobTx, isBlobTx := shares.UnmarshalBlobTx(tx)
+		blobTx, isBlobTx := share.UnmarshalBlobTx(tx)
 		require.True(t, isBlobTx)
 		for blobIdx := range blobTx.Blobs {
 			shareRange, err := square.BlobShareRange(txs, pfbIdx, blobIdx, defaultMaxSquareSize, defaultSubtreeRootThreshold)
@@ -192,8 +192,8 @@ func TestSize(t *testing.T) {
 		expect int
 	}
 	tests := []test{
-		{input: 0, expect: shares.MinSquareSize},
-		{input: 1, expect: shares.MinSquareSize},
+		{input: 0, expect: share.MinSquareSize},
+		{input: 1, expect: share.MinSquareSize},
 		{input: 64, expect: 8},
 		{input: 100, expect: 16},
 		{input: 1000, expect: 32},
@@ -203,6 +203,6 @@ func TestSize(t *testing.T) {
 	for i, tt := range tests {
 		res := square.Size(tt.input)
 		assert.Equal(t, tt.expect, res, i)
-		assert.True(t, shares.IsPowerOfTwo(res))
+		assert.True(t, share.IsPowerOfTwo(res))
 	}
 }

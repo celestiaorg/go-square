@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/celestiaorg/go-square/inclusion"
-	"github.com/celestiaorg/go-square/shares"
+	"github.com/celestiaorg/go-square/share"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -133,7 +133,7 @@ func TestNextShareIndex(t *testing.T) {
 			name:          "at threshold",
 			cursor:        11,
 			blobLen:       defaultSubtreeRootThreshold,
-			squareSize:    shares.RoundUpPowerOfTwo(defaultSubtreeRootThreshold),
+			squareSize:    share.RoundUpPowerOfTwo(defaultSubtreeRootThreshold),
 			expectedIndex: 11,
 		},
 		{
