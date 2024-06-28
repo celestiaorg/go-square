@@ -7,7 +7,7 @@ import (
 	"sort"
 
 	"github.com/celestiaorg/go-square/inclusion"
-	"github.com/celestiaorg/go-square/shares"
+	"github.com/celestiaorg/go-square/share"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -19,12 +19,12 @@ type Builder struct {
 
 	// here we keep track of the pending data to go in a square
 	Txs   [][]byte
-	Pfbs  []*shares.IndexWrapper
+	Pfbs  []*share.IndexWrapper
 	Blobs []*Element
 
 	// for compact shares we use a counter to track the amount of shares needed
-	TxCounter  *shares.CompactShareCounter
-	PfbCounter *shares.CompactShareCounter
+	TxCounter  *share.CompactShareCounter
+	PfbCounter *share.CompactShareCounter
 
 	done                 bool
 	subtreeRootThreshold int
@@ -34,21 +34,21 @@ func NewBuilder(maxSquareSize int, subtreeRootThreshold int, txs ...[]byte) (*Bu
 	if maxSquareSize <= 0 {
 		return nil, errors.New("max square size must be strictly positive")
 	}
-	if !shares.IsPowerOfTwo(maxSquareSize) {
+	if !share.IsPowerOfTwo(maxSquareSize) {
 		return nil, errors.New("max square size must be a power of two")
 	}
 	builder := &Builder{
 		maxSquareSize:        maxSquareSize,
 		subtreeRootThreshold: subtreeRootThreshold,
 		Blobs:                make([]*Element, 0),
-		Pfbs:                 make([]*shares.IndexWrapper, 0),
+		Pfbs:                 make([]*share.IndexWrapper, 0),
 		Txs:                  make([][]byte, 0),
-		TxCounter:            shares.NewCompactShareCounter(),
-		PfbCounter:           shares.NewCompactShareCounter(),
+		TxCounter:            share.NewCompactShareCounter(),
+		PfbCounter:           share.NewCompactShareCounter(),
 	}
 	seenFirstBlobTx := false
 	for idx, tx := range txs {
-		blobTx, isBlobTx := shares.UnmarshalBlobTx(tx)
+		blobTx, isBlobTx := share.UnmarshalBlobTx(tx)
 		if isBlobTx {
 			seenFirstBlobTx = true
 			if !builder.AppendBlobTx(blobTx) {
@@ -82,10 +82,10 @@ func (b *Builder) AppendTx(tx []byte) bool {
 
 // AppendBlobTx attempts to allocate the blob transaction to the square. It returns false if there is not
 // enough space in the square to fit the transaction.
-func (b *Builder) AppendBlobTx(blobTx *shares.BlobTx) bool {
-	iw := &shares.IndexWrapper{
+func (b *Builder) AppendBlobTx(blobTx *share.BlobTx) bool {
+	iw := &share.IndexWrapper{
 		Tx:           blobTx.Tx,
-		TypeId:       shares.ProtoIndexWrapperTypeID,
+		TypeId:       share.ProtoIndexWrapperTypeID,
 		ShareIndexes: worstCaseShareIndexes(len(blobTx.Blobs)),
 	}
 	size := proto.Size(iw)
@@ -95,7 +95,7 @@ func (b *Builder) AppendBlobTx(blobTx *shares.BlobTx) bool {
 	blobElements := make([]*Element, len(blobTx.Blobs))
 	maxBlobShareCount := 0
 	for idx, protoBlob := range blobTx.Blobs {
-		blob, err := shares.NewBlobFromProto(protoBlob)
+		blob, err := share.NewBlobFromProto(protoBlob)
 		if err != nil {
 			// TODO: we should look at having a go native BlobTx type
 			// that we have already verified instead of doing it twice here
@@ -138,7 +138,7 @@ func (b *Builder) Export() (Square, error) {
 	})
 
 	// write all the regular transactions into compact shares
-	txWriter := shares.NewCompactShareSplitter(shares.TxNamespace, shares.ShareVersionZero)
+	txWriter := share.NewCompactShareSplitter(share.TxNamespace, share.ShareVersionZero)
 	for _, tx := range b.Txs {
 		if err := txWriter.WriteTx(tx); err != nil {
 			return nil, fmt.Errorf("writing tx into compact shares: %w", err)
@@ -149,7 +149,7 @@ func (b *Builder) Export() (Square, error) {
 	nonReservedStart := b.TxCounter.Size() + b.PfbCounter.Size()
 	cursor := nonReservedStart
 	endOfLastBlob := nonReservedStart
-	blobWriter := shares.NewSparseShareSplitter()
+	blobWriter := share.NewSparseShareSplitter()
 	for i, element := range b.Blobs {
 		// NextShareIndex returned where the next blob should start so as to comply with the share commitment rules
 		// We fill out the remaining
@@ -184,7 +184,7 @@ func (b *Builder) Export() (Square, error) {
 
 	// write all the pay for blob transactions into compact shares. We need to do this after allocating the blobs to their
 	// appropriate shares as the starting index of each blob needs to be included in the PFB transaction
-	pfbWriter := shares.NewCompactShareSplitter(shares.PayForBlobNamespace, shares.ShareVersionZero)
+	pfbWriter := share.NewCompactShareSplitter(share.PayForBlobNamespace, share.ShareVersionZero)
 	for _, iw := range b.Pfbs {
 		iwBytes, err := proto.Marshal(iw)
 		if err != nil {
@@ -267,26 +267,26 @@ func (b *Builder) BlobShareLength(pfbIndex, blobIndex int) (int, error) {
 
 // FindTxShareRange returns the range of shares occupied by the tx at txIndex.
 // The indexes are both inclusive.
-func (b *Builder) FindTxShareRange(txIndex int) (shares.Range, error) {
+func (b *Builder) FindTxShareRange(txIndex int) (share.Range, error) {
 	// the square must be built before we can find the share range as we need to compute
 	// the wrapped indexes for the PFBs. NOTE: If a tx isn't a PFB, we could theoretically
 	// calculate the index without having to build the entire square.
 	if !b.done {
 		_, err := b.Export()
 		if err != nil {
-			return shares.Range{}, fmt.Errorf("building square: %w", err)
+			return share.Range{}, fmt.Errorf("building square: %w", err)
 		}
 	}
 	if txIndex < 0 {
-		return shares.Range{}, fmt.Errorf("txIndex %d must not be negative", txIndex)
+		return share.Range{}, fmt.Errorf("txIndex %d must not be negative", txIndex)
 	}
 
 	if txIndex >= len(b.Txs)+len(b.Pfbs) {
-		return shares.Range{}, fmt.Errorf("txIndex %d out of range", txIndex)
+		return share.Range{}, fmt.Errorf("txIndex %d out of range", txIndex)
 	}
 
-	txWriter := shares.NewCompactShareCounter()
-	pfbWriter := shares.NewCompactShareCounter()
+	txWriter := share.NewCompactShareCounter()
+	pfbWriter := share.NewCompactShareCounter()
 	for i := 0; i < txIndex; i++ {
 		if i < len(b.Txs) {
 			_ = txWriter.Add(len(b.Txs[i]))
@@ -317,10 +317,10 @@ func (b *Builder) FindTxShareRange(txIndex int) (shares.Range, error) {
 	}
 	end := txWriter.Size() + pfbWriter.Size()
 
-	return shares.NewRange(start, end), nil
+	return share.NewRange(start, end), nil
 }
 
-func (b *Builder) GetWrappedPFB(txIndex int) (*shares.IndexWrapper, error) {
+func (b *Builder) GetWrappedPFB(txIndex int) (*share.IndexWrapper, error) {
 	if txIndex < 0 {
 		return nil, fmt.Errorf("txIndex %d must not be negative", txIndex)
 	}
@@ -368,15 +368,15 @@ func (b *Builder) IsEmpty() bool {
 }
 
 type Element struct {
-	Blob       *shares.Blob
+	Blob       *share.Blob
 	PfbIndex   int
 	BlobIndex  int
 	NumShares  int
 	MaxPadding int
 }
 
-func newElement(blob *shares.Blob, pfbIndex, blobIndex, subtreeRootThreshold int) *Element {
-	numShares := shares.SparseSharesNeeded(uint32(len(blob.Data())))
+func newElement(blob *share.Blob, pfbIndex, blobIndex, subtreeRootThreshold int) *Element {
+	numShares := share.SparseSharesNeeded(uint32(len(blob.Data())))
 	return &Element{
 		Blob:      blob,
 		PfbIndex:  pfbIndex,

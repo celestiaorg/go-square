@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/celestiaorg/go-square/shares"
+	"github.com/celestiaorg/go-square/share"
 )
 
 // Build takes an arbitrary long list of (prioritized) transactions and builds a square that is never
@@ -23,7 +23,7 @@ func Build(txs [][]byte, maxSquareSize, subtreeRootThreshold int) (Square, [][]b
 	normalTxs := make([][]byte, 0, len(txs))
 	blobTxs := make([][]byte, 0, len(txs))
 	for _, tx := range txs {
-		blobTx, isBlobTx := shares.UnmarshalBlobTx(tx)
+		blobTx, isBlobTx := share.UnmarshalBlobTx(tx)
 		if isBlobTx {
 			if builder.AppendBlobTx(blobTx) {
 				blobTxs = append(blobTxs, tx)
@@ -65,15 +65,15 @@ func Deconstruct(s Square, decoder PFBDecoder) ([][]byte, error) {
 
 	// Work out which range of shares are non-pfb transactions
 	// and which ones are pfb transactions
-	txShareRange := shares.GetShareRangeForNamespace(s, shares.TxNamespace)
+	txShareRange := share.GetShareRangeForNamespace(s, share.TxNamespace)
 	if txShareRange.Start != 0 {
 		return nil, fmt.Errorf("expected txs to start at index 0, but got %d", txShareRange.Start)
 	}
 
-	wpfbShareRange := shares.GetShareRangeForNamespace(s[txShareRange.End:], shares.PayForBlobNamespace)
+	wpfbShareRange := share.GetShareRangeForNamespace(s[txShareRange.End:], share.PayForBlobNamespace)
 	// If there are no pfb transactions, then we can just return the txs
 	if wpfbShareRange.IsEmpty() {
-		return shares.ParseTxs(s[txShareRange.Start:txShareRange.End])
+		return share.ParseTxs(s[txShareRange.Start:txShareRange.End])
 	}
 
 	// We expect pfb transactions to come directly after non-pfb transactions
@@ -83,12 +83,12 @@ func Deconstruct(s Square, decoder PFBDecoder) ([][]byte, error) {
 	wpfbShareRange.Add(txShareRange.End)
 
 	// Parse both txs
-	txs, err := shares.ParseTxs(s[txShareRange.Start:txShareRange.End])
+	txs, err := share.ParseTxs(s[txShareRange.Start:txShareRange.End])
 	if err != nil {
 		return nil, err
 	}
 
-	wpfbs, err := shares.ParseTxs(s[wpfbShareRange.Start:wpfbShareRange.End])
+	wpfbs, err := share.ParseTxs(s[wpfbShareRange.Start:wpfbShareRange.End])
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +96,7 @@ func Deconstruct(s Square, decoder PFBDecoder) ([][]byte, error) {
 	// loop through the wrapped pfbs and generate the original
 	// blobTx that they derive from
 	for i, wpfbBytes := range wpfbs {
-		wpfb, isWpfb := shares.UnmarshalIndexWrapper(wpfbBytes)
+		wpfb, isWpfb := share.UnmarshalIndexWrapper(wpfbBytes)
 		if !isWpfb {
 			return nil, fmt.Errorf("expected wrapped PFB at index %d", i)
 		}
@@ -111,10 +111,10 @@ func Deconstruct(s Square, decoder PFBDecoder) ([][]byte, error) {
 			return nil, fmt.Errorf("expected PFB to have %d blob sizes, but got %d", len(wpfb.ShareIndexes), len(blobSizes))
 		}
 
-		blobs := make([]*shares.Blob, len(wpfb.ShareIndexes))
+		blobs := make([]*share.Blob, len(wpfb.ShareIndexes))
 		for j, shareIndex := range wpfb.ShareIndexes {
-			end := int(shareIndex) + shares.SparseSharesNeeded(blobSizes[j])
-			parsedBlobs, err := shares.ParseBlobs(s[shareIndex:end])
+			end := int(shareIndex) + share.SparseSharesNeeded(blobSizes[j])
+			parsedBlobs, err := share.ParseBlobs(s[shareIndex:end])
 			if err != nil {
 				return nil, err
 			}
@@ -125,7 +125,7 @@ func Deconstruct(s Square, decoder PFBDecoder) ([][]byte, error) {
 			blobs[j] = parsedBlobs[0]
 		}
 
-		tx, err := shares.MarshalBlobTx(wpfb.Tx, blobs...)
+		tx, err := share.MarshalBlobTx(wpfb.Tx, blobs...)
 		if err != nil {
 			return nil, err
 		}
@@ -137,10 +137,10 @@ func Deconstruct(s Square, decoder PFBDecoder) ([][]byte, error) {
 
 // TxShareRange returns the range of share indexes that the tx, specified by txIndex, occupies.
 // The range is end exclusive.
-func TxShareRange(txs [][]byte, txIndex, maxSquareSize, subtreeRootThreshold int) (shares.Range, error) {
+func TxShareRange(txs [][]byte, txIndex, maxSquareSize, subtreeRootThreshold int) (share.Range, error) {
 	builder, err := NewBuilder(maxSquareSize, subtreeRootThreshold, txs...)
 	if err != nil {
-		return shares.Range{}, err
+		return share.Range{}, err
 	}
 
 	return builder.FindTxShareRange(txIndex)
@@ -148,28 +148,28 @@ func TxShareRange(txs [][]byte, txIndex, maxSquareSize, subtreeRootThreshold int
 
 // BlobShareRange returns the range of share indexes that the blob, identified by txIndex and blobIndex, occupies.
 // The range is end exclusive.
-func BlobShareRange(txs [][]byte, txIndex, blobIndex, maxSquareSize, subtreeRootThreshold int) (shares.Range, error) {
+func BlobShareRange(txs [][]byte, txIndex, blobIndex, maxSquareSize, subtreeRootThreshold int) (share.Range, error) {
 	builder, err := NewBuilder(maxSquareSize, subtreeRootThreshold, txs...)
 	if err != nil {
-		return shares.Range{}, err
+		return share.Range{}, err
 	}
 
 	start, err := builder.FindBlobStartingIndex(txIndex, blobIndex)
 	if err != nil {
-		return shares.Range{}, err
+		return share.Range{}, err
 	}
 
 	blobLen, err := builder.BlobShareLength(txIndex, blobIndex)
 	if err != nil {
-		return shares.Range{}, err
+		return share.Range{}, err
 	}
 	end := start + blobLen
 
-	return shares.NewRange(start, end), nil
+	return share.NewRange(start, end), nil
 }
 
 // Square is a 2D square of shares with symmetrical sides that are always a power of 2.
-type Square []shares.Share
+type Square []share.Share
 
 // Size returns the size of the sides of a square
 func (s Square) Size() int {
@@ -181,7 +181,7 @@ func (s Square) Size() int {
 // avoid breaking the api. In future versions there will not be a copy of this
 // code here.
 func Size(len int) int {
-	return shares.RoundUpPowerOfTwo(int(math.Ceil(math.Sqrt(float64(len)))))
+	return share.RoundUpPowerOfTwo(int(math.Ceil(math.Sqrt(float64(len)))))
 }
 
 // Equals returns true if two squares are equal
@@ -199,11 +199,11 @@ func (s Square) Equals(other Square) bool {
 
 // WrappedPFBs returns the wrapped PFBs in a square
 func (s Square) WrappedPFBs() ([][]byte, error) {
-	wpfbShareRange := shares.GetShareRangeForNamespace(s, shares.PayForBlobNamespace)
+	wpfbShareRange := share.GetShareRangeForNamespace(s, share.PayForBlobNamespace)
 	if wpfbShareRange.IsEmpty() {
 		return [][]byte{}, nil
 	}
-	return shares.ParseTxs(s[wpfbShareRange.Start:wpfbShareRange.End])
+	return share.ParseTxs(s[wpfbShareRange.Start:wpfbShareRange.End])
 }
 
 func (s Square) IsEmpty() bool {
@@ -212,12 +212,12 @@ func (s Square) IsEmpty() bool {
 
 // EmptySquare returns a 1x1 square with a single tail padding share
 func EmptySquare() Square {
-	return shares.TailPaddingShares(shares.MinShareCount)
+	return share.TailPaddingShares(share.MinShareCount)
 }
 
 func WriteSquare(
-	txWriter, pfbWriter *shares.CompactShareSplitter,
-	blobWriter *shares.SparseShareSplitter,
+	txWriter, pfbWriter *share.CompactShareSplitter,
+	blobWriter *share.SparseShareSplitter,
 	nonReservedStart, squareSize int,
 ) (Square, error) {
 	totalShares := squareSize * squareSize
@@ -226,7 +226,7 @@ func WriteSquare(
 	if nonReservedStart < paddingStartIndex {
 		return nil, fmt.Errorf("nonReservedStart %d is too small to fit all PFBs and txs", nonReservedStart)
 	}
-	padding := shares.ReservedPaddingShares(nonReservedStart - paddingStartIndex)
+	padding := share.ReservedPaddingShares(nonReservedStart - paddingStartIndex)
 	endOfLastBlob := nonReservedStart + blobWriter.Count()
 	if totalShares < endOfLastBlob {
 		return nil, fmt.Errorf("square size %d is too small to fit all blobs", totalShares)
@@ -242,7 +242,7 @@ func WriteSquare(
 		return nil, fmt.Errorf("failed to export pfb shares: %w", err)
 	}
 
-	square := make([]shares.Share, totalShares)
+	square := make([]share.Share, totalShares)
 	copy(square, txShares)
 	copy(square[pfbStartIndex:], pfbShares)
 	if blobWriter.Count() > 0 {
@@ -250,7 +250,7 @@ func WriteSquare(
 		copy(square[nonReservedStart:], blobWriter.Export())
 	}
 	if totalShares > endOfLastBlob {
-		copy(square[endOfLastBlob:], shares.TailPaddingShares(totalShares-endOfLastBlob))
+		copy(square[endOfLastBlob:], share.TailPaddingShares(totalShares-endOfLastBlob))
 	}
 
 	return square, nil

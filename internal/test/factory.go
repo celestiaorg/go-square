@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"math/rand"
 
-	"github.com/celestiaorg/go-square/shares"
+	"github.com/celestiaorg/go-square/share"
 )
 
-var DefaultTestNamespace = shares.MustNewV0Namespace([]byte("test"))
+var DefaultTestNamespace = share.MustNewV0Namespace([]byte("test"))
 
 func GenerateTxs(minSize, maxSize, numTxs int) [][]byte {
 	txs := make([][]byte, numTxs)
@@ -36,23 +36,23 @@ func RandomBytes(size int) []byte {
 	return b
 }
 
-func GenerateBlobTxWithNamespace(namespaces []shares.Namespace, blobSizes []int, version uint8) []byte {
-	blobs := make([]*shares.Blob, len(blobSizes))
+func GenerateBlobTxWithNamespace(namespaces []share.Namespace, blobSizes []int, version uint8) []byte {
+	blobs := make([]*share.Blob, len(blobSizes))
 	if len(namespaces) != len(blobSizes) {
 		panic("number of namespaces should match number of blob sizes")
 	}
 	var err error
 	var signer []byte
-	if version == shares.ShareVersionOne {
-		signer = RandomBytes(shares.SignerSize)
+	if version == share.ShareVersionOne {
+		signer = RandomBytes(share.SignerSize)
 	}
 	for i, size := range blobSizes {
-		blobs[i], err = shares.NewBlob(namespaces[i], RandomBytes(size), version, signer)
+		blobs[i], err = share.NewBlob(namespaces[i], RandomBytes(size), version, signer)
 		if err != nil {
 			panic(err)
 		}
 	}
-	blobTx, err := shares.MarshalBlobTx(MockPFB(toUint32(blobSizes)), blobs...)
+	blobTx, err := share.MarshalBlobTx(MockPFB(toUint32(blobSizes)), blobs...)
 	if err != nil {
 		panic(err)
 	}
@@ -60,7 +60,7 @@ func GenerateBlobTxWithNamespace(namespaces []shares.Namespace, blobSizes []int,
 }
 
 func GenerateBlobTx(blobSizes []int) []byte {
-	return GenerateBlobTxWithNamespace(Repeat(DefaultTestNamespace, len(blobSizes)), blobSizes, shares.DefaultShareVersion)
+	return GenerateBlobTxWithNamespace(Repeat(DefaultTestNamespace, len(blobSizes)), blobSizes, share.DefaultShareVersion)
 }
 
 func GenerateBlobTxs(numTxs, blobsPerPfb, blobSize int) [][]byte {
@@ -75,11 +75,11 @@ func GenerateBlobTxs(numTxs, blobsPerPfb, blobSize int) [][]byte {
 	return txs
 }
 
-func GenerateBlobs(blobSizes ...int) []*shares.Blob {
-	blobs := make([]*shares.Blob, len(blobSizes))
+func GenerateBlobs(blobSizes ...int) []*share.Blob {
+	blobs := make([]*share.Blob, len(blobSizes))
 	var err error
 	for i, size := range blobSizes {
-		blobs[i], err = shares.NewBlob(shares.RandomBlobNamespace(), RandomBytes(size), shares.ShareVersionZero, nil)
+		blobs[i], err = share.NewBlob(share.RandomBlobNamespace(), RandomBytes(size), share.ShareVersionZero, nil)
 		if err != nil {
 			panic(err)
 		}
