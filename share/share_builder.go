@@ -19,7 +19,7 @@ func newEmptyBuilder() *builder {
 	}
 }
 
-// NewBuilder returns a new share builder.
+// newBuilder returns a new share builder.
 func newBuilder(ns Namespace, shareVersion uint8, isFirstShare bool) (*builder, error) {
 	b := builder{
 		namespace:      ns,
