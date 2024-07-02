@@ -12,7 +12,7 @@ import (
 func TestShareBuilderIsEmptyShare(t *testing.T) {
 	type testCase struct {
 		name    string
-		builder *Builder
+		builder *builder
 		data    []byte // input data
 		want    bool
 	}
@@ -80,7 +80,7 @@ func TestShareBuilderIsEmptyShare(t *testing.T) {
 func TestShareBuilderWriteSequenceLen(t *testing.T) {
 	type testCase struct {
 		name    string
-		builder *Builder
+		builder *builder
 		wantLen uint32
 		wantErr bool
 	}
@@ -119,7 +119,7 @@ func TestShareBuilderWriteSequenceLen(t *testing.T) {
 		},
 		{
 			name:    "nil builder",
-			builder: &Builder{},
+			builder: &builder{},
 			wantLen: 10,
 			wantErr: true,
 		},
@@ -145,7 +145,7 @@ func TestShareBuilderWriteSequenceLen(t *testing.T) {
 func TestShareBuilderAddData(t *testing.T) {
 	type testCase struct {
 		name    string
-		builder *Builder
+		builder *builder
 		data    []byte // input data
 		want    []byte
 	}
@@ -287,7 +287,7 @@ func TestShareBuilderImportRawData(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			b := NewEmptyBuilder().ImportRawShare(tc.shareBytes)
+			b := newEmptyBuilder().ImportRawShare(tc.shareBytes)
 			b.ZeroPadIfNecessary()
 			builtShare, err := b.Build()
 			if tc.wantErr {
@@ -305,8 +305,8 @@ func TestShareBuilderImportRawData(t *testing.T) {
 }
 
 // mustNewBuilder returns a new builder with the given parameters. It fails the test if an error is encountered.
-func mustNewBuilder(t *testing.T, ns Namespace, shareVersion uint8, isFirstShare bool) *Builder {
-	b, err := NewBuilder(ns, shareVersion, isFirstShare)
+func mustNewBuilder(t *testing.T, ns Namespace, shareVersion uint8, isFirstShare bool) *builder {
+	b, err := newBuilder(ns, shareVersion, isFirstShare)
 	require.NoError(t, err)
 	return b
 }

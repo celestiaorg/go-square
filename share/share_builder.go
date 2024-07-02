@@ -5,7 +5,7 @@ import (
 	"errors"
 )
 
-type Builder struct {
+type builder struct {
 	namespace      Namespace
 	shareVersion   uint8
 	isFirstShare   bool
@@ -13,15 +13,15 @@ type Builder struct {
 	rawShareData   []byte
 }
 
-func NewEmptyBuilder() *Builder {
-	return &Builder{
+func newEmptyBuilder() *builder {
+	return &builder{
 		rawShareData: make([]byte, 0, ShareSize),
 	}
 }
 
-// NewBuilder returns a new share builder.
-func NewBuilder(ns Namespace, shareVersion uint8, isFirstShare bool) (*Builder, error) {
-	b := Builder{
+// newBuilder returns a new share builder.
+func newBuilder(ns Namespace, shareVersion uint8, isFirstShare bool) (*builder, error) {
+	b := builder{
 		namespace:      ns,
 		shareVersion:   shareVersion,
 		isFirstShare:   isFirstShare,
@@ -34,23 +34,23 @@ func NewBuilder(ns Namespace, shareVersion uint8, isFirstShare bool) (*Builder, 
 }
 
 // init initializes the share builder by populating rawShareData.
-func (b *Builder) init() error {
+func (b *builder) init() error {
 	if b.isCompactShare {
 		return b.prepareCompactShare()
 	}
 	return b.prepareSparseShare()
 }
 
-func (b *Builder) AvailableBytes() int {
+func (b *builder) AvailableBytes() int {
 	return ShareSize - len(b.rawShareData)
 }
 
-func (b *Builder) ImportRawShare(rawBytes []byte) *Builder {
+func (b *builder) ImportRawShare(rawBytes []byte) *builder {
 	b.rawShareData = rawBytes
 	return b
 }
 
-func (b *Builder) AddData(rawData []byte) (rawDataLeftOver []byte) {
+func (b *builder) AddData(rawData []byte) (rawDataLeftOver []byte) {
 	// find the len left in the pending share
 	pendingLeft := ShareSize - len(b.rawShareData)
 
@@ -71,12 +71,12 @@ func (b *Builder) AddData(rawData []byte) (rawDataLeftOver []byte) {
 	return rawData[pendingLeft:]
 }
 
-func (b *Builder) Build() (*Share, error) {
+func (b *builder) Build() (*Share, error) {
 	return NewShare(b.rawShareData)
 }
 
 // IsEmptyShare returns true if no data has been written to the share
-func (b *Builder) IsEmptyShare() bool {
+func (b *builder) IsEmptyShare() bool {
 	expectedLen := NamespaceSize + ShareInfoBytes
 	if b.isCompactShare {
 		expectedLen += ShareReservedBytes
@@ -87,13 +87,13 @@ func (b *Builder) IsEmptyShare() bool {
 	return len(b.rawShareData) == expectedLen
 }
 
-func (b *Builder) ZeroPadIfNecessary() (bytesOfPadding int) {
+func (b *builder) ZeroPadIfNecessary() (bytesOfPadding int) {
 	b.rawShareData, bytesOfPadding = zeroPadIfNecessary(b.rawShareData, ShareSize)
 	return bytesOfPadding
 }
 
 // isEmptyReservedBytes returns true if the reserved bytes are empty.
-func (b *Builder) isEmptyReservedBytes() (bool, error) {
+func (b *builder) isEmptyReservedBytes() (bool, error) {
 	indexOfReservedBytes := b.indexOfReservedBytes()
 	reservedBytes, err := ParseReservedBytes(b.rawShareData[indexOfReservedBytes : indexOfReservedBytes+ShareReservedBytes])
 	if err != nil {
@@ -103,7 +103,7 @@ func (b *Builder) isEmptyReservedBytes() (bool, error) {
 }
 
 // indexOfReservedBytes returns the index of the reserved bytes in the share.
-func (b *Builder) indexOfReservedBytes() int {
+func (b *builder) indexOfReservedBytes() int {
 	if b.isFirstShare {
 		// if the share is the first share, the reserved bytes follow the namespace, info byte, and sequence length
 		return NamespaceSize + ShareInfoBytes + SequenceLenBytes
@@ -113,7 +113,7 @@ func (b *Builder) indexOfReservedBytes() int {
 }
 
 // indexOfInfoBytes returns the index of the InfoBytes.
-func (b *Builder) indexOfInfoBytes() int {
+func (b *builder) indexOfInfoBytes() int {
 	// the info byte is immediately after the namespace
 	return NamespaceSize
 }
@@ -121,7 +121,7 @@ func (b *Builder) indexOfInfoBytes() int {
 // MaybeWriteReservedBytes will be a no-op if the reserved bytes
 // have already been populated. If the reserved bytes are empty, it will write
 // the location of the next unit of data to the reserved bytes.
-func (b *Builder) MaybeWriteReservedBytes() error {
+func (b *builder) MaybeWriteReservedBytes() error {
 	if !b.isCompactShare {
 		return errors.New("this is not a compact share")
 	}
@@ -149,7 +149,7 @@ func (b *Builder) MaybeWriteReservedBytes() error {
 }
 
 // WriteSequenceLen writes the sequence length to the first share.
-func (b *Builder) WriteSequenceLen(sequenceLen uint32) error {
+func (b *builder) WriteSequenceLen(sequenceLen uint32) error {
 	if b == nil {
 		return errors.New("the builder object is not initialized (is nil)")
 	}
@@ -167,7 +167,7 @@ func (b *Builder) WriteSequenceLen(sequenceLen uint32) error {
 }
 
 // WriteSigner writes the signer's information to the share.
-func (b *Builder) WriteSigner(signer []byte) {
+func (b *builder) WriteSigner(signer []byte) {
 	// only write the signer if it is the first share and the share version is 1
 	if b == nil || !b.isFirstShare || b.shareVersion != ShareVersionOne {
 		return
@@ -178,7 +178,7 @@ func (b *Builder) WriteSigner(signer []byte) {
 }
 
 // FlipSequenceStart flips the sequence start indicator of the share provided
-func (b *Builder) FlipSequenceStart() {
+func (b *builder) FlipSequenceStart() {
 	infoByteIndex := b.indexOfInfoBytes()
 
 	// the sequence start indicator is the last bit of the info byte so flip the
@@ -186,7 +186,7 @@ func (b *Builder) FlipSequenceStart() {
 	b.rawShareData[infoByteIndex] ^= 0x01
 }
 
-func (b *Builder) prepareCompactShare() error {
+func (b *builder) prepareCompactShare() error {
 	shareData := make([]byte, 0, ShareSize)
 	infoByte, err := NewInfoByte(b.shareVersion, b.isFirstShare)
 	if err != nil {
@@ -209,7 +209,7 @@ func (b *Builder) prepareCompactShare() error {
 	return nil
 }
 
-func (b *Builder) prepareSparseShare() error {
+func (b *builder) prepareSparseShare() error {
 	shareData := make([]byte, 0, ShareSize)
 	infoByte, err := NewInfoByte(b.shareVersion, b.isFirstShare)
 	if err != nil {

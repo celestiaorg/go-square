@@ -203,6 +203,6 @@ func TestSize(t *testing.T) {
 	for i, tt := range tests {
 		res := square.Size(tt.input)
 		assert.Equal(t, tt.expect, res, i)
-		assert.True(t, share.IsPowerOfTwo(res))
+		assert.True(t, square.IsPowerOfTwo(res))
 	}
 }

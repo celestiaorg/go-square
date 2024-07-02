@@ -95,7 +95,7 @@ func MerkleMountainRangeSizes(totalSize, maxTreeSize uint64) ([]uint64, error) {
 			treeSizes = append(treeSizes, maxTreeSize)
 			totalSize -= maxTreeSize
 		case totalSize < maxTreeSize:
-			treeSize, err := sh.RoundDownPowerOfTwo(totalSize)
+			treeSize, err := RoundDownPowerOfTwo(totalSize)
 			if err != nil {
 				return treeSizes, err
 			}
