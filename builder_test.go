@@ -8,9 +8,9 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/celestiaorg/go-square"
 	"github.com/celestiaorg/go-square/internal/test"
 	"github.com/celestiaorg/go-square/share"
-	"github.com/celestiaorg/go-square/square"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -365,5 +365,5 @@ func TestBigBlock(t *testing.T) {
 	assert.Equal(t, 2234, index)
 }
 
-//go:embed "testdata/big_block.json"
+//go:embed "internal/testdata/big_block.json"
 var bigBlockJSON string
