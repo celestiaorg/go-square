@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/celestiaorg/go-square/square"
+	"github.com/celestiaorg/go-square"
 	"github.com/stretchr/testify/require"
 )
 
