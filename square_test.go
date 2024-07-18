@@ -121,7 +121,8 @@ func TestSquareBlobShareRange(t *testing.T) {
 	require.NoError(t, err)
 
 	for pfbIdx, tx := range txs {
-		blobTx, isBlobTx := share.UnmarshalBlobTx(tx)
+		blobTx, isBlobTx, err := share.UnmarshalBlobTx(tx)
+		require.NoError(t, err)
 		require.True(t, isBlobTx)
 		for blobIdx := range blobTx.Blobs {
 			shareRange, err := square.BlobShareRange(txs, pfbIdx, blobIdx, defaultMaxSquareSize, defaultSubtreeRootThreshold)
@@ -130,7 +131,7 @@ func TestSquareBlobShareRange(t *testing.T) {
 			blobShares := dataSquare[shareRange.Start:shareRange.End]
 			blobSharesBytes, err := rawData(blobShares)
 			require.NoError(t, err)
-			require.True(t, bytes.Contains(blobSharesBytes, blobTx.Blobs[blobIdx].Data))
+			require.True(t, bytes.Contains(blobSharesBytes, blobTx.Blobs[blobIdx].Data()))
 		}
 	}
 

@@ -23,8 +23,11 @@ func Build(txs [][]byte, maxSquareSize, subtreeRootThreshold int) (Square, [][]b
 	}
 	normalTxs := make([][]byte, 0, len(txs))
 	blobTxs := make([][]byte, 0, len(txs))
-	for _, tx := range txs {
-		blobTx, isBlobTx := share.UnmarshalBlobTx(tx)
+	for idx, tx := range txs {
+		blobTx, isBlobTx, err := share.UnmarshalBlobTx(tx)
+		if err != nil && isBlobTx {
+			return nil, nil, fmt.Errorf("unmarshalling blob tx at index %d: %w", idx, err)
+		}
 		if isBlobTx {
 			if builder.AppendBlobTx(blobTx) {
 				blobTxs = append(blobTxs, tx)

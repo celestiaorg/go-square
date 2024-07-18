@@ -35,7 +35,7 @@ func UnmarshalBlobTx(tx []byte) (*BlobTx, bool, error) {
 	}
 	blobs := make([]*Blob, len(bTx.Blobs))
 	for i, b := range bTx.Blobs {
-		blobs[i], err = BlobFromProto(b)
+		blobs[i], err = NewBlobFromProto(b)
 		if err != nil {
 			return nil, true, err
 		}

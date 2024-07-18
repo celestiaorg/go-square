@@ -84,13 +84,6 @@ func TestSparseShareSplitterCount(t *testing.T) {
 // generateRandomBlobOfShareCount returns a blob that spans the given
 // number of shares
 func generateRandomBlobOfShareCount(count int) *Blob {
-	size := rawBlobSize(FirstSparseShareContentSize * count)
+	size := RawTxSize(FirstSparseShareContentSize * count)
 	return generateRandomBlob(size)
-}
-
-// rawBlobSize returns the raw blob size that can be used to construct a
-// blob of totalSize bytes. This function is useful in tests to account for
-// the delimiter length that is prefixed to a blob's data.
-func rawBlobSize(totalSize int) int {
-	return totalSize - DelimLen(uint64(totalSize))
 }

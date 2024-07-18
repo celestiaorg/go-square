@@ -85,7 +85,8 @@ func TestBuilderRejectsBlobTransactions(t *testing.T) {
 			require.NoError(t, err)
 			txs := generateBlobTxsWithNamespaces(ns1.Repeat(len(tc.blobSize)), [][]int{tc.blobSize})
 			require.Len(t, txs, 1)
-			blobTx, isBlobTx := share.UnmarshalBlobTx(txs[0])
+			blobTx, isBlobTx, err := share.UnmarshalBlobTx(txs[0])
+			require.NoError(t, err)
 			require.True(t, isBlobTx)
 			require.Equal(t, tc.added, builder.AppendBlobTx(blobTx))
 		})
@@ -118,7 +119,8 @@ func TestBuilderFindTxShareRange(t *testing.T) {
 
 	var lastEnd int
 	for idx, tx := range blockTxs {
-		blobTx, isBlobTx := share.UnmarshalBlobTx(tx)
+		blobTx, isBlobTx, err := share.UnmarshalBlobTx(tx)
+		require.NoError(t, err)
 		if isBlobTx {
 			tx = blobTx.Tx
 		}
@@ -292,7 +294,8 @@ func TestSquareBlobPostions(t *testing.T) {
 			builder, err := square.NewBuilder(tt.squareSize, defaultSubtreeRootThreshold)
 			require.NoError(t, err)
 			for _, tx := range tt.blobTxs {
-				blobTx, isBlobTx := share.UnmarshalBlobTx(tx)
+				blobTx, isBlobTx, err := share.UnmarshalBlobTx(tx)
+				require.NoError(t, err)
 				require.True(t, isBlobTx)
 				_ = builder.AppendBlobTx(blobTx)
 			}
