@@ -40,7 +40,7 @@ func zeroPadIfNecessary(share []byte, width int) (padded []byte, bytesOfPadding 
 // in compact shares where units (i.e. a transaction) are prefixed with a length
 // delimiter that is encoded as a varint. Input should not contain the namespace
 // ID or info byte of a share.
-func ParseDelimiter(input []byte) (inputWithoutLenDelimiter []byte, unitLen uint64, err error) {
+func parseDelimiter(input []byte) (inputWithoutLenDelimiter []byte, unitLen uint64, err error) {
 	if len(input) == 0 {
 		return input, 0, nil
 	}

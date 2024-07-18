@@ -120,8 +120,8 @@ func TestBuilderFindTxShareRange(t *testing.T) {
 	var lastEnd int
 	for idx, tx := range blockTxs {
 		blobTx, isBlobTx, err := share.UnmarshalBlobTx(tx)
-		require.NoError(t, err)
 		if isBlobTx {
+			require.NoError(t, err)
 			tx = blobTx.Tx
 		}
 		shareRange, err := builder.FindTxShareRange(idx)

@@ -41,7 +41,7 @@ func UnmarshalBlobTx(tx []byte) (*BlobTx, bool, error) {
 		}
 	}
 	return &BlobTx{
-		Tx:    tx,
+		Tx:    bTx.Tx,
 		Blobs: blobs,
 	}, true, nil
 }
