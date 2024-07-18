@@ -7,6 +7,7 @@ import (
 	"sort"
 
 	"github.com/celestiaorg/go-square/inclusion"
+	v1 "github.com/celestiaorg/go-square/proto/blob/v1"
 	"github.com/celestiaorg/go-square/share"
 	"golang.org/x/exp/constraints"
 	"google.golang.org/protobuf/proto"
@@ -20,7 +21,7 @@ type Builder struct {
 
 	// here we keep track of the pending data to go in a square
 	Txs   [][]byte
-	Pfbs  []*share.IndexWrapper
+	Pfbs  []*v1.IndexWrapper
 	Blobs []*Element
 
 	// for compact shares we use a counter to track the amount of shares needed
@@ -42,14 +43,17 @@ func NewBuilder(maxSquareSize int, subtreeRootThreshold int, txs ...[]byte) (*Bu
 		maxSquareSize:        maxSquareSize,
 		subtreeRootThreshold: subtreeRootThreshold,
 		Blobs:                make([]*Element, 0),
-		Pfbs:                 make([]*share.IndexWrapper, 0),
+		Pfbs:                 make([]*v1.IndexWrapper, 0),
 		Txs:                  make([][]byte, 0),
 		TxCounter:            share.NewCompactShareCounter(),
 		PfbCounter:           share.NewCompactShareCounter(),
 	}
 	seenFirstBlobTx := false
 	for idx, tx := range txs {
-		blobTx, isBlobTx := share.UnmarshalBlobTx(tx)
+		blobTx, isBlobTx, err := share.UnmarshalBlobTx(tx)
+		if err != nil && isBlobTx {
+			return nil, fmt.Errorf("unmarshalling blob tx at index %d: %w", idx, err)
+		}
 		if isBlobTx {
 			seenFirstBlobTx = true
 			if !builder.AppendBlobTx(blobTx) {
@@ -84,7 +88,7 @@ func (b *Builder) AppendTx(tx []byte) bool {
 // AppendBlobTx attempts to allocate the blob transaction to the square. It returns false if there is not
 // enough space in the square to fit the transaction.
 func (b *Builder) AppendBlobTx(blobTx *share.BlobTx) bool {
-	iw := &share.IndexWrapper{
+	iw := &v1.IndexWrapper{
 		Tx:           blobTx.Tx,
 		TypeId:       share.ProtoIndexWrapperTypeID,
 		ShareIndexes: worstCaseShareIndexes(len(blobTx.Blobs)),
@@ -95,13 +99,7 @@ func (b *Builder) AppendBlobTx(blobTx *share.BlobTx) bool {
 	// create a new blob element for each blob and track the worst-case share count
 	blobElements := make([]*Element, len(blobTx.Blobs))
 	maxBlobShareCount := 0
-	for idx, protoBlob := range blobTx.Blobs {
-		blob, err := share.NewBlobFromProto(protoBlob)
-		if err != nil {
-			// TODO: we should look at having a go native BlobTx type
-			// that we have already verified instead of doing it twice here
-			panic(fmt.Sprintf("invalid blob %d: %v", idx, err))
-		}
+	for idx, blob := range blobTx.Blobs {
 		blobElements[idx] = newElement(blob, len(b.Pfbs), idx, b.subtreeRootThreshold)
 		maxBlobShareCount += blobElements[idx].maxShareOffset()
 	}
@@ -321,7 +319,7 @@ func (b *Builder) FindTxShareRange(txIndex int) (share.Range, error) {
 	return share.NewRange(start, end), nil
 }
 
-func (b *Builder) GetWrappedPFB(txIndex int) (*share.IndexWrapper, error) {
+func (b *Builder) GetWrappedPFB(txIndex int) (*v1.IndexWrapper, error) {
 	if txIndex < 0 {
 		return nil, fmt.Errorf("txIndex %d must not be negative", txIndex)
 	}
