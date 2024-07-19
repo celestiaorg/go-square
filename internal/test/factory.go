@@ -128,3 +128,9 @@ func Repeat[T any](s T, count int) []T {
 	}
 	return ss
 }
+
+// DelimLen calculates the length of the delimiter for a given unit size
+func DelimLen(size uint64) int {
+	lenBuf := make([]byte, binary.MaxVarintLen64)
+	return binary.PutUvarint(lenBuf, size)
+}

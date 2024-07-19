@@ -19,7 +19,7 @@ func TestCount(t *testing.T) {
 		{transactions: [][]byte{{0}}, wantShareCount: 1},
 		{transactions: [][]byte{bytes.Repeat([]byte{1}, 100)}, wantShareCount: 1},
 		// Test with 1 byte over 1 share
-		{transactions: [][]byte{bytes.Repeat([]byte{1}, RawTxSize(FirstCompactShareContentSize+1))}, wantShareCount: 2},
+		{transactions: [][]byte{bytes.Repeat([]byte{1}, rawTxSize(FirstCompactShareContentSize+1))}, wantShareCount: 2},
 		{transactions: [][]byte{generateTx(1)}, wantShareCount: 1},
 		{transactions: [][]byte{generateTx(2)}, wantShareCount: 2},
 		{transactions: [][]byte{generateTx(20)}, wantShareCount: 20},
@@ -47,9 +47,9 @@ func generateTx(numShares int) []byte {
 		return []byte{}
 	}
 	if numShares == 1 {
-		return bytes.Repeat([]byte{1}, RawTxSize(FirstCompactShareContentSize))
+		return bytes.Repeat([]byte{1}, rawTxSize(FirstCompactShareContentSize))
 	}
-	return bytes.Repeat([]byte{2}, RawTxSize(FirstCompactShareContentSize+(numShares-1)*ContinuationCompactShareContentSize))
+	return bytes.Repeat([]byte{2}, rawTxSize(FirstCompactShareContentSize+(numShares-1)*ContinuationCompactShareContentSize))
 }
 
 func TestExport_write(t *testing.T) {
@@ -158,26 +158,26 @@ func TestWriteAndExportIdempotence(t *testing.T) {
 		{
 			name: "two txs that occupy exactly two shares",
 			txs: [][]byte{
-				bytes.Repeat([]byte{0xf}, RawTxSize(FirstCompactShareContentSize)),
-				bytes.Repeat([]byte{0xf}, RawTxSize(ContinuationCompactShareContentSize)),
+				bytes.Repeat([]byte{0xf}, rawTxSize(FirstCompactShareContentSize)),
+				bytes.Repeat([]byte{0xf}, rawTxSize(ContinuationCompactShareContentSize)),
 			},
 			wantLen: 2,
 		},
 		{
 			name: "three txs that occupy exactly three shares",
 			txs: [][]byte{
-				bytes.Repeat([]byte{0xf}, RawTxSize(FirstCompactShareContentSize)),
-				bytes.Repeat([]byte{0xf}, RawTxSize(ContinuationCompactShareContentSize)),
-				bytes.Repeat([]byte{0xf}, RawTxSize(ContinuationCompactShareContentSize)),
+				bytes.Repeat([]byte{0xf}, rawTxSize(FirstCompactShareContentSize)),
+				bytes.Repeat([]byte{0xf}, rawTxSize(ContinuationCompactShareContentSize)),
+				bytes.Repeat([]byte{0xf}, rawTxSize(ContinuationCompactShareContentSize)),
 			},
 			wantLen: 3,
 		},
 		{
 			name: "four txs that occupy three full shares and one partial share",
 			txs: [][]byte{
-				bytes.Repeat([]byte{0xf}, RawTxSize(FirstCompactShareContentSize)),
-				bytes.Repeat([]byte{0xf}, RawTxSize(ContinuationCompactShareContentSize)),
-				bytes.Repeat([]byte{0xf}, RawTxSize(ContinuationCompactShareContentSize)),
+				bytes.Repeat([]byte{0xf}, rawTxSize(FirstCompactShareContentSize)),
+				bytes.Repeat([]byte{0xf}, rawTxSize(ContinuationCompactShareContentSize)),
+				bytes.Repeat([]byte{0xf}, rawTxSize(ContinuationCompactShareContentSize)),
 				{0xf},
 			},
 			wantLen: 4,
@@ -211,8 +211,8 @@ func TestExport(t *testing.T) {
 	txOne := []byte{0x1}
 	txTwo := bytes.Repeat([]byte{2}, 600)
 	txThree := bytes.Repeat([]byte{3}, 1000)
-	exactlyOneShare := bytes.Repeat([]byte{4}, RawTxSize(FirstCompactShareContentSize))
-	exactlyTwoShares := bytes.Repeat([]byte{5}, RawTxSize(FirstCompactShareContentSize+ContinuationCompactShareContentSize))
+	exactlyOneShare := bytes.Repeat([]byte{4}, rawTxSize(FirstCompactShareContentSize))
+	exactlyTwoShares := bytes.Repeat([]byte{5}, rawTxSize(FirstCompactShareContentSize+ContinuationCompactShareContentSize))
 
 	testCases := []testCase{
 		{
@@ -331,9 +331,9 @@ func TestExport(t *testing.T) {
 }
 
 func TestWriteAfterExport(t *testing.T) {
-	a := bytes.Repeat([]byte{0xf}, RawTxSize(FirstCompactShareContentSize))
-	b := bytes.Repeat([]byte{0xf}, RawTxSize(ContinuationCompactShareContentSize*2))
-	c := bytes.Repeat([]byte{0xf}, RawTxSize(ContinuationCompactShareContentSize))
+	a := bytes.Repeat([]byte{0xf}, rawTxSize(FirstCompactShareContentSize))
+	b := bytes.Repeat([]byte{0xf}, rawTxSize(ContinuationCompactShareContentSize*2))
+	c := bytes.Repeat([]byte{0xf}, rawTxSize(ContinuationCompactShareContentSize))
 	d := []byte{0xf}
 
 	css := NewCompactShareSplitter(TxNamespace, ShareVersionZero)

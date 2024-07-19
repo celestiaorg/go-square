@@ -43,7 +43,7 @@ func TestParseDelimiter(t *testing.T) {
 		if err != nil {
 			panic(err)
 		}
-		res, txLen, err := ParseDelimiter(input)
+		res, txLen, err := parseDelimiter(input)
 		if err != nil {
 			panic(err)
 		}

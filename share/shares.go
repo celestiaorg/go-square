@@ -1,4 +1,9 @@
-// package share contains the Share data structure.
+/*
+Package share is an encoding and decoding protocol that takes blobs,
+a struct containing arbitrary data based on a namespace and coverts
+them into a slice of shares, bytes 512 in length. This logic is used
+for constructing the original data square.
+*/
 package share
 
 import (
@@ -12,6 +17,8 @@ type Share struct {
 	data []byte
 }
 
+// NewShare creates a new share from the raw data, validating it's
+// size and versioning
 func NewShare(data []byte) (*Share, error) {
 	if err := validateSize(data); err != nil {
 		return nil, err
@@ -34,15 +41,19 @@ func (s *Share) Namespace() Namespace {
 	return Namespace{data: s.data[:NamespaceSize]}
 }
 
+// InfoByte returns the byte after the namespace used
+// for indicating versioning and whether the share is
+// the first in it's sequence or a continuation
 func (s *Share) InfoByte() InfoByte {
-	// the info byte is the first byte after the namespace
 	return InfoByte(s.data[NamespaceSize])
 }
 
+// Version returns the version of the share
 func (s *Share) Version() uint8 {
 	return s.InfoByte().Version()
 }
 
+// DoesSupportVersions checks if the share version is supported
 func (s *Share) DoesSupportVersions(supportedShareVersions []uint8) error {
 	ver := s.Version()
 	if !bytes.Contains(supportedShareVersions, []byte{ver}) {
@@ -114,6 +125,7 @@ func (s *Share) isPrimaryReservedPadding() bool {
 	return ns.IsPrimaryReservedPadding()
 }
 
+// ToBytes returns the underlying bytes of the share
 func (s *Share) ToBytes() []byte {
 	return s.data
 }

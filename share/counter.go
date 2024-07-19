@@ -18,7 +18,7 @@ func NewCompactShareCounter() *CompactShareCounter {
 // the counter has been increased by.
 func (c *CompactShareCounter) Add(dataLen int) int {
 	// Increment the data len by the varint that will prefix the data.
-	dataLen += DelimLen(uint64(dataLen))
+	dataLen += delimLen(uint64(dataLen))
 
 	// save a copy of the previous state
 	c.lastRemainder = c.remainder

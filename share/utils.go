@@ -5,18 +5,18 @@ import (
 	"encoding/binary"
 )
 
-// DelimLen calculates the length of the delimiter for a given unit size
-func DelimLen(size uint64) int {
+// delimLen calculates the length of the delimiter for a given unit size
+func delimLen(size uint64) int {
 	lenBuf := make([]byte, binary.MaxVarintLen64)
 	return binary.PutUvarint(lenBuf, size)
 }
 
-// RawTxSize returns the raw tx size that can be used to construct a
+// rawTxSize returns the raw tx size that can be used to construct a
 // tx of desiredSize bytes. This function is useful in tests to account for
 // the length delimiter that is prefixed to a tx when it is converted into
 // a compact share
-func RawTxSize(desiredSize int) int {
-	return desiredSize - DelimLen(uint64(desiredSize))
+func rawTxSize(desiredSize int) int {
+	return desiredSize - delimLen(uint64(desiredSize))
 }
 
 // zeroPadIfNecessary pads the share with trailing zero bytes if the provided
@@ -34,13 +34,13 @@ func zeroPadIfNecessary(share []byte, width int) (padded []byte, bytesOfPadding 
 	return share, missingBytes
 }
 
-// ParseDelimiter attempts to parse a varint length delimiter from the input
+// parseDelimiter attempts to parse a varint length delimiter from the input
 // provided. It returns the input without the len delimiter bytes, the length
 // parsed from the varint optionally an error. Unit length delimiters are used
 // in compact shares where units (i.e. a transaction) are prefixed with a length
 // delimiter that is encoded as a varint. Input should not contain the namespace
 // ID or info byte of a share.
-func ParseDelimiter(input []byte) (inputWithoutLenDelimiter []byte, unitLen uint64, err error) {
+func parseDelimiter(input []byte) (inputWithoutLenDelimiter []byte, unitLen uint64, err error) {
 	if len(input) == 0 {
 		return input, 0, nil
 	}

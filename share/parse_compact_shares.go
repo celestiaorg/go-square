@@ -47,7 +47,7 @@ func validateShareVersions(shares []Share, supportedShareVersions []uint8) error
 func parseRawData(rawData []byte) (units [][]byte, err error) {
 	units = make([][]byte, 0)
 	for {
-		actualData, unitLen, err := ParseDelimiter(rawData)
+		actualData, unitLen, err := parseDelimiter(rawData)
 		if err != nil {
 			return nil, err
 		}
