@@ -18,7 +18,7 @@ type BlobTx struct {
 	Blobs []*Blob
 }
 
-// UnmarshalBlobTx attempts to unmarshal a transaction into blob transaction. It returns a boolean 
+// UnmarshalBlobTx attempts to unmarshal a transaction into blob transaction. It returns a boolean
 // If the bytes are of type BlobTx and an error if there is a problem with decoding
 func UnmarshalBlobTx(tx []byte) (*BlobTx, bool, error) {
 	bTx := v1.BlobTx{}

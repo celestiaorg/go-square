@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/celestiaorg/go-square/proto/blob/v1"
+	v1 "github.com/celestiaorg/go-square/proto/blob/v1"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -52,7 +52,8 @@ func NewV1Blob(ns Namespace, data []byte, signer []byte) (*Blob, error) {
 	return NewBlob(ns, data, 1, signer)
 }
 
-func ParseBlob(blob []byte) (*Blob, error) {
+// UnmarshalBlob unmarshals a blob from the proto encoded bytes
+func UnmarshalBlob(blob []byte) (*Blob, error) {
 	pb := &v1.BlobProto{}
 	err := proto.Unmarshal(blob, pb)
 	if err != nil {
@@ -61,6 +62,7 @@ func ParseBlob(blob []byte) (*Blob, error) {
 	return NewBlobFromProto(pb)
 }
 
+// NewBlobFromProto creates a new blob from the proto generated type
 func NewBlobFromProto(pb *v1.BlobProto) (*Blob, error) {
 	if pb.NamespaceVersion > NamespaceVersionMax {
 		return nil, errors.New("namespace version can not be greater than MaxNamespaceVersion")
@@ -100,7 +102,8 @@ func (b *Blob) Data() []byte {
 	return b.data
 }
 
-func (b *Blob) ToBytes() ([]byte, error) {
+// Marshal marshals the blob to the proto encoded bytes
+func (b *Blob) Marshal() ([]byte, error) {
 	pb := &v1.BlobProto{
 		NamespaceId:      b.namespace.ID(),
 		NamespaceVersion: uint32(b.namespace.Version()),
@@ -111,6 +114,7 @@ func (b *Blob) ToBytes() ([]byte, error) {
 	return proto.Marshal(pb)
 }
 
+// Compare is used to order two blobs based on their namespace
 func (b *Blob) Compare(other *Blob) int {
 	return b.namespace.Compare(other.namespace)
 }

@@ -84,6 +84,6 @@ func TestSparseShareSplitterCount(t *testing.T) {
 // generateRandomBlobOfShareCount returns a blob that spans the given
 // number of shares
 func generateRandomBlobOfShareCount(count int) *Blob {
-	size := RawTxSize(FirstSparseShareContentSize * count)
+	size := rawTxSize(FirstSparseShareContentSize * count)
 	return generateRandomBlob(size)
 }
