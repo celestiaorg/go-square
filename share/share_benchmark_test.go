@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/celestiaorg/go-square/internal/test"
-	"github.com/celestiaorg/go-square/share"
+	"github.com/celestiaorg/go-square/v2/internal/test"
+	"github.com/celestiaorg/go-square/v2/share"
 )
 
 func BenchmarkBlobsToShares(b *testing.B) {

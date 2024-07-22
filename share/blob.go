@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sort"
 
-	v1 "github.com/celestiaorg/go-square/proto/blob/v1"
+	v1 "github.com/celestiaorg/go-square/v2/proto/blob/v1"
 	"google.golang.org/protobuf/proto"
 )
 

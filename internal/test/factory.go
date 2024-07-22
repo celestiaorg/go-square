@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"math/rand"
 
-	"github.com/celestiaorg/go-square/share"
+	"github.com/celestiaorg/go-square/v2/share"
 )
 
 var DefaultTestNamespace = share.MustNewV0Namespace([]byte("test"))

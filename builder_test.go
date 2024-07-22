@@ -8,9 +8,9 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/celestiaorg/go-square"
-	"github.com/celestiaorg/go-square/internal/test"
-	"github.com/celestiaorg/go-square/share"
+	"github.com/celestiaorg/go-square/v2"
+	"github.com/celestiaorg/go-square/v2/internal/test"
+	"github.com/celestiaorg/go-square/v2/share"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -352,7 +352,7 @@ type block struct {
 // padding is modified then we expect this test to fail and need a new valid
 // testdata/big_block.json.
 //
-// https://github.com/celestiaorg/go-square/issues/47
+// https://github.com/celestiaorg/go-square/v2/issues/47
 func TestBigBlock(t *testing.T) {
 	bigBlock := block{}
 	err := json.Unmarshal([]byte(bigBlockJSON), &bigBlock)

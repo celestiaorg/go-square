@@ -1,8 +1,6 @@
-module github.com/celestiaorg/go-square
+module github.com/celestiaorg/go-square/v2
 
-go 1.21.5
-
-replace github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
+go 1.22.5
 
 require (
 	github.com/celestiaorg/nmt v0.21.0

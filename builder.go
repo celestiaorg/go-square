@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/celestiaorg/go-square/inclusion"
-	v1 "github.com/celestiaorg/go-square/proto/blob/v1"
-	"github.com/celestiaorg/go-square/share"
+	"github.com/celestiaorg/go-square/v2/inclusion"
+	v1 "github.com/celestiaorg/go-square/v2/proto/blob/v1"
+	"github.com/celestiaorg/go-square/v2/share"
 	"golang.org/x/exp/constraints"
 	"google.golang.org/protobuf/proto"
 )

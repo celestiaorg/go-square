@@ -1,6 +1,6 @@
 # go-square
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/celestiaorg/go-square.svg)](https://pkg.go.dev/github.com/celestiaorg/go-square)
+[![Go Reference](https://pkg.go.dev/badge/github.com/celestiaorg/go-square/v2.svg)](https://pkg.go.dev/github.com/celestiaorg/go-square/v2)
 
 `go-square` is a Go module that provides data structures and utilities for interacting with data squares in the Celestia network. The data square is a special form of block serialization in the Celestia blockchain designed for sampling. This repo deals with the original data square which is distinct from the extended data square. Operations on the extended data square are handled by [rsmt2d](https://github.com/celestiaorg/rsmt2d).
 
@@ -15,7 +15,7 @@ square    | Package square implements the logic to construct the original data s
 To use `go-square` as a dependency in your Go project, you can use `go get`:
 
 ```bash
-go get github.com/celestiaorg/go-square
+go get github.com/celestiaorg/go-square/v2
 ```
 
 ## Branches and Releasing
@@ -30,7 +30,7 @@ This repo attempts to conform to [conventional commits](https://www.conventional
 
 ### Tools
 
-1. Install [Go](https://golang.org/doc/install) 1.21.5
+1. Install [Go](https://golang.org/doc/install) 1.22.5
 1. Install [golangci-lint](https://golangci-lint.run/usage/install/)
 1. Fork this repo
 1. Make your changes
