@@ -352,7 +352,7 @@ type block struct {
 // padding is modified then we expect this test to fail and need a new valid
 // testdata/big_block.json.
 //
-// https://github.com/celestiaorg/go-square/v2/issues/47
+// https://github.com/celestiaorg/go-square/issues/47
 func TestBigBlock(t *testing.T) {
 	bigBlock := block{}
 	err := json.Unmarshal([]byte(bigBlockJSON), &bigBlock)
