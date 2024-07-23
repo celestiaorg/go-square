@@ -5,8 +5,8 @@ import (
 	"crypto/sha256"
 	"testing"
 
-	"github.com/celestiaorg/go-square/inclusion"
-	"github.com/celestiaorg/go-square/share"
+	"github.com/celestiaorg/go-square/v2/inclusion"
+	"github.com/celestiaorg/go-square/v2/share"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

@@ -3,7 +3,7 @@ package share
 import (
 	"google.golang.org/protobuf/proto"
 
-	v1 "github.com/celestiaorg/go-square/proto/blob/v1"
+	v1 "github.com/celestiaorg/go-square/v2/proto/blob/v1"
 )
 
 const (

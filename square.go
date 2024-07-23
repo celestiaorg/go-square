@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/celestiaorg/go-square/share"
+	"github.com/celestiaorg/go-square/v2/share"
 	"golang.org/x/exp/constraints"
 )
 
