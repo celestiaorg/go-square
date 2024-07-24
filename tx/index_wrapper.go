@@ -1,9 +1,9 @@
-package share
+package tx
 
 import (
 	"google.golang.org/protobuf/proto"
 
-	v1 "github.com/celestiaorg/go-square/v2/proto/blob/v1"
+	"github.com/celestiaorg/go-square/v2/proto/blob/v1"
 )
 
 const (
@@ -39,10 +39,15 @@ func UnmarshalIndexWrapper(tx []byte) (*v1.IndexWrapper, bool) {
 //
 // NOTE: must be unwrapped to be a viable sdk.Tx
 func MarshalIndexWrapper(tx []byte, shareIndexes ...uint32) ([]byte, error) {
-	wTx := v1.IndexWrapper{
+	wTx := NewIndexWrapper(tx, shareIndexes...)
+	return proto.Marshal(wTx)
+}
+
+// NewIndexWrapper creates a new IndexWrapper transaction.
+func NewIndexWrapper(tx []byte, shareIndexes ...uint32) *v1.IndexWrapper {
+	return &v1.IndexWrapper{
 		Tx:           tx,
 		ShareIndexes: shareIndexes,
 		TypeId:       ProtoIndexWrapperTypeID,
 	}
-	return proto.Marshal(&wTx)
 }

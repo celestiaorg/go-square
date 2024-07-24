@@ -373,3 +373,9 @@ func TestWriteAfterExport(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 5, len(shares))
 }
+
+// fillShare returns a share filled with filler so that the share length
+// is equal to ShareSize.
+func fillShare(share Share, filler byte) (paddedShare Share) {
+	return Share{data: append(share.data, bytes.Repeat([]byte{filler}, ShareSize-len(share.data))...)}
+}

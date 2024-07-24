@@ -16,14 +16,16 @@ func BenchmarkBlobsToShares(b *testing.B) {
 			b.Run(fmt.Sprintf("ShareEncoding%dBlobs%dBytes", numBlobs, size), func(b *testing.B) {
 				b.ReportAllocs()
 				blobs := test.GenerateBlobs(test.Repeat(size, numBlobs)...)
-
 				b.ResetTimer()
 				for i := 0; i < b.N; i++ {
 					// Convert blob to shares
-					_, err := share.SplitBlobs(blobs...)
-					if err != nil {
-						b.Fatal("Failed to split blob into shares:", err)
+					writer := share.NewSparseShareSplitter()
+					for _, blob := range blobs {
+						if err := writer.Write(blob); err != nil {
+							b.Fatal("Failed to write blob into shares:", err)
+						}
 					}
+					_ = writer.Export()
 				}
 			})
 		}
@@ -38,10 +40,13 @@ func BenchmarkSharesToBlobs(b *testing.B) {
 			b.Run(fmt.Sprintf("ShareDecoding%dBlobs%dBytes", numBlobs, size), func(b *testing.B) {
 				b.ReportAllocs()
 				blobs := test.GenerateBlobs(test.Repeat(size, numBlobs)...)
-				s, err := share.SplitBlobs(blobs...)
-				if err != nil {
-					b.Fatal("Failed to split blob into shares:", err)
+				writer := share.NewSparseShareSplitter()
+				for _, blob := range blobs {
+					if err := writer.Write(blob); err != nil {
+						b.Fatal("Failed to write blob into shares:", err)
+					}
 				}
+				s := writer.Export()
 
 				b.ResetTimer()
 				for i := 0; i < b.N; i++ {

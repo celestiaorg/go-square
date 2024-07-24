@@ -9,6 +9,7 @@ import (
 	"github.com/celestiaorg/go-square/v2/inclusion"
 	v1 "github.com/celestiaorg/go-square/v2/proto/blob/v1"
 	"github.com/celestiaorg/go-square/v2/share"
+	"github.com/celestiaorg/go-square/v2/tx"
 	"golang.org/x/exp/constraints"
 	"google.golang.org/protobuf/proto"
 )
@@ -88,11 +89,7 @@ func (b *Builder) AppendTx(tx []byte) bool {
 // AppendBlobTx attempts to allocate the blob transaction to the square. It returns false if there is not
 // enough space in the square to fit the transaction.
 func (b *Builder) AppendBlobTx(blobTx *share.BlobTx) bool {
-	iw := &v1.IndexWrapper{
-		Tx:           blobTx.Tx,
-		TypeId:       share.ProtoIndexWrapperTypeID,
-		ShareIndexes: worstCaseShareIndexes(len(blobTx.Blobs)),
-	}
+	iw := tx.NewIndexWrapper(blobTx.Tx, worstCaseShareIndexes(len(blobTx.Blobs))...)
 	size := proto.Size(iw)
 	pfbShareDiff := b.PfbCounter.Add(size)
 

@@ -7,8 +7,10 @@
 Package   | Description
 ----------|---------------------------------------------------------------------------------------------------------------------
 inclusion | Package inclusion contains functions to generate the blob share commitment from a given blob.
+proto     | Package contains proto definitions and go generated code
 share     | Package share contains encoding and decoding logic from blobs to shares.
 square    | Package square implements the logic to construct the original data square based on a list of transactions.
+tx        | Package tx contains BlobTx and IndexWrapper types
 
 ## Installation
 

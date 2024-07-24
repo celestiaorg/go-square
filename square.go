@@ -8,6 +8,7 @@ import (
 	"math"
 
 	"github.com/celestiaorg/go-square/v2/share"
+	"github.com/celestiaorg/go-square/v2/tx"
 	"golang.org/x/exp/constraints"
 )
 
@@ -100,7 +101,7 @@ func Deconstruct(s Square, decoder PFBDecoder) ([][]byte, error) {
 	// loop through the wrapped pfbs and generate the original
 	// blobTx that they derive from
 	for i, wpfbBytes := range wpfbs {
-		wpfb, isWpfb := share.UnmarshalIndexWrapper(wpfbBytes)
+		wpfb, isWpfb := tx.UnmarshalIndexWrapper(wpfbBytes)
 		if !isWpfb {
 			return nil, fmt.Errorf("expected wrapped PFB at index %d", i)
 		}
