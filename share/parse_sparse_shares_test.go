@@ -58,7 +58,7 @@ func Test_parseSparseShares(t *testing.T) {
 
 			SortBlobs(blobs)
 
-			shares, err := SplitBlobs(blobs...)
+			shares, err := splitBlobs(blobs...)
 			require.NoError(t, err)
 			parsedBlobs, err := parseSparseShares(shares, SupportedShareVersions)
 			if err != nil {
@@ -74,8 +74,8 @@ func Test_parseSparseShares(t *testing.T) {
 
 		// run the same tests using randomly sized blobs with caps of tc.blobSize
 		t.Run(fmt.Sprintf("%s randomly sized", tc.name), func(t *testing.T) {
-			blobs := GenerateRandomlySizedBlobs(tc.blobCount, tc.blobSize)
-			shares, err := SplitBlobs(blobs...)
+			blobs := generateRandomlySizedBlobs(tc.blobCount, tc.blobSize)
+			shares, err := splitBlobs(blobs...)
 			require.NoError(t, err)
 			parsedBlobs, err := parseSparseShares(shares, SupportedShareVersions)
 			if err != nil {
@@ -154,7 +154,7 @@ func Test_parseSparseSharesWithNamespacedPadding(t *testing.T) {
 func Test_parseShareVersionOne(t *testing.T) {
 	v1blob, err := NewV1Blob(MustNewV0Namespace(bytes.Repeat([]byte{1}, NamespaceVersionZeroIDSize)), []byte("data"), bytes.Repeat([]byte{1}, SignerSize))
 	require.NoError(t, err)
-	v1shares, err := SplitBlobs(v1blob)
+	v1shares, err := splitBlobs(v1blob)
 	require.NoError(t, err)
 
 	parsedBlobs, err := parseSparseShares(v1shares, SupportedShareVersions)
@@ -181,7 +181,7 @@ func generateRandomBlob(dataSize int) *Blob {
 	return generateRandomBlobWithNamespace(ns, dataSize)
 }
 
-func GenerateRandomlySizedBlobs(count, maxBlobSize int) []*Blob {
+func generateRandomlySizedBlobs(count, maxBlobSize int) []*Blob {
 	blobs := make([]*Blob, count)
 	for i := 0; i < count; i++ {
 		blobs[i] = generateRandomBlob(rand.Intn(maxBlobSize-1) + 1)
@@ -197,4 +197,14 @@ func GenerateRandomlySizedBlobs(count, maxBlobSize int) []*Blob {
 
 	SortBlobs(blobs)
 	return blobs
+}
+
+func splitBlobs(blobs ...*Blob) ([]Share, error) {
+	writer := NewSparseShareSplitter()
+	for _, blob := range blobs {
+		if err := writer.Write(blob); err != nil {
+			return nil, err
+		}
+	}
+	return writer.Export(), nil
 }

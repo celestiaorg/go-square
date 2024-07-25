@@ -11,6 +11,7 @@ import (
 	"github.com/celestiaorg/go-square/v2"
 	"github.com/celestiaorg/go-square/v2/internal/test"
 	"github.com/celestiaorg/go-square/v2/share"
+	"github.com/celestiaorg/go-square/v2/tx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -303,8 +304,8 @@ func TestSquareBlobPostions(t *testing.T) {
 			require.NoError(t, err)
 			txs, err := share.ParseTxs(square)
 			require.NoError(t, err)
-			for j, tx := range txs {
-				wrappedPFB, isWrappedPFB := share.UnmarshalIndexWrapper(tx)
+			for j, rawTx := range txs {
+				wrappedPFB, isWrappedPFB := tx.UnmarshalIndexWrapper(rawTx)
 				assert.True(t, isWrappedPFB)
 				assert.Equal(t, tt.expectedIndexes[j], wrappedPFB.ShareIndexes, j)
 			}

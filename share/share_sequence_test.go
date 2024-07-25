@@ -250,3 +250,8 @@ func FuzzValidSequenceLen(f *testing.F) {
 		assert.NoError(t, err)
 	})
 }
+
+// padShare returns a share padded with trailing zeros.
+func padShare(share Share) (paddedShare Share) {
+	return fillShare(share, 0)
+}

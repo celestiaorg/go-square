@@ -15,7 +15,7 @@ type MerkleRootFn func([][]byte) []byte
 // [data square layout rationale]: ../../specs/src/specs/data_square_layout.md
 // [blob share commitment rules]: ../../specs/src/specs/data_square_layout.md#blob-share-commitment-rules
 func CreateCommitment(blob *sh.Blob, merkleRootFn MerkleRootFn, subtreeRootThreshold int) ([]byte, error) {
-	shares, err := sh.SplitBlobs(blob)
+	shares, err := splitBlobs(blob)
 	if err != nil {
 		return nil, err
 	}
@@ -105,4 +105,15 @@ func MerkleMountainRangeSizes(totalSize, maxTreeSize uint64) ([]uint64, error) {
 	}
 
 	return treeSizes, nil
+}
+
+// SplitBlobs splits the provided blobs into shares.
+func splitBlobs(blobs ...*sh.Blob) ([]sh.Share, error) {
+	writer := sh.NewSparseShareSplitter()
+	for _, blob := range blobs {
+		if err := writer.Write(blob); err != nil {
+			return nil, err
+		}
+	}
+	return writer.Export(), nil
 }
