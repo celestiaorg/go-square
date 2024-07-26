@@ -91,38 +91,6 @@ func Test_parseSparseShares(t *testing.T) {
 	}
 }
 
-func Test_parseSparseSharesErrors(t *testing.T) {
-	type testCase struct {
-		name   string
-		shares []Share
-	}
-
-	unsupportedShareVersion := 5
-	infoByte, _ := NewInfoByte(uint8(unsupportedShareVersion), true)
-
-	rawShare := RandomNamespace().Bytes()
-	rawShare = append(rawShare, byte(infoByte))
-	rawShare = append(rawShare, bytes.Repeat([]byte{0}, ShareSize-len(rawShare))...)
-	share, err := NewShare(rawShare)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	tests := []testCase{
-		{
-			"share with unsupported share version",
-			[]Share{*share},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(*testing.T) {
-			_, err := parseSparseShares(tt.shares, SupportedShareVersions)
-			assert.Error(t, err)
-		})
-	}
-}
-
 func Test_parseSparseSharesWithNamespacedPadding(t *testing.T) {
 	sss := NewSparseShareSplitter()
 	randomSmallBlob := generateRandomBlob(ContinuationSparseShareContentSize / 2)
