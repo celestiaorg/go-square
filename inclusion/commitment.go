@@ -107,7 +107,7 @@ func MerkleMountainRangeSizes(totalSize, maxTreeSize uint64) ([]uint64, error) {
 	return treeSizes, nil
 }
 
-// SplitBlobs splits the provided blobs into shares.
+// splitBlobs splits the provided blobs into shares.
 func splitBlobs(blobs ...*sh.Blob) ([]sh.Share, error) {
 	writer := sh.NewSparseShareSplitter()
 	for _, blob := range blobs {

@@ -86,7 +86,7 @@ func TestBuilderRejectsBlobTransactions(t *testing.T) {
 			require.NoError(t, err)
 			txs := generateBlobTxsWithNamespaces(ns1.Repeat(len(tc.blobSize)), [][]int{tc.blobSize})
 			require.Len(t, txs, 1)
-			blobTx, isBlobTx, err := share.UnmarshalBlobTx(txs[0])
+			blobTx, isBlobTx, err := tx.UnmarshalBlobTx(txs[0])
 			require.NoError(t, err)
 			require.True(t, isBlobTx)
 			require.Equal(t, tc.added, builder.AppendBlobTx(blobTx))
@@ -119,11 +119,11 @@ func TestBuilderFindTxShareRange(t *testing.T) {
 	size := dataSquare.Size() * dataSquare.Size()
 
 	var lastEnd int
-	for idx, tx := range blockTxs {
-		blobTx, isBlobTx, err := share.UnmarshalBlobTx(tx)
+	for idx, txBytes := range blockTxs {
+		blobTx, isBlobTx, err := tx.UnmarshalBlobTx(txBytes)
 		if isBlobTx {
 			require.NoError(t, err)
-			tx = blobTx.Tx
+			txBytes = blobTx.Tx
 		}
 		shareRange, err := builder.FindTxShareRange(idx)
 		require.NoError(t, err)
@@ -138,7 +138,7 @@ func TestBuilderFindTxShareRange(t *testing.T) {
 		txShares := dataSquare[shareRange.Start : shareRange.End+1]
 		parsedShares, err := rawData(txShares)
 		require.NoError(t, err)
-		require.True(t, bytes.Contains(parsedShares, tx))
+		require.True(t, bytes.Contains(parsedShares, txBytes))
 		lastEnd = shareRange.End
 	}
 }
@@ -294,8 +294,8 @@ func TestSquareBlobPostions(t *testing.T) {
 		t.Run(fmt.Sprintf("case%d", i), func(t *testing.T) {
 			builder, err := square.NewBuilder(tt.squareSize, defaultSubtreeRootThreshold)
 			require.NoError(t, err)
-			for _, tx := range tt.blobTxs {
-				blobTx, isBlobTx, err := share.UnmarshalBlobTx(tx)
+			for _, txBytes := range tt.blobTxs {
+				blobTx, isBlobTx, err := tx.UnmarshalBlobTx(txBytes)
 				require.NoError(t, err)
 				require.True(t, isBlobTx)
 				_ = builder.AppendBlobTx(blobTx)

@@ -51,3 +51,62 @@ func TestParseDelimiter(t *testing.T) {
 		assert.Equal(t, tx, res)
 	}
 }
+
+func TestAvailableBytesFromCompactShares(t *testing.T) {
+	testCases := []struct {
+		name          string
+		numShares     int
+		expectedBytes int
+	}{
+		{
+			name:          "1 share",
+			numShares:     1,
+			expectedBytes: 474,
+		},
+		{
+			name:          "10 shares",
+			numShares:     10,
+			expectedBytes: 4776,
+		},
+		{
+			name:          "negative",
+			numShares:     -1,
+			expectedBytes: 0,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expectedBytes, AvailableBytesFromCompactShares(tc.numShares))
+		})
+	}
+}
+
+func TestAvailableBytesFromSparseShares(t *testing.T) {
+	testCases := []struct {
+		name          string
+		numShares     int
+		expectedBytes int
+	}{
+		{
+			name:          "1 share",
+			numShares:     1,
+			expectedBytes: 478,
+		},
+		{
+			name:          "10 shares",
+			numShares:     10,
+			expectedBytes: 4816,
+		},
+		{
+			name:      "negative",
+			numShares: -1,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expectedBytes, AvailableBytesFromSparseShares(tc.numShares))
+		})
+	}
+}
