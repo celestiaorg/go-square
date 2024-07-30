@@ -25,7 +25,7 @@ func TestCompactShareSplitter(t *testing.T) {
 	shares, err := css.Export()
 	require.NoError(t, err)
 
-	resTxs, err := parseCompactShares(shares, SupportedShareVersions)
+	resTxs, err := parseCompactShares(shares)
 	require.NoError(t, err)
 
 	assert.Equal(t, txs, resTxs)
@@ -80,7 +80,7 @@ func Test_processCompactShares(t *testing.T) {
 			shares, _, err := splitTxs(txs)
 			require.NoError(t, err)
 
-			parsedTxs, err := parseCompactShares(shares, SupportedShareVersions)
+			parsedTxs, err := parseCompactShares(shares)
 			if err != nil {
 				t.Error(err)
 			}
@@ -97,7 +97,7 @@ func Test_processCompactShares(t *testing.T) {
 
 			txShares, _, err := splitTxs(txs)
 			require.NoError(t, err)
-			parsedTxs, err := parseCompactShares(txShares, SupportedShareVersions)
+			parsedTxs, err := parseCompactShares(txShares)
 			if err != nil {
 				t.Error(err)
 			}
@@ -210,42 +210,6 @@ func TestContiguousCompactShareContainsInfoByte(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, byte(want), infoByte)
-}
-
-func Test_parseCompactSharesErrors(t *testing.T) {
-	type testCase struct {
-		name   string
-		shares []Share
-	}
-
-	txs := generateRandomTxs(2, ContinuationCompactShareContentSize*4)
-	txShares, _, err := splitTxs(txs)
-	require.NoError(t, err)
-	rawShares := ToBytes(txShares)
-
-	unsupportedShareVersion := 5
-	infoByte, _ := NewInfoByte(uint8(unsupportedShareVersion), true)
-	shareWithUnsupportedShareVersionBytes := rawShares[0]
-	shareWithUnsupportedShareVersionBytes[NamespaceSize] = byte(infoByte)
-
-	shareWithUnsupportedShareVersion, err := NewShare(shareWithUnsupportedShareVersionBytes)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	testCases := []testCase{
-		{
-			"share with unsupported share version",
-			[]Share{*shareWithUnsupportedShareVersion},
-		},
-	}
-
-	for _, tt := range testCases {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := parseCompactShares(tt.shares, SupportedShareVersions)
-			assert.Error(t, err)
-		})
-	}
 }
 
 func generateRandomlySizedTxs(count, maxSize int) [][]byte {

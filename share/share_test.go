@@ -214,3 +214,26 @@ func TestIsPadding(t *testing.T) {
 		})
 	}
 }
+
+func TestUnsupportedShareVersion(t *testing.T) {
+	unsupportedShareVersion := 5
+	infoByte, _ := NewInfoByte(uint8(unsupportedShareVersion), true)
+
+	rawShare := RandomNamespace().Bytes()
+	rawShare = append(rawShare, byte(infoByte))
+	rawShare = append(rawShare, bytes.Repeat([]byte{0}, ShareSize-len(rawShare))...)
+	_, err := NewShare(rawShare)
+	require.Error(t, err)
+}
+
+func TestShareToBytesAndFromBytes(t *testing.T) {
+	blobs := []*Blob{generateRandomBlob(580), generateRandomBlob(380), generateRandomBlob(1100)}
+	SortBlobs(blobs)
+	shares, err := splitBlobs(blobs...)
+	require.NoError(t, err)
+
+	shareBytes := ToBytes(shares)
+	reconstructedShares, err := FromBytes(shareBytes)
+	require.NoError(t, err)
+	assert.Equal(t, shares, reconstructedShares)
+}

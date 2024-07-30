@@ -8,7 +8,7 @@ import (
 // ParseTxs collects all of the transactions from the shares provided
 func ParseTxs(shares []Share) ([][]byte, error) {
 	// parse the shares
-	rawTxs, err := parseCompactShares(shares, SupportedShareVersions)
+	rawTxs, err := parseCompactShares(shares)
 	if err != nil {
 		return nil, err
 	}
