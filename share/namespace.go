@@ -94,7 +94,7 @@ func (n Namespace) ID() []byte {
 
 // ValidateUserNamespace returns an error if the provided version is not
 // supported or the provided id does not meet the requirements
-// for the provided version. This should be user for validating
+// for the provided version. This should be used for validating
 // user specified namespaces
 func ValidateUserNamespace(version uint8, id []byte) error {
 	err := validateVersionSupported(version)
