@@ -24,18 +24,18 @@ func Build(txs [][]byte, maxSquareSize, subtreeRootThreshold int) (Square, [][]b
 	}
 	normalTxs := make([][]byte, 0, len(txs))
 	blobTxs := make([][]byte, 0, len(txs))
-	for idx, tx := range txs {
-		blobTx, isBlobTx, err := share.UnmarshalBlobTx(tx)
+	for idx, txBytes := range txs {
+		blobTx, isBlobTx, err := tx.UnmarshalBlobTx(txBytes)
 		if err != nil && isBlobTx {
 			return nil, nil, fmt.Errorf("unmarshalling blob tx at index %d: %w", idx, err)
 		}
 		if isBlobTx {
 			if builder.AppendBlobTx(blobTx) {
-				blobTxs = append(blobTxs, tx)
+				blobTxs = append(blobTxs, txBytes)
 			}
 		} else {
-			if builder.AppendTx(tx) {
-				normalTxs = append(normalTxs, tx)
+			if builder.AppendTx(txBytes) {
+				normalTxs = append(normalTxs, txBytes)
 			}
 		}
 	}
@@ -130,11 +130,11 @@ func Deconstruct(s Square, decoder PFBDecoder) ([][]byte, error) {
 			blobs[j] = parsedBlobs[0]
 		}
 
-		tx, err := share.MarshalBlobTx(wpfb.Tx, blobs...)
+		txBytes, err := tx.MarshalBlobTx(wpfb.Tx, blobs...)
 		if err != nil {
 			return nil, err
 		}
-		txs = append(txs, tx)
+		txs = append(txs, txBytes)
 	}
 
 	return txs, nil

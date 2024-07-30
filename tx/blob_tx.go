@@ -2,8 +2,9 @@ package tx
 
 import (
 	"errors"
+	"fmt"
 
-	"github.com/celestiaorg/go-square/v2/proto/blob/v1"
+	v1 "github.com/celestiaorg/go-square/v2/proto/blob/v1"
 	"github.com/celestiaorg/go-square/v2/share"
 	"google.golang.org/protobuf/proto"
 )
@@ -55,6 +56,12 @@ func UnmarshalBlobTx(tx []byte) (*BlobTx, bool, error) {
 func MarshalBlobTx(tx []byte, blobs ...*share.Blob) ([]byte, error) {
 	if len(blobs) == 0 {
 		return nil, errors.New("at least one blob must be provided")
+	}
+	// nil check
+	for i, b := range blobs {
+		if b == nil {
+			return nil, fmt.Errorf("blob %d is nil", i)
+		}
 	}
 	bTx := &v1.BlobTx{
 		Tx:     tx,

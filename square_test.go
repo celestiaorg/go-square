@@ -8,6 +8,7 @@ import (
 	"github.com/celestiaorg/go-square/v2"
 	"github.com/celestiaorg/go-square/v2/internal/test"
 	"github.com/celestiaorg/go-square/v2/share"
+	"github.com/celestiaorg/go-square/v2/tx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -120,8 +121,8 @@ func TestSquareBlobShareRange(t *testing.T) {
 	dataSquare, err := builder.Export()
 	require.NoError(t, err)
 
-	for pfbIdx, tx := range txs {
-		blobTx, isBlobTx, err := share.UnmarshalBlobTx(tx)
+	for pfbIdx, txBytes := range txs {
+		blobTx, isBlobTx, err := tx.UnmarshalBlobTx(txBytes)
 		require.NoError(t, err)
 		require.True(t, isBlobTx)
 		for blobIdx := range blobTx.Blobs {

@@ -7,6 +7,7 @@ import (
 	"math/rand"
 
 	"github.com/celestiaorg/go-square/v2/share"
+	"github.com/celestiaorg/go-square/v2/tx"
 )
 
 var DefaultTestNamespace = share.MustNewV0Namespace([]byte("test"))
@@ -52,7 +53,7 @@ func GenerateBlobTxWithNamespace(namespaces []share.Namespace, blobSizes []int, 
 			panic(err)
 		}
 	}
-	blobTx, err := share.MarshalBlobTx(MockPFB(toUint32(blobSizes)), blobs...)
+	blobTx, err := tx.MarshalBlobTx(MockPFB(toUint32(blobSizes)), blobs...)
 	if err != nil {
 		panic(err)
 	}

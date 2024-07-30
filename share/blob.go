@@ -62,6 +62,18 @@ func UnmarshalBlob(blob []byte) (*Blob, error) {
 	return NewBlobFromProto(pb)
 }
 
+// Marshal marshals the blob to the proto encoded bytes
+func (b *Blob) Marshal() ([]byte, error) {
+	pb := &v1.BlobProto{
+		NamespaceId:      b.namespace.ID(),
+		NamespaceVersion: uint32(b.namespace.Version()),
+		ShareVersion:     uint32(b.shareVersion),
+		Data:             b.data,
+		Signer:           b.signer,
+	}
+	return proto.Marshal(pb)
+}
+
 // NewBlobFromProto creates a new blob from the proto generated type
 func NewBlobFromProto(pb *v1.BlobProto) (*Blob, error) {
 	if pb.NamespaceVersion > NamespaceVersionMax {
@@ -102,16 +114,9 @@ func (b *Blob) Data() []byte {
 	return b.data
 }
 
-// Marshal marshals the blob to the proto encoded bytes
-func (b *Blob) Marshal() ([]byte, error) {
-	pb := &v1.BlobProto{
-		NamespaceId:      b.namespace.ID(),
-		NamespaceVersion: uint32(b.namespace.Version()),
-		ShareVersion:     uint32(b.shareVersion),
-		Data:             b.data,
-		Signer:           b.signer,
-	}
-	return proto.Marshal(pb)
+// DataLen returns the length of the data of the blob
+func (b *Blob) DataLen() int {
+	return len(b.data)
 }
 
 // Compare is used to order two blobs based on their namespace

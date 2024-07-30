@@ -50,8 +50,8 @@ func NewBuilder(maxSquareSize int, subtreeRootThreshold int, txs ...[]byte) (*Bu
 		PfbCounter:           share.NewCompactShareCounter(),
 	}
 	seenFirstBlobTx := false
-	for idx, tx := range txs {
-		blobTx, isBlobTx, err := share.UnmarshalBlobTx(tx)
+	for idx, txBytes := range txs {
+		blobTx, isBlobTx, err := tx.UnmarshalBlobTx(txBytes)
 		if err != nil && isBlobTx {
 			return nil, fmt.Errorf("unmarshalling blob tx at index %d: %w", idx, err)
 		}
@@ -64,7 +64,7 @@ func NewBuilder(maxSquareSize int, subtreeRootThreshold int, txs ...[]byte) (*Bu
 			if seenFirstBlobTx {
 				return nil, fmt.Errorf("normal tx at index %d can not be appended after blob tx", idx)
 			}
-			if !builder.AppendTx(tx) {
+			if !builder.AppendTx(txBytes) {
 				return nil, fmt.Errorf("not enough space to append tx at index %d", idx)
 			}
 		}
@@ -88,7 +88,7 @@ func (b *Builder) AppendTx(tx []byte) bool {
 
 // AppendBlobTx attempts to allocate the blob transaction to the square. It returns false if there is not
 // enough space in the square to fit the transaction.
-func (b *Builder) AppendBlobTx(blobTx *share.BlobTx) bool {
+func (b *Builder) AppendBlobTx(blobTx *tx.BlobTx) bool {
 	iw := tx.NewIndexWrapper(blobTx.Tx, worstCaseShareIndexes(len(blobTx.Blobs))...)
 	size := proto.Size(iw)
 	pfbShareDiff := b.PfbCounter.Add(size)
