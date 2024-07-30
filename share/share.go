@@ -54,7 +54,7 @@ func (s *Share) Version() uint8 {
 	return s.InfoByte().Version()
 }
 
-// DoesSupportVersions checks if the share version is supported
+// doesSupportVersions checks if the share version is supported
 func (s *Share) doesSupportVersions(supportedShareVersions []uint8) error {
 	ver := s.Version()
 	if !bytes.Contains(supportedShareVersions, []byte{ver}) {
