@@ -16,7 +16,7 @@ type sequence struct {
 // parseSparseShares iterates through rawShares and parses out individual
 // blobs. It returns an error if a rawShare contains a share version that
 // isn't present in supportedShareVersions.
-func parseSparseShares(shares []Share, supportedShareVersions []uint8) (blobs []*Blob, err error) {
+func parseSparseShares(shares []Share) (blobs []*Blob, err error) {
 	if len(shares) == 0 {
 		return nil, nil
 	}
@@ -24,8 +24,8 @@ func parseSparseShares(shares []Share, supportedShareVersions []uint8) (blobs []
 
 	for _, share := range shares {
 		version := share.Version()
-		if !bytes.Contains(supportedShareVersions, []byte{version}) {
-			return nil, fmt.Errorf("unsupported share version %v is not present in supported share versions %v", version, supportedShareVersions)
+		if !bytes.Contains(SupportedShareVersions, []byte{version}) {
+			return nil, fmt.Errorf("unsupported share version %v is not present in supported share versions %v", version, SupportedShareVersions)
 		}
 
 		if share.IsPadding() {

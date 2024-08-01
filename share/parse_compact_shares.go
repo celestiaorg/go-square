@@ -1,5 +1,7 @@
 package share
 
+import "fmt"
+
 // parseCompactShares returns data (transactions or intermediate state roots
 // based on the contents of rawShares and supportedShareVersions. If rawShares
 // contains a share with a version that isn't present in supportedShareVersions,
@@ -9,6 +11,12 @@ package share
 func parseCompactShares(shares []Share) (data [][]byte, err error) {
 	if len(shares) == 0 {
 		return nil, nil
+	}
+
+	for _, share := range shares {
+		if share.Version() != ShareVersionZero {
+			return nil, fmt.Errorf("unsupported share version for compact shares %v", share.Version())
+		}
 	}
 
 	rawData, err := extractRawData(shares)

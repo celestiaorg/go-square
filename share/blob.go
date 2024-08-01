@@ -25,6 +25,9 @@ func NewBlob(ns Namespace, data []byte, shareVersion uint8, signer []byte) (*Blo
 	if len(data) == 0 {
 		return nil, errors.New("data can not be empty")
 	}
+	if ns.IsEmpty() {
+		return nil, errors.New("namespace can not be empty")
+	}
 	if shareVersion == 0 && signer != nil {
 		return nil, errors.New("share version 0 does not support signer")
 	}
@@ -79,8 +82,8 @@ func NewBlobFromProto(pb *v1.BlobProto) (*Blob, error) {
 	if pb.NamespaceVersion > NamespaceVersionMax {
 		return nil, errors.New("namespace version can not be greater than MaxNamespaceVersion")
 	}
-	if len(pb.Data) == 0 {
-		return nil, errors.New("blob data can not be empty")
+	if pb.ShareVersion > MaxShareVersion {
+		return nil, fmt.Errorf("share version can not be greater than MaxShareVersion %d", MaxShareVersion)
 	}
 	ns, err := NewNamespace(uint8(pb.NamespaceVersion), pb.NamespaceId)
 	if err != nil {
@@ -122,6 +125,12 @@ func (b *Blob) DataLen() int {
 // Compare is used to order two blobs based on their namespace
 func (b *Blob) Compare(other *Blob) int {
 	return b.namespace.Compare(other.namespace)
+}
+
+// IsEmpty returns true if the blob is empty. This is an invalid
+// construction that can only occur if using the nil value
+func (b *Blob) IsEmpty() bool {
+	return b.namespace.IsEmpty()
 }
 
 // Sort sorts the blobs by their namespace.

@@ -125,6 +125,11 @@ func validateID(version uint8, id []byte) error {
 	return nil
 }
 
+// IsEmpty returns true if the namespace is empty
+func (n Namespace) IsEmpty() bool {
+	return len(n.data) == 0
+}
+
 // IsReserved returns true if the namespace is reserved
 // for the Celestia state machine
 func (n Namespace) IsReserved() bool {

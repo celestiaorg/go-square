@@ -59,7 +59,7 @@ func MarshalBlobTx(tx []byte, blobs ...*share.Blob) ([]byte, error) {
 	}
 	// nil check
 	for i, b := range blobs {
-		if b == nil {
+		if b == nil || b.IsEmpty() {
 			return nil, fmt.Errorf("blob %d is nil", i)
 		}
 	}
