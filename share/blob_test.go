@@ -86,7 +86,7 @@ func TestNewBlobFromProto(t *testing.T) {
 				ShareVersion:     0,
 				Data:             []byte{},
 			},
-			expectedErr: "blob data can not be empty",
+			expectedErr: "data can not be empty",
 		},
 		{
 			name: "invalid namespace ID length",

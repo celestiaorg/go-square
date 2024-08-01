@@ -50,8 +50,8 @@ func (s *Share) Version() uint8 {
 	return s.InfoByte().Version()
 }
 
-// doesSupportVersions checks if the share version is supported
-func (s *Share) IsVersionSupported() error {
+// CheckVersionSupported checks if the share version is supported
+func (s *Share) CheckVersionSupported() error {
 	ver := s.Version()
 	if !bytes.Contains(SupportedShareVersions, []byte{ver}) {
 		return fmt.Errorf("unsupported share version %v is not present in the list of supported share versions %v", ver, SupportedShareVersions)
