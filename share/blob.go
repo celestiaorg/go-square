@@ -28,14 +28,22 @@ func NewBlob(ns Namespace, data []byte, shareVersion uint8, signer []byte) (*Blo
 	if ns.IsEmpty() {
 		return nil, errors.New("namespace can not be empty")
 	}
-	if shareVersion == 0 && signer != nil {
-		return nil, errors.New("share version 0 does not support signer")
+	if ns.Version() != NamespaceVersionZero {
+		return nil, fmt.Errorf("namespace version must be %d got %d", NamespaceVersionZero, ns.Version())
 	}
-	if shareVersion == 1 && len(signer) != SignerSize {
-		return nil, fmt.Errorf("share version 1 requires signer of size %d bytes", SignerSize)
-	}
-	if shareVersion > MaxShareVersion {
-		return nil, fmt.Errorf("share version can not be greater than MaxShareVersion %d", MaxShareVersion)
+	switch shareVersion {
+	case ShareVersionZero:
+		if signer != nil {
+			return nil, errors.New("share version 0 does not support signer")
+		}
+	case ShareVersionOne:
+		if len(signer) != SignerSize {
+			return nil, fmt.Errorf("share version 1 requires signer of size %d bytes", SignerSize)
+		}
+	// Note that we don't specifically check that shareVersion is less than 128 as this is caught
+	// by the default case
+	default:
+		return nil, fmt.Errorf("share version %d not supported. Please use 0 or 1", shareVersion)
 	}
 	return &Blob{
 		namespace:    ns,
