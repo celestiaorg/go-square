@@ -136,9 +136,11 @@ func (b *Blob) Compare(other *Blob) int {
 }
 
 // IsEmpty returns true if the blob is empty. This is an invalid
-// construction that can only occur if using the nil value
+// construction that can only occur if using the nil value. We
+// only check that the data is empty but this also implies that
+// all other fields would have their zero value
 func (b *Blob) IsEmpty() bool {
-	return b.namespace.IsEmpty()
+	return len(b.data) == 0
 }
 
 // Sort sorts the blobs by their namespace.
