@@ -48,7 +48,21 @@ func TestBlobConstructor(t *testing.T) {
 
 	_, err = NewBlob(ns, data, 128, nil)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "share version can not be greater than MaxShareVersion")
+	require.Contains(t, err.Error(), "share version 128 not supported")
+
+	_, err = NewBlob(ns, data, 2, nil)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "share version 2 not supported")
+
+	_, err = NewBlob(Namespace{}, data, 1, signer)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "namespace can not be empty")
+
+	ns2, err := NewNamespace(NamespaceVersionMax, ns.ID())
+	require.NoError(t, err)
+	_, err = NewBlob(ns2, data, 0, nil)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "namespace version must be 0")
 }
 
 func TestNewBlobFromProto(t *testing.T) {
@@ -86,7 +100,7 @@ func TestNewBlobFromProto(t *testing.T) {
 				ShareVersion:     0,
 				Data:             []byte{},
 			},
-			expectedErr: "blob data can not be empty",
+			expectedErr: "data can not be empty",
 		},
 		{
 			name: "invalid namespace ID length",

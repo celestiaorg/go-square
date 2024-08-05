@@ -23,11 +23,7 @@ func NewShare(data []byte) (*Share, error) {
 	if err := validateSize(data); err != nil {
 		return nil, err
 	}
-	sh := &Share{data}
-	if err := sh.doesSupportVersions(SupportedShareVersions); err != nil {
-		return nil, err
-	}
-	return sh, nil
+	return &Share{data}, nil
 }
 
 func validateSize(data []byte) error {
@@ -54,11 +50,11 @@ func (s *Share) Version() uint8 {
 	return s.InfoByte().Version()
 }
 
-// doesSupportVersions checks if the share version is supported
-func (s *Share) doesSupportVersions(supportedShareVersions []uint8) error {
+// CheckVersionSupported checks if the share version is supported
+func (s *Share) CheckVersionSupported() error {
 	ver := s.Version()
-	if !bytes.Contains(supportedShareVersions, []byte{ver}) {
-		return fmt.Errorf("unsupported share version %v is not present in the list of supported share versions %v", ver, supportedShareVersions)
+	if !bytes.Contains(SupportedShareVersions, []byte{ver}) {
+		return fmt.Errorf("unsupported share version %v is not present in the list of supported share versions %v", ver, SupportedShareVersions)
 	}
 	return nil
 }

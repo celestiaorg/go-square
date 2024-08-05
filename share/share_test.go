@@ -222,8 +222,9 @@ func TestUnsupportedShareVersion(t *testing.T) {
 	rawShare := RandomNamespace().Bytes()
 	rawShare = append(rawShare, byte(infoByte))
 	rawShare = append(rawShare, bytes.Repeat([]byte{0}, ShareSize-len(rawShare))...)
-	_, err := NewShare(rawShare)
-	require.Error(t, err)
+	share, err := NewShare(rawShare)
+	require.NoError(t, err)
+	require.Error(t, share.CheckVersionSupported())
 }
 
 func TestShareToBytesAndFromBytes(t *testing.T) {

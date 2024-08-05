@@ -60,7 +60,7 @@ func Test_parseSparseShares(t *testing.T) {
 
 			shares, err := splitBlobs(blobs...)
 			require.NoError(t, err)
-			parsedBlobs, err := parseSparseShares(shares, SupportedShareVersions)
+			parsedBlobs, err := parseSparseShares(shares)
 			if err != nil {
 				t.Error(err)
 			}
@@ -77,7 +77,7 @@ func Test_parseSparseShares(t *testing.T) {
 			blobs := generateRandomlySizedBlobs(tc.blobCount, tc.blobSize)
 			shares, err := splitBlobs(blobs...)
 			require.NoError(t, err)
-			parsedBlobs, err := parseSparseShares(shares, SupportedShareVersions)
+			parsedBlobs, err := parseSparseShares(shares)
 			if err != nil {
 				t.Error(err)
 			}
@@ -114,7 +114,7 @@ func Test_parseSparseSharesWithNamespacedPadding(t *testing.T) {
 	require.NoError(t, err)
 
 	shares := sss.Export()
-	pblobs, err := parseSparseShares(shares, SupportedShareVersions)
+	pblobs, err := parseSparseShares(shares)
 	require.NoError(t, err)
 	require.Equal(t, blobs, pblobs)
 }
@@ -125,7 +125,7 @@ func Test_parseShareVersionOne(t *testing.T) {
 	v1shares, err := splitBlobs(v1blob)
 	require.NoError(t, err)
 
-	parsedBlobs, err := parseSparseShares(v1shares, SupportedShareVersions)
+	parsedBlobs, err := parseSparseShares(v1shares)
 	require.NoError(t, err)
 	require.Equal(t, v1blob, parsedBlobs[0])
 	require.Len(t, parsedBlobs, 1)

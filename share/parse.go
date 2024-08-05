@@ -7,7 +7,7 @@ import (
 
 // ParseTxs collects all of the transactions from the shares provided
 func ParseTxs(shares []Share) ([][]byte, error) {
-	// parse the shares
+	// parse the shares. Only share version 0 is supported for transactions
 	rawTxs, err := parseCompactShares(shares)
 	if err != nil {
 		return nil, err
@@ -18,7 +18,7 @@ func ParseTxs(shares []Share) ([][]byte, error) {
 
 // ParseBlobs collects all blobs from the shares provided
 func ParseBlobs(shares []Share) ([]*Blob, error) {
-	blobList, err := parseSparseShares(shares, SupportedShareVersions)
+	blobList, err := parseSparseShares(shares)
 	if err != nil {
 		return []*Blob{}, err
 	}
