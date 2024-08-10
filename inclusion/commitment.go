@@ -2,6 +2,8 @@ package inclusion
 
 import (
 	"crypto/sha256"
+	"fmt"
+	"math"
 
 	sh "github.com/celestiaorg/go-square/v2/share"
 	"github.com/celestiaorg/nmt"
@@ -87,21 +89,35 @@ func CreateCommitments(blobs []*sh.Blob, merkleRootFn MerkleRootFn, subtreeRootT
 // https://docs.grin.mw/wiki/chain-state/merkle-mountain-range/
 // https://github.com/opentimestamps/opentimestamps-server/blob/master/doc/merkle-mountain-range.md
 func MerkleMountainRangeSizes(totalSize, maxTreeSize uint64) ([]uint64, error) {
-	var treeSizes []uint64
+	//var treeSizes []uint64
+	bigTrees := totalSize / maxTreeSize
+	fmt.Println("big trees: ", bigTrees)
+	leftovers := totalSize - (bigTrees * maxTreeSize)
+	fmt.Println("leftovers: ", leftovers)
+	var numTrees int
+	if leftovers == 0 {
+		numTrees = int(bigTrees)
+	} else {
+		numTrees = int(bigTrees) + int(math.Floor(math.Log2(float64(leftovers)))) + int(leftovers%2)
+	}
+	fmt.Println("num trees: ", numTrees)
+	treeSizes := make([]uint64, int(numTrees))
 
+	count := 0
 	for totalSize != 0 {
 		switch {
 		case totalSize >= maxTreeSize:
-			treeSizes = append(treeSizes, maxTreeSize)
+			treeSizes[count] = maxTreeSize
 			totalSize -= maxTreeSize
 		case totalSize < maxTreeSize:
 			treeSize, err := RoundDownPowerOfTwo(totalSize)
 			if err != nil {
 				return treeSizes, err
 			}
-			treeSizes = append(treeSizes, treeSize)
+			treeSizes[count] = treeSize
 			totalSize -= treeSize
 		}
+		count++
 	}
 
 	return treeSizes, nil
