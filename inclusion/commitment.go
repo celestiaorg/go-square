@@ -92,7 +92,7 @@ func MerkleMountainRangeSizes(totalSize, maxTreeSize uint64) ([]uint64, error) {
 	//var treeSizes []uint64
 	bigTrees := totalSize / maxTreeSize
 	fmt.Println("big trees: ", bigTrees)
-	leftovers := totalSize - (bigTrees * maxTreeSize)
+	leftovers := totalSize % maxTreeSize
 	fmt.Println("leftovers: ", leftovers)
 	var numTrees int
 	if leftovers == 0 {
