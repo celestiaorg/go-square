@@ -13,7 +13,7 @@ message BlobProto {
   uint32 share_version = 3;
   uint32 namespace_version = 4;
   // Signer is sdk.AccAddress that paid for this blob. This field is optional
-  // and can only be used when share_version is set to 1. 
+  // and can only be used when share_version is set to 1.
   bytes signer = 5;
 }
 
@@ -29,7 +29,7 @@ message BlobTx {
 // IndexWrapper adds index metadata to a transaction. This is used to track
 // transactions that pay for blobs, and where the blobs start in the square.
 message IndexWrapper {
-  bytes           tx            = 1;
+  bytes tx = 1;
   repeated uint32 share_indexes = 2;
-  string          type_id       = 3;
+  string type_id = 3;
 }
