@@ -16,8 +16,8 @@ jobs:
       - uses: bufbuild/buf-setup-action@v1
       - uses: bufbuild/buf-breaking-action@v1
         with:
-          input: pb
+          input: proto
           against: 'https://github.com/celestiaorg/go-square.git#branch=main,subdir=proto'
       - uses: bufbuild/buf-lint-action@v1
         with:
-          input: pb
+          input: proto
