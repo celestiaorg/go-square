@@ -1,8 +1,14 @@
 version: v2
-name: buf.build/celestiaorg/go-square
+modules:
+  - path: proto
+    name: buf.build/celestia/go-square
 breaking:
   use:
     - FILE
 lint:
   use:
     - BASIC
+  ignore_only:
+    PACKAGE_DIRECTORY_MATCH:
+      # ignoring because fixing means we will do a breaking change
+      - proto/blob/v1/blob.proto
