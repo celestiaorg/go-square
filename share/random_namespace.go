@@ -2,7 +2,8 @@ package share
 
 import (
 	"crypto/rand"
-	"slices"
+	"encoding/binary"
+	"errors"
 )
 
 func RandomNamespace() Namespace {
@@ -38,22 +39,55 @@ func RandomBlobNamespace() Namespace {
 	for {
 		id := RandomBlobNamespaceID()
 		namespace := MustNewV0Namespace(id)
-		if isBlobNamespace(namespace) {
+		if IsBlobNamespace(namespace) {
 			return namespace
 		}
 	}
 }
 
-// isBlobNamespace returns an true if this namespace is a valid user-specifiable
-// blob namespace.
-func isBlobNamespace(ns Namespace) bool {
-	if ns.IsReserved() {
-		return false
+// AddInt adds arbitrary int value to namespace, treating namespace as big-endian
+// implementation of int
+func AddInt(n Namespace, val int) (Namespace, error) {
+	if val == 0 {
+		return n, nil
+	}
+	// Convert the input integer to a byte slice and add it to result slice
+	result := make([]byte, NamespaceSize)
+	if val > 0 {
+		binary.BigEndian.PutUint64(result[NamespaceSize-8:], uint64(val))
+	} else {
+		binary.BigEndian.PutUint64(result[NamespaceSize-8:], uint64(-val))
 	}
 
-	if !slices.Contains(SupportedBlobNamespaceVersions, ns.Version()) {
-		return false
+	// Perform addition byte by byte
+	var carry int
+	nn := n.Bytes()
+	for i := NamespaceSize - 1; i >= 0; i-- {
+		var sum int
+		if val > 0 {
+			sum = int(nn[i]) + int(result[i]) + carry
+		} else {
+			sum = int(nn[i]) - int(result[i]) + carry
+		}
+
+		switch {
+		case sum > 255:
+			carry = 1
+			sum -= 256
+		case sum < 0:
+			carry = -1
+			sum += 256
+		default:
+			carry = 0
+		}
+
+		result[i] = uint8(sum)
 	}
 
-	return true
+	// Handle any remaining carry
+	if carry != 0 {
+		return Namespace{}, errors.New("namespace overflow")
+	}
+
+	return Namespace{data: result}, nil
 }

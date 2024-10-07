@@ -238,3 +238,15 @@ func TestShareToBytesAndFromBytes(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, shares, reconstructedShares)
 }
+
+func TestMarshalShare(t *testing.T) {
+	sh := RandShares(1)
+	b, err := sh[0].MarshalJSON()
+	require.NoError(t, err)
+
+	newShare := Share{}
+	err = newShare.UnmarshalJSON(b)
+	require.NoError(t, err)
+
+	require.Equal(t, sh[0], newShare)
+}
