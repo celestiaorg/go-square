@@ -17,6 +17,19 @@ type MerkleRootFn func([][]byte) []byte
 // [data square layout rationale]: ../../specs/src/specs/data_square_layout.md
 // [blob share commitment rules]: ../../specs/src/specs/data_square_layout.md#blob-share-commitment-rules
 func CreateCommitment(blob *blob.Blob, merkleRootFn MerkleRootFn, subtreeRootThreshold int) ([]byte, error) {
+	subTreeRoots, err := GenerateSubtreeRoots(blob, subtreeRootThreshold)
+	if err != nil {
+		return nil, err
+	}
+	return merkleRootFn(subTreeRoots), nil
+}
+
+// GenerateSubtreeRoots generates the subtree roots of a blob.
+// See [data square layout rationale] and [blob share commitment rules].
+//
+// [data square layout rationale]: ../../specs/src/specs/data_square_layout.md
+// [blob share commitment rules]: ../../specs/src/specs/data_square_layout.md#blob-share-commitment-rules
+func GenerateSubtreeRoots(blob *blob.Blob, subtreeRootThreshold int) ([][]byte, error) {
 	if err := blob.Validate(); err != nil {
 		return nil, err
 	}
@@ -71,7 +84,7 @@ func CreateCommitment(blob *blob.Blob, merkleRootFn MerkleRootFn, subtreeRootThr
 		}
 		subTreeRoots[i] = root
 	}
-	return merkleRootFn(subTreeRoots), nil
+	return subTreeRoots, nil
 }
 
 func CreateCommitments(blobs []*blob.Blob, merkleRootFn MerkleRootFn, subtreeRootThreshold int) ([][]byte, error) {
