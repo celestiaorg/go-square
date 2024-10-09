@@ -3,6 +3,7 @@ package share
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 
 	v1 "github.com/celestiaorg/go-square/v2/proto/blob/v1"
@@ -148,4 +149,21 @@ func SortBlobs(blobs []*Blob) {
 	sort.SliceStable(blobs, func(i, j int) bool {
 		return blobs[i].Compare(blobs[j]) < 0
 	})
+}
+
+// IsBlobNamespace returns a true if this namespace is a valid user-specifiable
+// blob namespace.
+func IsBlobNamespace(ns Namespace) bool {
+	if ns.IsReserved() {
+		return false
+	}
+
+	if !ns.IsUsableNamespace() {
+		return false
+	}
+
+	if !slices.Contains(SupportedBlobNamespaceVersions, ns.Version()) {
+		return false
+	}
+	return true
 }

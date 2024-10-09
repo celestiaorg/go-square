@@ -350,6 +350,18 @@ func Test_compareMethods(t *testing.T) {
 	}
 }
 
+func TestMarshalNamespace(t *testing.T) {
+	ns := RandomNamespace()
+	b, err := ns.MarshalJSON()
+	require.NoError(t, err)
+
+	newNs := Namespace{}
+	err = newNs.UnmarshalJSON(b)
+	require.NoError(t, err)
+
+	require.Equal(t, ns, newNs)
+}
+
 func BenchmarkEqual(b *testing.B) {
 	n1 := RandomNamespace()
 	n2 := RandomNamespace()

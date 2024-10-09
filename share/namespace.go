@@ -2,11 +2,33 @@ package share
 
 import (
 	"bytes"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 )
 
 type Namespace struct {
 	data []byte
+}
+
+// MarshalJSON encodes namespace to the json encoded bytes.
+func (n Namespace) MarshalJSON() ([]byte, error) {
+	return json.Marshal(n.data)
+}
+
+// MarshalJSON decodes json bytes to the namespace.
+func (n *Namespace) UnmarshalJSON(data []byte) error {
+	var buf []byte
+	if err := json.Unmarshal(data, &buf); err != nil {
+		return err
+	}
+
+	ns, err := NewNamespaceFromBytes(buf)
+	if err != nil {
+		return err
+	}
+	*n = ns
+	return nil
 }
 
 // NewNamespace validates the provided version and id and returns a new namespace.
@@ -92,6 +114,11 @@ func (n Namespace) ID() []byte {
 	return n.data[NamespaceVersionSize:]
 }
 
+// String stringifies the Namespace.
+func (n Namespace) String() string {
+	return hex.EncodeToString(n.data)
+}
+
 // ValidateUserNamespace returns an error if the provided version is not
 // supported or the provided id does not meet the requirements
 // for the provided version. This should be used for validating
@@ -102,6 +129,17 @@ func ValidateUserNamespace(version uint8, id []byte) error {
 		return err
 	}
 	return validateID(version, id)
+}
+
+// ValidateForData checks if the Namespace is of real/useful data.
+func ValidateForData(n Namespace) error {
+	if err := ValidateUserNamespace(n.Version(), n.ID()); err != nil {
+		return err
+	}
+	if !n.IsUsableNamespace() {
+		return fmt.Errorf("invalid data namespace(%s): parity and tail padding namespace are forbidden", n)
+	}
+	return nil
 }
 
 // validateVersionSupported returns an error if the version is not supported.
@@ -201,6 +239,31 @@ func (n Namespace) IsGreaterOrEqualThan(n2 Namespace) bool {
 
 func (n Namespace) Compare(n2 Namespace) int {
 	return bytes.Compare(n.data, n2.data)
+}
+
+// IsOutsideRange checks if the namespace is outside the min-max range of the given hashes.
+func (n Namespace) IsOutsideRange(leftHash, rightHash []byte) bool {
+	if len(leftHash) < NamespaceSize || len(rightHash) < 2*NamespaceSize {
+		return false
+	}
+	return n.IsLessThan(Namespace{data: leftHash[:NamespaceSize]}) ||
+		!n.IsLessOrEqualThan(Namespace{data: rightHash[NamespaceSize : NamespaceSize*2]})
+}
+
+// IsAboveMax checks if the namespace is above the maximum namespace of the given hash.
+func (n Namespace) IsAboveMax(hash []byte) bool {
+	if len(hash) < 2*NamespaceSize {
+		return false
+	}
+	return !n.IsLessOrEqualThan(Namespace{data: hash[NamespaceSize : NamespaceSize*2]})
+}
+
+// IsBelowMin checks if the target namespace is below the minimum namespace of the given hash.
+func (n Namespace) IsBelowMin(hash []byte) bool {
+	if len(hash) < NamespaceSize {
+		return false
+	}
+	return n.IsLessThan(Namespace{data: hash[:NamespaceSize]})
 }
 
 // leftPad returns a new byte slice with the provided byte slice left-padded to the provided size.
