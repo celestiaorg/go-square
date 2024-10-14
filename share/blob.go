@@ -151,9 +151,9 @@ func SortBlobs(blobs []*Blob) {
 	})
 }
 
-// IsBlobNamespace returns a true if this namespace is a valid user-specifiable
+// IsValidBlobNamespace returns a true if this namespace is a valid user-specifiable
 // blob namespace.
-func IsBlobNamespace(ns Namespace) bool {
+func IsValidBlobNamespace(ns Namespace) bool {
 	if ns.IsReserved() {
 		return false
 	}

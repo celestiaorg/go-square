@@ -241,31 +241,6 @@ func (n Namespace) Compare(n2 Namespace) int {
 	return bytes.Compare(n.data, n2.data)
 }
 
-// IsOutsideRange checks if the namespace is outside the min-max range of the given hashes.
-func (n Namespace) IsOutsideRange(leftHash, rightHash []byte) bool {
-	if len(leftHash) < NamespaceSize || len(rightHash) < 2*NamespaceSize {
-		return false
-	}
-	return n.IsLessThan(Namespace{data: leftHash[:NamespaceSize]}) ||
-		!n.IsLessOrEqualThan(Namespace{data: rightHash[NamespaceSize : NamespaceSize*2]})
-}
-
-// IsAboveMax checks if the namespace is above the maximum namespace of the given hash.
-func (n Namespace) IsAboveMax(hash []byte) bool {
-	if len(hash) < 2*NamespaceSize {
-		return false
-	}
-	return !n.IsLessOrEqualThan(Namespace{data: hash[NamespaceSize : NamespaceSize*2]})
-}
-
-// IsBelowMin checks if the target namespace is below the minimum namespace of the given hash.
-func (n Namespace) IsBelowMin(hash []byte) bool {
-	if len(hash) < NamespaceSize {
-		return false
-	}
-	return n.IsLessThan(Namespace{data: hash[:NamespaceSize]})
-}
-
 // leftPad returns a new byte slice with the provided byte slice left-padded to the provided size.
 // If the provided byte slice is already larger than the provided size, the original byte slice is returned.
 func leftPad(b []byte, size int) []byte {

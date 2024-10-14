@@ -3,7 +3,9 @@ package share
 import (
 	"crypto/rand"
 	"encoding/binary"
-	"errors"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func RandomNamespace() Namespace {
@@ -39,18 +41,16 @@ func RandomBlobNamespace() Namespace {
 	for {
 		id := RandomBlobNamespaceID()
 		namespace := MustNewV0Namespace(id)
-		if IsBlobNamespace(namespace) {
+		if IsValidBlobNamespace(namespace) {
 			return namespace
 		}
 	}
 }
 
 // AddInt adds arbitrary int value to namespace, treating namespace as big-endian
-// implementation of int
-func AddInt(n Namespace, val int) (Namespace, error) {
-	if val == 0 {
-		return n, nil
-	}
+// implementation of int. Note: should only be used for tests.
+func AddInt(t *testing.T, n Namespace, val int) Namespace {
+	assert.Greater(t, val, 0)
 	// Convert the input integer to a byte slice and add it to result slice
 	result := make([]byte, NamespaceSize)
 	if val > 0 {
@@ -86,8 +86,8 @@ func AddInt(n Namespace, val int) (Namespace, error) {
 
 	// Handle any remaining carry
 	if carry != 0 {
-		return Namespace{}, errors.New("namespace overflow")
+		t.Fatal("namespace overflow")
 	}
 
-	return Namespace{data: result}, nil
+	return Namespace{data: result}
 }
