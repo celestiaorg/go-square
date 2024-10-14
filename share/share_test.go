@@ -240,7 +240,7 @@ func TestShareToBytesAndFromBytes(t *testing.T) {
 }
 
 func TestMarshalShare(t *testing.T) {
-	sh := RandShares(1)
+	sh := RandShares(1)[0]
 	b, err := sh[0].MarshalJSON()
 	require.NoError(t, err)
 

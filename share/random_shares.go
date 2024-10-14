@@ -7,7 +7,7 @@ import (
 	"sort"
 )
 
-// RandShares generate 'total' amount of shares filled with random data.
+// RandShares generates total amount of shares and fills them with random data.
 func RandShares(total int) []Share {
 	if total&(total-1) != 0 {
 		panic(fmt.Errorf("total must be power of 2: %d", total))
@@ -35,7 +35,7 @@ func RandShares(total int) []Share {
 	return shares
 }
 
-// RandSharesWithNamespace is same the as RandShares, but sets same namespace for all shares.
+// RandSharesWithNamespace is the same as RandShares, but sets the same namespace for all shares.
 func RandSharesWithNamespace(namespace Namespace, namespacedAmount, total int) []Share {
 	if total&(total-1) != 0 {
 		panic(fmt.Errorf("total must be power of 2: %d", total))

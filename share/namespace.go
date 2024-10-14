@@ -16,7 +16,7 @@ func (n Namespace) MarshalJSON() ([]byte, error) {
 	return json.Marshal(n.data)
 }
 
-// MarshalJSON decodes json bytes to the namespace.
+// UnmarshalJSON decodes json bytes to the namespace.
 func (n *Namespace) UnmarshalJSON(data []byte) error {
 	var buf []byte
 	if err := json.Unmarshal(data, &buf); err != nil {
