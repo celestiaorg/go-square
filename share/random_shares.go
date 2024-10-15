@@ -8,9 +8,9 @@ import (
 )
 
 // RandShares generates total amount of shares and fills them with random data.
-func RandShares(total int) []Share {
+func RandShares(total int) ([]Share, error) {
 	if total&(total-1) != 0 {
-		panic(fmt.Errorf("total must be power of 2: %d", total))
+		return nil, fmt.Errorf("total must be power of 2: %d", total)
 	}
 
 	shares := make([]Share, total)
@@ -25,24 +25,25 @@ func RandShares(total int) []Share {
 		if err != nil {
 			panic(err)
 		}
-		if err = ValidateForData(sh.Namespace()); err != nil {
+		if err = sh.Namespace().ValidateForData(); err != nil {
 			panic(err)
 		}
 
 		shares[i] = *sh
 	}
 	sort.Slice(shares, func(i, j int) bool { return bytes.Compare(shares[i].ToBytes(), shares[j].ToBytes()) < 0 })
-	return shares
+	return shares, nil
 }
 
 // RandSharesWithNamespace is the same as RandShares, but sets the same namespace for all shares.
-func RandSharesWithNamespace(namespace Namespace, namespacedAmount, total int) []Share {
+func RandSharesWithNamespace(namespace Namespace, namespacedAmount, total int) ([]Share, error) {
 	if total&(total-1) != 0 {
-		panic(fmt.Errorf("total must be power of 2: %d", total))
+		return nil, fmt.Errorf("total must be power of 2: %d", total)
 	}
 
 	if namespacedAmount > total {
-		panic(fmt.Errorf("withNamespace must be less than total: %d", total))
+		return nil,
+			fmt.Errorf("namespacedAmount %v must be less than or equal to total: %v", namespacedAmount, total)
 	}
 
 	shares := make([]Share, total)
@@ -65,5 +66,5 @@ func RandSharesWithNamespace(namespace Namespace, namespacedAmount, total int) [
 		shares[i] = *sh
 	}
 	sort.Slice(shares, func(i, j int) bool { return bytes.Compare(shares[i].ToBytes(), shares[j].ToBytes()) < 0 })
-	return shares
+	return shares, nil
 }

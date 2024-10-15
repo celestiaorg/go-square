@@ -72,7 +72,6 @@ func TestBlobConstructor(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, blobList, 1)
 	require.Equal(t, blob, blobList[0])
-
 }
 
 func TestNewBlobFromProto(t *testing.T) {

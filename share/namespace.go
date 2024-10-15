@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"slices"
 )
 
 type Namespace struct {
@@ -34,11 +35,8 @@ func (n *Namespace) UnmarshalJSON(data []byte) error {
 // NewNamespace validates the provided version and id and returns a new namespace.
 // This should be used for user specified namespaces.
 func NewNamespace(version uint8, id []byte) (Namespace, error) {
-	if err := ValidateUserNamespace(version, id); err != nil {
-		return Namespace{}, err
-	}
-
-	return newNamespace(version, id), nil
+	ns := newNamespace(version, id)
+	return ns, ns.ValidateUserNamespace()
 }
 
 func newNamespace(version uint8, id []byte) Namespace {
@@ -66,13 +64,9 @@ func NewNamespaceFromBytes(bytes []byte) (Namespace, error) {
 	if len(bytes) != NamespaceSize {
 		return Namespace{}, fmt.Errorf("invalid namespace length: %d. Must be %d bytes", len(bytes), NamespaceSize)
 	}
-	if err := ValidateUserNamespace(bytes[VersionIndex], bytes[NamespaceVersionSize:]); err != nil {
-		return Namespace{}, err
-	}
 
-	return Namespace{
-		data: bytes,
-	}, nil
+	ns := Namespace{data: bytes}
+	return ns, ns.ValidateUserNamespace()
 }
 
 // NewV0Namespace returns a new namespace with version 0 and the provided subID. subID
@@ -123,17 +117,17 @@ func (n Namespace) String() string {
 // supported or the provided id does not meet the requirements
 // for the provided version. This should be used for validating
 // user specified namespaces
-func ValidateUserNamespace(version uint8, id []byte) error {
-	err := validateVersionSupported(version)
+func (n Namespace) ValidateUserNamespace() error {
+	err := n.validateVersionSupported()
 	if err != nil {
 		return err
 	}
-	return validateID(version, id)
+	return n.validateID()
 }
 
 // ValidateForData checks if the Namespace is of real/useful data.
-func ValidateForData(n Namespace) error {
-	if err := ValidateUserNamespace(n.Version(), n.ID()); err != nil {
+func (n Namespace) ValidateForData() error {
+	if err := n.ValidateUserNamespace(); err != nil {
 		return err
 	}
 	if !n.IsUsableNamespace() {
@@ -143,22 +137,22 @@ func ValidateForData(n Namespace) error {
 }
 
 // validateVersionSupported returns an error if the version is not supported.
-func validateVersionSupported(version uint8) error {
-	if version != NamespaceVersionZero && version != NamespaceVersionMax {
-		return fmt.Errorf("unsupported namespace version %v", version)
+func (n Namespace) validateVersionSupported() error {
+	if n.Version() != NamespaceVersionZero && n.Version() != NamespaceVersionMax {
+		return fmt.Errorf("unsupported namespace version %v", n.Version())
 	}
 	return nil
 }
 
 // validateID returns an error if the provided id does not meet the requirements
 // for the provided version.
-func validateID(version uint8, id []byte) error {
-	if len(id) != NamespaceIDSize {
-		return fmt.Errorf("unsupported namespace id length: id %v must be %v bytes but it was %v bytes", id, NamespaceIDSize, len(id))
+func (n Namespace) validateID() error {
+	if len(n.ID()) != NamespaceIDSize {
+		return fmt.Errorf("unsupported namespace id length: id %v must be %v bytes but it was %v bytes", n.ID(), NamespaceIDSize, len(n.ID()))
 	}
 
-	if version == NamespaceVersionZero && !bytes.HasPrefix(id, NamespaceVersionZeroPrefix) {
-		return fmt.Errorf("unsupported namespace id with version %v. ID %v must start with %v leading zeros", version, id, len(NamespaceVersionZeroPrefix))
+	if n.Version() == NamespaceVersionZero && !bytes.HasPrefix(n.ID(), NamespaceVersionZeroPrefix) {
+		return fmt.Errorf("unsupported namespace id with version %v. ID %v must start with %v leading zeros", n.Version(), n.ID(), len(NamespaceVersionZeroPrefix))
 	}
 	return nil
 }
@@ -215,6 +209,23 @@ func (n Namespace) Repeat(times int) []Namespace {
 		ns[i] = n.deepCopy()
 	}
 	return ns
+}
+
+// IsBlobNamespace returns true if this namespace is a valid user-specifiable
+// blob namespace.
+func (n Namespace) IsBlobNamespace() bool {
+	if err := n.ValidateForData(); err != nil {
+		return false
+	}
+
+	if n.IsReserved() {
+		return false
+	}
+
+	if !slices.Contains(SupportedBlobNamespaceVersions, n.Version()) {
+		return false
+	}
+	return true
 }
 
 func (n Namespace) Equals(n2 Namespace) bool {

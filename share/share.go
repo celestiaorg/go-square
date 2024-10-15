@@ -18,10 +18,12 @@ type Share struct {
 	data []byte
 }
 
+// MarshalJSON encodes share to the json encoded bytes.
 func (s Share) MarshalJSON() ([]byte, error) {
 	return json.Marshal(s.data)
 }
 
+// UnmarshalJSON decodes json bytes to the share.
 func (s *Share) UnmarshalJSON(data []byte) error {
 	var buf []byte
 

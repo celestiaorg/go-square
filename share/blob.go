@@ -3,7 +3,6 @@ package share
 import (
 	"errors"
 	"fmt"
-	"slices"
 	"sort"
 
 	v1 "github.com/celestiaorg/go-square/v2/proto/blob/v1"
@@ -159,21 +158,4 @@ func (b *Blob) ToShares() ([]Share, error) {
 		return nil, err
 	}
 	return splitter.Export(), nil
-}
-
-// IsValidBlobNamespace returns a true if this namespace is a valid user-specifiable
-// blob namespace.
-func IsValidBlobNamespace(ns Namespace) bool {
-	if ns.IsReserved() {
-		return false
-	}
-
-	if !ns.IsUsableNamespace() {
-		return false
-	}
-
-	if !slices.Contains(SupportedBlobNamespaceVersions, ns.Version()) {
-		return false
-	}
-	return true
 }

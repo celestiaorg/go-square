@@ -41,7 +41,7 @@ func RandomBlobNamespace() Namespace {
 	for {
 		id := RandomBlobNamespaceID()
 		namespace := MustNewV0Namespace(id)
-		if IsValidBlobNamespace(namespace) {
+		if namespace.IsBlobNamespace() {
 			return namespace
 		}
 	}
