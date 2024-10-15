@@ -63,6 +63,16 @@ func TestBlobConstructor(t *testing.T) {
 	_, err = NewBlob(ns2, data, 0, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "namespace version must be 0")
+
+	blob, err := NewBlob(ns, data, 0, nil)
+	require.NoError(t, err)
+	shares, err := blob.ToShares()
+	require.NoError(t, err)
+	blobList, err := parseSparseShares(shares)
+	require.NoError(t, err)
+	require.Len(t, blobList, 1)
+	require.Equal(t, blob, blobList[0])
+
 }
 
 func TestNewBlobFromProto(t *testing.T) {

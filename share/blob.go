@@ -151,6 +151,16 @@ func SortBlobs(blobs []*Blob) {
 	})
 }
 
+// ToShares converts blob's data back to share.
+func (b *Blob) ToShares() ([]Share, error) {
+	splitter := NewSparseShareSplitter()
+	err := splitter.Write(b)
+	if err != nil {
+		return nil, err
+	}
+	return splitter.Export(), nil
+}
+
 // IsValidBlobNamespace returns a true if this namespace is a valid user-specifiable
 // blob namespace.
 func IsValidBlobNamespace(ns Namespace) bool {
