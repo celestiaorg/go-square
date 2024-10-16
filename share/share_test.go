@@ -228,7 +228,9 @@ func TestUnsupportedShareVersion(t *testing.T) {
 }
 
 func TestShareToBytesAndFromBytes(t *testing.T) {
-	blobs := []*Blob{generateRandomBlob(580), generateRandomBlob(380), generateRandomBlob(1100)}
+	blobs, err := GenerateV0Blobs([]int{580, 380, 1100}, true)
+	require.NoError(t, err)
+
 	SortBlobs(blobs)
 	shares, err := splitBlobs(blobs...)
 	require.NoError(t, err)

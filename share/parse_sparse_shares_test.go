@@ -2,9 +2,7 @@ package share
 
 import (
 	"bytes"
-	crand "crypto/rand"
 	"fmt"
-	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,47 +11,63 @@ import (
 
 func Test_parseSparseShares(t *testing.T) {
 	type test struct {
-		name      string
-		blobSize  int
-		blobCount int
+		name          string
+		blobSize      int
+		blobCount     int
+		sameNamespace bool
 	}
 
 	// each test is ran twice, once using blobSize as an exact size, and again
 	// using it as a cap for randomly sized leaves
 	tests := []test{
 		{
-			name:      "single small blob",
-			blobSize:  10,
-			blobCount: 1,
+			name:          "single small blob",
+			blobSize:      10,
+			blobCount:     1,
+			sameNamespace: true,
 		},
 		{
-			name:      "ten small blobs",
-			blobSize:  10,
-			blobCount: 10,
+			name:          "ten small blobs",
+			blobSize:      10,
+			blobCount:     10,
+			sameNamespace: true,
 		},
 		{
-			name:      "single big blob",
-			blobSize:  ContinuationSparseShareContentSize * 4,
-			blobCount: 1,
+			name:          "single big blob",
+			blobSize:      ContinuationSparseShareContentSize * 4,
+			blobCount:     1,
+			sameNamespace: true,
 		},
 		{
-			name:      "many big blobs",
-			blobSize:  ContinuationSparseShareContentSize * 4,
-			blobCount: 10,
+			name:          "many big blobs",
+			blobSize:      ContinuationSparseShareContentSize * 4,
+			blobCount:     10,
+			sameNamespace: true,
 		},
 		{
-			name:      "single exact size blob",
-			blobSize:  FirstSparseShareContentSize,
-			blobCount: 1,
+			name:          "single exact size blob",
+			blobSize:      FirstSparseShareContentSize,
+			blobCount:     1,
+			sameNamespace: true,
+		},
+		{
+			name:          "blobs with different namespaces",
+			blobSize:      FirstSparseShareContentSize,
+			blobCount:     5,
+			sameNamespace: false,
 		},
 	}
 
 	for _, tc := range tests {
 		// run the tests with identically sized blobs
 		t.Run(fmt.Sprintf("%s identically sized ", tc.name), func(t *testing.T) {
-			blobs := make([]*Blob, tc.blobCount)
-			for i := 0; i < tc.blobCount; i++ {
-				blobs[i] = generateRandomBlob(tc.blobSize)
+			sizes := make([]int, tc.blobCount)
+			for i := range sizes {
+				sizes[i] = tc.blobSize
+			}
+			blobs, err := GenerateV0Blobs(sizes, tc.sameNamespace)
+			if err != nil {
+				t.Error(err)
 			}
 
 			SortBlobs(blobs)
@@ -69,6 +83,15 @@ func Test_parseSparseShares(t *testing.T) {
 			for i := 0; i < len(blobs); i++ {
 				assert.Equal(t, blobs[i].Namespace(), parsedBlobs[i].Namespace(), "parsed blob namespace does not match")
 				assert.Equal(t, blobs[i].Data(), parsedBlobs[i].Data(), "parsed blob data does not match")
+			}
+
+			if !tc.sameNamespace {
+				// compare namespaces in case they should not be the same
+				for i := 0; i < len(blobs); i++ {
+					for j := i + 1; j < len(blobs); j++ {
+						require.False(t, parsedBlobs[i].Namespace().Equals(parsedBlobs[j].Namespace()))
+					}
+				}
 			}
 		})
 
@@ -129,42 +152,6 @@ func Test_parseShareVersionOne(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, v1blob, parsedBlobs[0])
 	require.Len(t, parsedBlobs, 1)
-}
-
-func generateRandomBlobWithNamespace(namespace Namespace, size int) *Blob {
-	data := make([]byte, size)
-	_, err := crand.Read(data)
-	if err != nil {
-		panic(err)
-	}
-	blob, err := NewV0Blob(namespace, data)
-	if err != nil {
-		panic(err)
-	}
-	return blob
-}
-
-func generateRandomBlob(dataSize int) *Blob {
-	ns := MustNewV0Namespace(bytes.Repeat([]byte{0x1}, NamespaceVersionZeroIDSize))
-	return generateRandomBlobWithNamespace(ns, dataSize)
-}
-
-func generateRandomlySizedBlobs(count, maxBlobSize int) []*Blob {
-	blobs := make([]*Blob, count)
-	for i := 0; i < count; i++ {
-		blobs[i] = generateRandomBlob(rand.Intn(maxBlobSize-1) + 1)
-		if len(blobs[i].Data()) == 0 {
-			i--
-		}
-	}
-
-	// this is just to let us use assert.Equal
-	if count == 0 {
-		blobs = nil
-	}
-
-	SortBlobs(blobs)
-	return blobs
 }
 
 func splitBlobs(blobs ...*Blob) ([]Share, error) {

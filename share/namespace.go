@@ -127,11 +127,11 @@ func (n Namespace) ValidateUserNamespace() error {
 
 // ValidateForData checks if the Namespace is of real/useful data.
 func (n Namespace) ValidateForData() error {
-	if err := n.ValidateUserNamespace(); err != nil {
-		return err
-	}
 	if !n.IsUsableNamespace() {
 		return fmt.Errorf("invalid data namespace(%s): parity and tail padding namespace are forbidden", n)
+	}
+	if n.IsReserved() {
+		return fmt.Errorf("invalid data namespace(%s): reserved namespace is forbidden", n)
 	}
 	return nil
 }
