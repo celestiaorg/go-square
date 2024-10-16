@@ -144,6 +144,18 @@ func (n Namespace) ValidateForData() error {
 	return nil
 }
 
+// // ValidateForBlob checks if the Namespace is valid blob namespace.
+func (n Namespace) ValidateForBlob() error {
+	if err := n.ValidateForData(); err != nil {
+		return err
+	}
+
+	if !slices.Contains(SupportedBlobNamespaceVersions, n.Version()) {
+		return fmt.Errorf("blob version %d is not supported", n.Version())
+	}
+	return nil
+}
+
 // validateVersionSupported returns an error if the version is not supported.
 func (n Namespace) validateVersionSupported() error {
 	if n.Version() != NamespaceVersionZero && n.Version() != NamespaceVersionMax {
@@ -217,19 +229,6 @@ func (n Namespace) Repeat(times int) []Namespace {
 		ns[i] = n.deepCopy()
 	}
 	return ns
-}
-
-// IsBlobNamespace returns true if this namespace is a valid user-specifiable
-// blob namespace.
-func (n Namespace) IsBlobNamespace() bool {
-	if err := n.ValidateForData(); err != nil {
-		return false
-	}
-
-	if !slices.Contains(SupportedBlobNamespaceVersions, n.Version()) {
-		return false
-	}
-	return true
 }
 
 func (n Namespace) Equals(n2 Namespace) bool {
