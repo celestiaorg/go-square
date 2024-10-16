@@ -36,7 +36,10 @@ func (n *Namespace) UnmarshalJSON(data []byte) error {
 // This should be used for user specified namespaces.
 func NewNamespace(version uint8, id []byte) (Namespace, error) {
 	ns := newNamespace(version, id)
-	return ns, ns.ValidateUserNamespace()
+	if err := ns.ValidateUserNamespace(); err != nil {
+		return Namespace{}, err
+	}
+	return ns, nil
 }
 
 func newNamespace(version uint8, id []byte) Namespace {
@@ -66,7 +69,10 @@ func NewNamespaceFromBytes(bytes []byte) (Namespace, error) {
 	}
 
 	ns := Namespace{data: bytes}
-	return ns, ns.ValidateUserNamespace()
+	if err := ns.ValidateUserNamespace(); err != nil {
+		return Namespace{}, err
+	}
+	return ns, nil
 }
 
 // NewV0Namespace returns a new namespace with version 0 and the provided subID. subID
