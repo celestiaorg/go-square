@@ -253,7 +253,7 @@ func (n Namespace) Compare(n2 Namespace) int {
 }
 
 // AddInt adds arbitrary int value to namespace, treating namespace as big-endian
-// implementation of int. It could be helpful for users to create an adjacent namespaces.
+// implementation of int. It could be helpful for users to create adjacent namespaces.
 func (n Namespace) AddInt(val int) (Namespace, error) {
 	if val == 0 {
 		return n, nil
