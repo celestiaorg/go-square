@@ -2,8 +2,10 @@ package share
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"slices"
 )
@@ -252,6 +254,52 @@ func (n Namespace) IsGreaterOrEqualThan(n2 Namespace) bool {
 
 func (n Namespace) Compare(n2 Namespace) int {
 	return bytes.Compare(n.data, n2.data)
+}
+
+// AddInt adds arbitrary int value to namespace, treating namespace as big-endian
+// implementation of int. It could be helpful for users to create an adjacent namespaces.
+func (n Namespace) AddInt(val int) (Namespace, error) {
+	if val == 0 {
+		return n, nil
+	}
+	// Convert the input integer to a byte slice and add it to result slice
+	result := make([]byte, NamespaceSize)
+	if val > 0 {
+		binary.BigEndian.PutUint64(result[NamespaceSize-8:], uint64(val))
+	} else {
+		binary.BigEndian.PutUint64(result[NamespaceSize-8:], uint64(-val))
+	}
+
+	// Perform addition byte by byte
+	var carry int
+	nn := n.Bytes()
+	for i := NamespaceSize - 1; i >= 0; i-- {
+		var sum int
+		if val > 0 {
+			sum = int(nn[i]) + int(result[i]) + carry
+		} else {
+			sum = int(nn[i]) - int(result[i]) + carry
+		}
+
+		switch {
+		case sum > 255:
+			carry = 1
+			sum -= 256
+		case sum < 0:
+			carry = -1
+			sum += 256
+		default:
+			carry = 0
+		}
+
+		result[i] = uint8(sum)
+	}
+
+	// Handle any remaining carry
+	if carry != 0 {
+		return Namespace{}, errors.New("namespace overflow")
+	}
+	return Namespace{data: result}, nil
 }
 
 // leftPad returns a new byte slice with the provided byte slice left-padded to the provided size.
