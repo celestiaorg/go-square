@@ -138,9 +138,6 @@ func (n Namespace) ValidateForData() error {
 	if !n.IsUsableNamespace() {
 		return fmt.Errorf("invalid data namespace(%s): parity and tail padding namespace are forbidden", n)
 	}
-	if n.IsReserved() {
-		return fmt.Errorf("invalid data namespace(%s): reserved namespace is forbidden", n)
-	}
 	return nil
 }
 
