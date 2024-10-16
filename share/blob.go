@@ -150,7 +150,7 @@ func SortBlobs(blobs []*Blob) {
 	})
 }
 
-// ToShares converts blob's data back to share.
+// ToShares converts blob's data back to shares.
 func (b *Blob) ToShares() ([]Share, error) {
 	splitter := NewSparseShareSplitter()
 	err := splitter.Write(b)

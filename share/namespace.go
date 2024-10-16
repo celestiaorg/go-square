@@ -218,10 +218,6 @@ func (n Namespace) IsBlobNamespace() bool {
 		return false
 	}
 
-	if n.IsReserved() {
-		return false
-	}
-
 	if !slices.Contains(SupportedBlobNamespaceVersions, n.Version()) {
 		return false
 	}
