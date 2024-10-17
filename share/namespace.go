@@ -38,7 +38,7 @@ func (n *Namespace) UnmarshalJSON(data []byte) error {
 // This should be used for user specified namespaces.
 func NewNamespace(version uint8, id []byte) (Namespace, error) {
 	ns := newNamespace(version, id)
-	if err := ns.ValidateUserNamespace(); err != nil {
+	if err := ns.validate(); err != nil {
 		return Namespace{}, err
 	}
 	return ns, nil
@@ -71,7 +71,7 @@ func NewNamespaceFromBytes(bytes []byte) (Namespace, error) {
 	}
 
 	ns := Namespace{data: bytes}
-	if err := ns.ValidateUserNamespace(); err != nil {
+	if err := ns.validate(); err != nil {
 		return Namespace{}, err
 	}
 	return ns, nil
@@ -121,11 +121,11 @@ func (n Namespace) String() string {
 	return hex.EncodeToString(n.data)
 }
 
-// ValidateUserNamespace returns an error if the provided version is not
+// validate returns an error if the provided version is not
 // supported or the provided id does not meet the requirements
 // for the provided version. This should be used for validating
 // user specified namespaces
-func (n Namespace) ValidateUserNamespace() error {
+func (n Namespace) validate() error {
 	err := n.validateVersionSupported()
 	if err != nil {
 		return err
@@ -141,10 +141,18 @@ func (n Namespace) ValidateForData() error {
 	return nil
 }
 
-// ValidateForBlob checks if the Namespace is a valid blob namespace.
+// ValidateForBlob verifies whether the Namespace is appropriate for blob data.
+// A valid blob namespace must meet two conditions: it cannot be reserved for special purposes,
+// and its version must be supported by the system. If either of these conditions is not met,
+// an error is returned indicating the issue. This ensures that only valid namespaces are
+// used when dealing with blob data.
 func (n Namespace) ValidateForBlob() error {
 	if err := n.ValidateForData(); err != nil {
 		return err
+	}
+
+	if n.IsReserved() {
+		return fmt.Errorf("invalid data namespace(%s): reserved data is forbidden", n)
 	}
 
 	if !slices.Contains(SupportedBlobNamespaceVersions, n.Version()) {
