@@ -9,12 +9,29 @@ package share
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 )
 
 // Share contains the raw share data (including namespace ID).
 type Share struct {
 	data []byte
+}
+
+// MarshalJSON encodes share to the json encoded bytes.
+func (s Share) MarshalJSON() ([]byte, error) {
+	return json.Marshal(s.data)
+}
+
+// UnmarshalJSON decodes json bytes to the share.
+func (s *Share) UnmarshalJSON(data []byte) error {
+	var buf []byte
+
+	if err := json.Unmarshal(data, &buf); err != nil {
+		return err
+	}
+	s.data = buf
+	return validateSize(s.data)
 }
 
 // NewShare creates a new share from the raw data, validating it's
