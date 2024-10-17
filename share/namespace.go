@@ -141,7 +141,7 @@ func (n Namespace) ValidateForData() error {
 	return nil
 }
 
-// // ValidateForBlob checks if the Namespace is valid blob namespace.
+// ValidateForBlob checks if the Namespace is a valid blob namespace.
 func (n Namespace) ValidateForBlob() error {
 	if err := n.ValidateForData(); err != nil {
 		return err
