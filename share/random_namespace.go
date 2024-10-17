@@ -2,7 +2,6 @@ package share
 
 import (
 	"crypto/rand"
-	"slices"
 )
 
 func RandomNamespace() Namespace {
@@ -38,22 +37,8 @@ func RandomBlobNamespace() Namespace {
 	for {
 		id := RandomBlobNamespaceID()
 		namespace := MustNewV0Namespace(id)
-		if isBlobNamespace(namespace) {
+		if err := namespace.ValidateForBlob(); err == nil {
 			return namespace
 		}
 	}
-}
-
-// isBlobNamespace returns an true if this namespace is a valid user-specifiable
-// blob namespace.
-func isBlobNamespace(ns Namespace) bool {
-	if ns.IsReserved() {
-		return false
-	}
-
-	if !slices.Contains(SupportedBlobNamespaceVersions, ns.Version()) {
-		return false
-	}
-
-	return true
 }

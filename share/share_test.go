@@ -228,7 +228,9 @@ func TestUnsupportedShareVersion(t *testing.T) {
 }
 
 func TestShareToBytesAndFromBytes(t *testing.T) {
-	blobs := []*Blob{generateRandomBlob(580), generateRandomBlob(380), generateRandomBlob(1100)}
+	blobs, err := GenerateV0Blobs([]int{580, 380, 1100}, true)
+	require.NoError(t, err)
+
 	SortBlobs(blobs)
 	shares, err := splitBlobs(blobs...)
 	require.NoError(t, err)
@@ -237,4 +239,17 @@ func TestShareToBytesAndFromBytes(t *testing.T) {
 	reconstructedShares, err := FromBytes(shareBytes)
 	require.NoError(t, err)
 	assert.Equal(t, shares, reconstructedShares)
+}
+
+func TestMarshalShare(t *testing.T) {
+	sh, err := RandShares(1)
+	require.NoError(t, err)
+	b, err := sh[0].MarshalJSON()
+	require.NoError(t, err)
+
+	newShare := Share{}
+	err = newShare.UnmarshalJSON(b)
+	require.NoError(t, err)
+
+	require.Equal(t, sh[0], newShare)
 }
