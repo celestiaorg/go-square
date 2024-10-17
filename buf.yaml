@@ -1,5 +1,6 @@
-version: v1
-name: buf.build/celestiaorg/go-square
+version: v2
+modules:
+  - name: buf.build/celestia/go-square
 breaking:
   use:
     - FILE
