@@ -1,6 +1,7 @@
 package share
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -83,6 +84,35 @@ func (b *Blob) Marshal() ([]byte, error) {
 		Signer:           b.signer,
 	}
 	return proto.Marshal(pb)
+}
+
+// MarshalJSON converts blob's data to the json encoded bytes
+func (b *Blob) MarshalJSON() ([]byte, error) {
+	pb := &v1.BlobProto{
+		NamespaceId:      b.namespace.ID(),
+		NamespaceVersion: uint32(b.namespace.Version()),
+		ShareVersion:     uint32(b.shareVersion),
+		Data:             b.data,
+		Signer:           b.signer,
+	}
+	return json.Marshal(pb)
+}
+
+// UnmarshalJSON converts json encoded data to the blob
+func (b *Blob) UnmarshalJSON(bb []byte) error {
+	pb := &v1.BlobProto{}
+	err := json.Unmarshal(bb, pb)
+	if err != nil {
+		return err
+	}
+
+	blob, err := NewBlobFromProto(pb)
+	if err != nil {
+		return err
+	}
+
+	*b = *blob
+	return nil
 }
 
 // NewBlobFromProto creates a new blob from the proto generated type

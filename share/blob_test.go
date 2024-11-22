@@ -3,6 +3,7 @@ package share
 import (
 	"bytes"
 	"crypto/rand"
+	"encoding/json"
 	"testing"
 
 	v1 "github.com/celestiaorg/go-square/v2/proto/blob/v1"
@@ -23,6 +24,23 @@ func TestProtoEncoding(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, blob, newBlob)
+}
+
+func TestJSONEncoding(t *testing.T) {
+	signer := make([]byte, 20)
+	_, err := rand.Read(signer)
+	require.NoError(t, err)
+	blob, err := NewBlob(RandomNamespace(), []byte{1, 2, 3, 4, 5}, 1, signer)
+	require.NoError(t, err)
+
+	data, err := json.Marshal(blob)
+	require.NoError(t, err)
+	require.NotNil(t, data)
+
+	b := &Blob{}
+	err = json.Unmarshal(data, b)
+	require.NoError(t, err)
+	require.Equal(t, blob, b)
 }
 
 func TestBlobConstructor(t *testing.T) {
