@@ -3,6 +3,7 @@ package inclusion_test
 import (
 	"bytes"
 	"crypto/sha256"
+	"fmt"
 	"testing"
 
 	"github.com/celestiaorg/go-square/v2/inclusion"
@@ -51,6 +52,7 @@ func TestMerkleMountainRangeSizes(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
+		fmt.Println("totalSize:", tt.totalSize, "maxTreeSize:", tt.squareSize)
 		res, err := inclusion.MerkleMountainRangeSizes(tt.totalSize, tt.squareSize)
 		require.NoError(t, err)
 		assert.Equal(t, tt.expected, res)
