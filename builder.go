@@ -419,7 +419,7 @@ func (e Element) maxShareOffset() int {
 func worstCaseShareIndexes(blobs int) []uint32 {
 	// TODO: de-duplicate this constant with celestia-app SquareSizeUpperBound constant.
 	// https://github.com/celestiaorg/celestia-app/blob/a93bb625c6dc0ae6c7c357e9991815a68ab33c79/pkg/appconsts/v1/app_consts.go#L5
-	squareSizeUpperBound := 128
+	squareSizeUpperBound := 512
 	worstCaseShareIndex := squareSizeUpperBound * squareSizeUpperBound
 	shareIndexes := make([]uint32, blobs)
 	for i := range shareIndexes {
