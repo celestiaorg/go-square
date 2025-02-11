@@ -1,6 +1,6 @@
 module github.com/celestiaorg/go-square/v2
 
-go 1.22.5
+go 1.23.6
 
 require (
 	github.com/celestiaorg/nmt v0.22.2
