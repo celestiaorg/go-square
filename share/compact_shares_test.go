@@ -71,8 +71,6 @@ func Test_processCompactShares(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
-
 		// run the tests with identically sized txs
 		t.Run(fmt.Sprintf("%s idendically sized", tc.name), func(t *testing.T) {
 			txs := generateRandomTxs(tc.txCount, tc.txSize)
