@@ -1,9 +1,15 @@
-// package share contains the Share data structure.
+/*
+Package share is an encoding and decoding protocol that takes blobs,
+a struct containing arbitrary data based on a namespace and coverts
+them into a slice of shares, bytes 512 in length. This logic is used
+for constructing the original data square.
+*/
 package share
 
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 )
 
@@ -12,11 +18,26 @@ type Share struct {
 	data []byte
 }
 
+// MarshalJSON encodes share to the json encoded bytes.
+func (s Share) MarshalJSON() ([]byte, error) {
+	return json.Marshal(s.data)
+}
+
+// UnmarshalJSON decodes json bytes to the share.
+func (s *Share) UnmarshalJSON(data []byte) error {
+	var buf []byte
+
+	if err := json.Unmarshal(data, &buf); err != nil {
+		return err
+	}
+	s.data = buf
+	return validateSize(s.data)
+}
+
+// NewShare creates a new share from the raw data, validating it's
+// size and versioning
 func NewShare(data []byte) (*Share, error) {
 	if err := validateSize(data); err != nil {
-		return nil, err
-	}
-	if err := validate(data[0], data[1:NamespaceSize]); err != nil {
 		return nil, err
 	}
 	return &Share{data}, nil
@@ -34,19 +55,23 @@ func (s *Share) Namespace() Namespace {
 	return Namespace{data: s.data[:NamespaceSize]}
 }
 
+// InfoByte returns the byte after the namespace used
+// for indicating versioning and whether the share is
+// the first in it's sequence or a continuation
 func (s *Share) InfoByte() InfoByte {
-	// the info byte is the first byte after the namespace
 	return InfoByte(s.data[NamespaceSize])
 }
 
+// Version returns the version of the share
 func (s *Share) Version() uint8 {
 	return s.InfoByte().Version()
 }
 
-func (s *Share) DoesSupportVersions(supportedShareVersions []uint8) error {
+// CheckVersionSupported checks if the share version is supported
+func (s *Share) CheckVersionSupported() error {
 	ver := s.Version()
-	if !bytes.Contains(supportedShareVersions, []byte{ver}) {
-		return fmt.Errorf("unsupported share version %v is not present in the list of supported share versions %v", ver, supportedShareVersions)
+	if !bytes.Contains(SupportedShareVersions, []byte{ver}) {
+		return fmt.Errorf("unsupported share version %v is not present in the list of supported share versions %v", ver, SupportedShareVersions)
 	}
 	return nil
 }
@@ -114,6 +139,7 @@ func (s *Share) isPrimaryReservedPadding() bool {
 	return ns.IsPrimaryReservedPadding()
 }
 
+// ToBytes returns the underlying bytes of the share
 func (s *Share) ToBytes() []byte {
 	return s.data
 }

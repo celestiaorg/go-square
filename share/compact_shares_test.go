@@ -25,7 +25,7 @@ func TestCompactShareSplitter(t *testing.T) {
 	shares, err := css.Export()
 	require.NoError(t, err)
 
-	resTxs, err := parseCompactShares(shares, SupportedShareVersions)
+	resTxs, err := parseCompactShares(shares)
 	require.NoError(t, err)
 
 	assert.Equal(t, txs, resTxs)
@@ -77,10 +77,10 @@ func Test_processCompactShares(t *testing.T) {
 		t.Run(fmt.Sprintf("%s idendically sized", tc.name), func(t *testing.T) {
 			txs := generateRandomTxs(tc.txCount, tc.txSize)
 
-			shares, _, _, err := SplitTxs(txs)
+			shares, _, err := splitTxs(txs)
 			require.NoError(t, err)
 
-			parsedTxs, err := parseCompactShares(shares, SupportedShareVersions)
+			parsedTxs, err := parseCompactShares(shares)
 			if err != nil {
 				t.Error(err)
 			}
@@ -95,9 +95,9 @@ func Test_processCompactShares(t *testing.T) {
 		t.Run(fmt.Sprintf("%s randomly sized", tc.name), func(t *testing.T) {
 			txs := generateRandomlySizedTxs(tc.txCount, tc.txSize)
 
-			txShares, _, _, err := SplitTxs(txs)
+			txShares, _, err := splitTxs(txs)
 			require.NoError(t, err)
-			parsedTxs, err := parseCompactShares(txShares, SupportedShareVersions)
+			parsedTxs, err := parseCompactShares(txShares)
 			if err != nil {
 				t.Error(err)
 			}
@@ -110,18 +110,9 @@ func Test_processCompactShares(t *testing.T) {
 	}
 }
 
-func TestAllSplit(t *testing.T) {
-	txs := generateRandomlySizedTxs(1000, 150)
-	txShares, _, _, err := SplitTxs(txs)
-	require.NoError(t, err)
-	resTxs, err := ParseTxs(txShares)
-	require.NoError(t, err)
-	assert.Equal(t, resTxs, txs)
-}
-
 func TestParseRandomOutOfContextShares(t *testing.T) {
 	txs := generateRandomlySizedTxs(1000, 150)
-	txShares, _, _, err := SplitTxs(txs)
+	txShares, _, err := splitTxs(txs)
 	require.NoError(t, err)
 
 	for i := 0; i < 1000; i++ {
@@ -160,7 +151,7 @@ func checkSubArray(txList [][]byte, subTxList [][]byte) bool {
 
 func TestParseOutOfContextSharesUsingShareRanges(t *testing.T) {
 	txs := generateRandomlySizedTxs(1000, 150)
-	txShares, _, shareRanges, err := SplitTxs(txs)
+	txShares, shareRanges, err := splitTxs(txs)
 	require.NoError(t, err)
 
 	for key, r := range shareRanges {
@@ -221,42 +212,6 @@ func TestContiguousCompactShareContainsInfoByte(t *testing.T) {
 	assert.Equal(t, byte(want), infoByte)
 }
 
-func Test_parseCompactSharesErrors(t *testing.T) {
-	type testCase struct {
-		name   string
-		shares []Share
-	}
-
-	txs := generateRandomTxs(2, ContinuationCompactShareContentSize*4)
-	txShares, _, _, err := SplitTxs(txs)
-	require.NoError(t, err)
-	rawShares := ToBytes(txShares)
-
-	unsupportedShareVersion := 5
-	infoByte, _ := NewInfoByte(uint8(unsupportedShareVersion), true)
-	shareWithUnsupportedShareVersionBytes := rawShares[0]
-	shareWithUnsupportedShareVersionBytes[NamespaceSize] = byte(infoByte)
-
-	shareWithUnsupportedShareVersion, err := NewShare(shareWithUnsupportedShareVersionBytes)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	testCases := []testCase{
-		{
-			"share with unsupported share version",
-			[]Share{*shareWithUnsupportedShareVersion},
-		},
-	}
-
-	for _, tt := range testCases {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := parseCompactShares(tt.shares, SupportedShareVersions)
-			assert.Error(t, err)
-		})
-	}
-}
-
 func generateRandomlySizedTxs(count, maxSize int) [][]byte {
 	txs := make([][]byte, count)
 	for i := 0; i < count; i++ {
@@ -267,4 +222,19 @@ func generateRandomlySizedTxs(count, maxSize int) [][]byte {
 		txs[i] = generateRandomTxs(1, size)[0]
 	}
 	return txs
+}
+
+func splitTxs(txs [][]byte) ([]Share, map[[sha256.Size]byte]Range, error) {
+	txWriter := NewCompactShareSplitter(TxNamespace, ShareVersionZero)
+	for _, tx := range txs {
+		err := txWriter.WriteTx(tx)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	shares, err := txWriter.Export()
+	if err != nil {
+		return nil, nil, err
+	}
+	return shares, txWriter.ShareRanges(0), nil
 }

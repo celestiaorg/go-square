@@ -6,7 +6,8 @@ import (
 	"fmt"
 	"math/rand"
 
-	"github.com/celestiaorg/go-square/share"
+	"github.com/celestiaorg/go-square/v2/share"
+	"github.com/celestiaorg/go-square/v2/tx"
 )
 
 var DefaultTestNamespace = share.MustNewV0Namespace([]byte("test"))
@@ -52,7 +53,7 @@ func GenerateBlobTxWithNamespace(namespaces []share.Namespace, blobSizes []int, 
 			panic(err)
 		}
 	}
-	blobTx, err := share.MarshalBlobTx(MockPFB(toUint32(blobSizes)), blobs...)
+	blobTx, err := tx.MarshalBlobTx(MockPFB(toUint32(blobSizes)), blobs...)
 	if err != nil {
 		panic(err)
 	}
@@ -127,4 +128,10 @@ func Repeat[T any](s T, count int) []T {
 		ss[i] = s
 	}
 	return ss
+}
+
+// DelimLen calculates the length of the delimiter for a given unit size
+func DelimLen(size uint64) int {
+	lenBuf := make([]byte, binary.MaxVarintLen64)
+	return binary.PutUvarint(lenBuf, size)
 }

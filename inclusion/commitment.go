@@ -3,7 +3,7 @@ package inclusion
 import (
 	"crypto/sha256"
 
-	sh "github.com/celestiaorg/go-square/share"
+	sh "github.com/celestiaorg/go-square/v2/share"
 	"github.com/celestiaorg/nmt"
 )
 
@@ -15,7 +15,20 @@ type MerkleRootFn func([][]byte) []byte
 // [data square layout rationale]: ../../specs/src/specs/data_square_layout.md
 // [blob share commitment rules]: ../../specs/src/specs/data_square_layout.md#blob-share-commitment-rules
 func CreateCommitment(blob *sh.Blob, merkleRootFn MerkleRootFn, subtreeRootThreshold int) ([]byte, error) {
-	shares, err := sh.SplitBlobs(blob)
+	subTreeRoots, err := GenerateSubtreeRoots(blob, subtreeRootThreshold)
+	if err != nil {
+		return nil, err
+	}
+	return merkleRootFn(subTreeRoots), nil
+}
+
+// GenerateSubtreeRoots generates the subtree roots of a blob.
+// See [data square layout rationale] and [blob share commitment rules].
+//
+// [data square layout rationale]: ../../specs/src/specs/data_square_layout.md
+// [blob share commitment rules]: ../../specs/src/specs/data_square_layout.md#blob-share-commitment-rules
+func GenerateSubtreeRoots(blob *sh.Blob, subtreeRootThreshold int) ([][]byte, error) {
+	shares, err := splitBlobs(blob)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +78,7 @@ func CreateCommitment(blob *sh.Blob, merkleRootFn MerkleRootFn, subtreeRootThres
 		}
 		subTreeRoots[i] = root
 	}
-	return merkleRootFn(subTreeRoots), nil
+	return subTreeRoots, nil
 }
 
 func CreateCommitments(blobs []*sh.Blob, merkleRootFn MerkleRootFn, subtreeRootThreshold int) ([][]byte, error) {
@@ -105,4 +118,15 @@ func MerkleMountainRangeSizes(totalSize, maxTreeSize uint64) ([]uint64, error) {
 	}
 
 	return treeSizes, nil
+}
+
+// splitBlobs splits the provided blobs into shares.
+func splitBlobs(blobs ...*sh.Blob) ([]sh.Share, error) {
+	writer := sh.NewSparseShareSplitter()
+	for _, blob := range blobs {
+		if err := writer.Write(blob); err != nil {
+			return nil, err
+		}
+	}
+	return writer.Export(), nil
 }

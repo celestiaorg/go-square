@@ -8,9 +8,10 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/celestiaorg/go-square"
-	"github.com/celestiaorg/go-square/internal/test"
-	"github.com/celestiaorg/go-square/share"
+	"github.com/celestiaorg/go-square/v2"
+	"github.com/celestiaorg/go-square/v2/internal/test"
+	"github.com/celestiaorg/go-square/v2/share"
+	"github.com/celestiaorg/go-square/v2/tx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -85,7 +86,8 @@ func TestBuilderRejectsBlobTransactions(t *testing.T) {
 			require.NoError(t, err)
 			txs := generateBlobTxsWithNamespaces(ns1.Repeat(len(tc.blobSize)), [][]int{tc.blobSize})
 			require.Len(t, txs, 1)
-			blobTx, isBlobTx := share.UnmarshalBlobTx(txs[0])
+			blobTx, isBlobTx, err := tx.UnmarshalBlobTx(txs[0])
+			require.NoError(t, err)
 			require.True(t, isBlobTx)
 			require.Equal(t, tc.added, builder.AppendBlobTx(blobTx))
 		})
@@ -102,7 +104,7 @@ func TestBuilderInvalidConstructor(t *testing.T) {
 }
 
 func newTx(len int) []byte {
-	return bytes.Repeat([]byte{0}, share.RawTxSize(len))
+	return bytes.Repeat([]byte{0}, len-test.DelimLen(uint64(len)))
 }
 
 func TestBuilderFindTxShareRange(t *testing.T) {
@@ -117,10 +119,11 @@ func TestBuilderFindTxShareRange(t *testing.T) {
 	size := dataSquare.Size() * dataSquare.Size()
 
 	var lastEnd int
-	for idx, tx := range blockTxs {
-		blobTx, isBlobTx := share.UnmarshalBlobTx(tx)
+	for idx, txBytes := range blockTxs {
+		blobTx, isBlobTx, err := tx.UnmarshalBlobTx(txBytes)
 		if isBlobTx {
-			tx = blobTx.Tx
+			require.NoError(t, err)
+			txBytes = blobTx.Tx
 		}
 		shareRange, err := builder.FindTxShareRange(idx)
 		require.NoError(t, err)
@@ -135,7 +138,7 @@ func TestBuilderFindTxShareRange(t *testing.T) {
 		txShares := dataSquare[shareRange.Start : shareRange.End+1]
 		parsedShares, err := rawData(txShares)
 		require.NoError(t, err)
-		require.True(t, bytes.Contains(parsedShares, tx))
+		require.True(t, bytes.Contains(parsedShares, txBytes))
 		lastEnd = shareRange.End
 	}
 }
@@ -291,8 +294,9 @@ func TestSquareBlobPostions(t *testing.T) {
 		t.Run(fmt.Sprintf("case%d", i), func(t *testing.T) {
 			builder, err := square.NewBuilder(tt.squareSize, defaultSubtreeRootThreshold)
 			require.NoError(t, err)
-			for _, tx := range tt.blobTxs {
-				blobTx, isBlobTx := share.UnmarshalBlobTx(tx)
+			for _, txBytes := range tt.blobTxs {
+				blobTx, isBlobTx, err := tx.UnmarshalBlobTx(txBytes)
+				require.NoError(t, err)
 				require.True(t, isBlobTx)
 				_ = builder.AppendBlobTx(blobTx)
 			}
@@ -300,8 +304,8 @@ func TestSquareBlobPostions(t *testing.T) {
 			require.NoError(t, err)
 			txs, err := share.ParseTxs(square)
 			require.NoError(t, err)
-			for j, tx := range txs {
-				wrappedPFB, isWrappedPFB := share.UnmarshalIndexWrapper(tx)
+			for j, rawTx := range txs {
+				wrappedPFB, isWrappedPFB := tx.UnmarshalIndexWrapper(rawTx)
 				assert.True(t, isWrappedPFB)
 				assert.Equal(t, tt.expectedIndexes[j], wrappedPFB.ShareIndexes, j)
 			}

@@ -1,14 +1,14 @@
-module github.com/celestiaorg/go-square
+module github.com/celestiaorg/go-square/v2
 
 go 1.23.6
 
 replace github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 
 require (
-	github.com/celestiaorg/nmt v0.21.0
-	github.com/stretchr/testify v1.9.0
+	github.com/celestiaorg/nmt v0.22.2
+	github.com/stretchr/testify v1.10.0
 	golang.org/x/exp v0.0.0-20231206192017-f3f8817b8deb
-	google.golang.org/protobuf v1.34.2
+	google.golang.org/protobuf v1.36.5
 )
 
 require (

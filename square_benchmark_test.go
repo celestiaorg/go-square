@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/celestiaorg/go-square"
+	"github.com/celestiaorg/go-square/v2"
 	"github.com/stretchr/testify/require"
 )
 
 func BenchmarkSquareConstruct(b *testing.B) {
 	for _, txCount := range []int{10, 100, 1000} {
 		b.Run(fmt.Sprintf("txCount=%d", txCount), func(b *testing.B) {
+			b.ReportAllocs()
 			txs := generateOrderedTxs(txCount/2, txCount/2, 1, 1024)
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
@@ -24,6 +25,7 @@ func BenchmarkSquareConstruct(b *testing.B) {
 func BenchmarkSquareBuild(b *testing.B) {
 	for _, txCount := range []int{10, 100, 1000, 10000} {
 		b.Run(fmt.Sprintf("txCount=%d", txCount), func(b *testing.B) {
+			b.ReportAllocs()
 			txs := generateMixedTxs(txCount/2, txCount/2, 1, 1024)
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
@@ -35,6 +37,7 @@ func BenchmarkSquareBuild(b *testing.B) {
 	const txCount = 10
 	for _, blobSize := range []int{10, 100, 1000, 10000} {
 		b.Run(fmt.Sprintf("blobSize=%d", blobSize), func(b *testing.B) {
+			b.ReportAllocs()
 			txs := generateMixedTxs(0, txCount, 1, blobSize)
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {

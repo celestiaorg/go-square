@@ -1,21 +1,23 @@
 # go-square
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/celestiaorg/go-square.svg)](https://pkg.go.dev/github.com/celestiaorg/go-square)
+[![Go Reference](https://pkg.go.dev/badge/github.com/celestiaorg/go-square/v2.svg)](https://pkg.go.dev/github.com/celestiaorg/go-square/v2)
 
-`go-square` is a Go module that provides data structures and utilities for interacting with data squares in the Celestia network. The data square is a special form of block serialization in the Celestia blockchain. This repo deals with the original data square which is distinct from the extended data square. Operations on the extended data square are handled by [rsmt2d](https://github.com/celestiaorg/rsmt2d).
+`go-square` is a Go module that provides data structures and utilities for interacting with data squares in the Celestia network. The data square is a special form of block serialization in the Celestia blockchain designed for sampling. This repo deals with the original data square which is distinct from the extended data square. Operations on the extended data square are handled by [rsmt2d](https://github.com/celestiaorg/rsmt2d).
 
 Package   | Description
 ----------|---------------------------------------------------------------------------------------------------------------------
 inclusion | Package inclusion contains functions to generate the blob share commitment from a given blob.
-share    | Package share contains the Share data structure.
+proto     | Package contains proto definitions and go generated code
+share     | Package share contains encoding and decoding logic from blobs to shares.
 square    | Package square implements the logic to construct the original data square based on a list of transactions.
+tx        | Package tx contains BlobTx and IndexWrapper types
 
 ## Installation
 
 To use `go-square` as a dependency in your Go project, you can use `go get`:
 
 ```bash
-go get github.com/celestiaorg/go-square
+go get github.com/celestiaorg/go-square/v2
 ```
 
 ## Branches and Releasing

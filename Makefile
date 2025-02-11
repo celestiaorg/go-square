@@ -26,6 +26,14 @@ lint:
 	@golangci-lint run
 .PHONY: lint
 
+## fmt: Format files per linters golangci-lint and markdownlint.
+fmt:
+	@echo "--> Running golangci-lint --fix"
+	@golangci-lint run --fix
+	@echo "--> Running markdownlint --fix"
+	@markdownlint --fix --quiet --config .markdownlint.yaml .
+.PHONY: fmt
+
 ## test: Run unit tests.
 test:
 	@echo "--> Run unit tests"

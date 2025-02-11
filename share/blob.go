@@ -1,10 +1,12 @@
 package share
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
 
+	v1 "github.com/celestiaorg/go-square/v2/proto/blob/v1"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -24,14 +26,25 @@ func NewBlob(ns Namespace, data []byte, shareVersion uint8, signer []byte) (*Blo
 	if len(data) == 0 {
 		return nil, errors.New("data can not be empty")
 	}
-	if shareVersion == 0 && signer != nil {
-		return nil, errors.New("share version 0 does not support signer")
+	if ns.IsEmpty() {
+		return nil, errors.New("namespace can not be empty")
 	}
-	if shareVersion == 1 && len(signer) != SignerSize {
-		return nil, fmt.Errorf("share version 1 requires signer of size %d bytes", SignerSize)
+	if ns.Version() != NamespaceVersionZero {
+		return nil, fmt.Errorf("namespace version must be %d got %d", NamespaceVersionZero, ns.Version())
 	}
-	if shareVersion > MaxShareVersion {
-		return nil, fmt.Errorf("share version can not be greater than MaxShareVersion %d", MaxShareVersion)
+	switch shareVersion {
+	case ShareVersionZero:
+		if signer != nil {
+			return nil, errors.New("share version 0 does not support signer")
+		}
+	case ShareVersionOne:
+		if len(signer) != SignerSize {
+			return nil, fmt.Errorf("share version 1 requires signer of size %d bytes", SignerSize)
+		}
+	// Note that we don't specifically check that shareVersion is less than 128 as this is caught
+	// by the default case
+	default:
+		return nil, fmt.Errorf("share version %d not supported. Please use 0 or 1", shareVersion)
 	}
 	return &Blob{
 		namespace:    ns,
@@ -51,14 +64,64 @@ func NewV1Blob(ns Namespace, data []byte, signer []byte) (*Blob, error) {
 	return NewBlob(ns, data, 1, signer)
 }
 
-// NewFromProto creates a Blob from the proto format and performs
-// rudimentary validation checks on the structure
-func NewBlobFromProto(pb *BlobProto) (*Blob, error) {
+// UnmarshalBlob unmarshals a blob from the proto encoded bytes
+func UnmarshalBlob(blob []byte) (*Blob, error) {
+	pb := &v1.BlobProto{}
+	err := proto.Unmarshal(blob, pb)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal blob: %w", err)
+	}
+	return NewBlobFromProto(pb)
+}
+
+// Marshal marshals the blob to the proto encoded bytes
+func (b *Blob) Marshal() ([]byte, error) {
+	pb := &v1.BlobProto{
+		NamespaceId:      b.namespace.ID(),
+		NamespaceVersion: uint32(b.namespace.Version()),
+		ShareVersion:     uint32(b.shareVersion),
+		Data:             b.data,
+		Signer:           b.signer,
+	}
+	return proto.Marshal(pb)
+}
+
+// MarshalJSON converts blob's data to the json encoded bytes
+func (b *Blob) MarshalJSON() ([]byte, error) {
+	pb := &v1.BlobProto{
+		NamespaceId:      b.namespace.ID(),
+		NamespaceVersion: uint32(b.namespace.Version()),
+		ShareVersion:     uint32(b.shareVersion),
+		Data:             b.data,
+		Signer:           b.signer,
+	}
+	return json.Marshal(pb)
+}
+
+// UnmarshalJSON converts json encoded data to the blob
+func (b *Blob) UnmarshalJSON(bb []byte) error {
+	pb := &v1.BlobProto{}
+	err := json.Unmarshal(bb, pb)
+	if err != nil {
+		return err
+	}
+
+	blob, err := NewBlobFromProto(pb)
+	if err != nil {
+		return err
+	}
+
+	*b = *blob
+	return nil
+}
+
+// NewBlobFromProto creates a new blob from the proto generated type
+func NewBlobFromProto(pb *v1.BlobProto) (*Blob, error) {
 	if pb.NamespaceVersion > NamespaceVersionMax {
 		return nil, errors.New("namespace version can not be greater than MaxNamespaceVersion")
 	}
-	if len(pb.Data) == 0 {
-		return nil, errors.New("blob data can not be empty")
+	if pb.ShareVersion > MaxShareVersion {
+		return nil, fmt.Errorf("share version can not be greater than MaxShareVersion %d", MaxShareVersion)
 	}
 	ns, err := NewNamespace(uint8(pb.NamespaceVersion), pb.NamespaceId)
 	if err != nil {
@@ -92,66 +155,22 @@ func (b *Blob) Data() []byte {
 	return b.data
 }
 
-func (b *Blob) ToProto() *BlobProto {
-	return &BlobProto{
-		NamespaceId:      b.namespace.ID(),
-		NamespaceVersion: uint32(b.namespace.Version()),
-		ShareVersion:     uint32(b.shareVersion),
-		Data:             b.data,
-		Signer:           b.signer,
-	}
+// DataLen returns the length of the data of the blob
+func (b *Blob) DataLen() int {
+	return len(b.data)
 }
 
+// Compare is used to order two blobs based on their namespace
 func (b *Blob) Compare(other *Blob) int {
 	return b.namespace.Compare(other.namespace)
 }
 
-// UnmarshalBlobTx attempts to unmarshal a transaction into blob transaction. If an
-// error is thrown, false is returned.
-func UnmarshalBlobTx(tx []byte) (*BlobTx, bool) {
-	bTx := BlobTx{}
-	err := proto.Unmarshal(tx, &bTx)
-	if err != nil {
-		return &bTx, false
-	}
-	// perform some quick basic checks to prevent false positives
-	if bTx.TypeId != ProtoBlobTxTypeID {
-		return &bTx, false
-	}
-	if len(bTx.Blobs) == 0 {
-		return &bTx, false
-	}
-	for _, b := range bTx.Blobs {
-		if len(b.NamespaceId) != NamespaceIDSize {
-			return &bTx, false
-		}
-	}
-	return &bTx, true
-}
-
-// MarshalBlobTx creates a BlobTx using a normal transaction and some number of
-// blobs.
-//
-// NOTE: Any checks on the blobs or the transaction must be performed in the
-// application
-func MarshalBlobTx(tx []byte, blobs ...*Blob) ([]byte, error) {
-	if len(blobs) == 0 {
-		return nil, errors.New("at least one blob must be provided")
-	}
-	bTx := &BlobTx{
-		Tx:     tx,
-		Blobs:  blobsToProto(blobs),
-		TypeId: ProtoBlobTxTypeID,
-	}
-	return proto.Marshal(bTx)
-}
-
-func blobsToProto(blobs []*Blob) []*BlobProto {
-	pb := make([]*BlobProto, len(blobs))
-	for i, b := range blobs {
-		pb[i] = b.ToProto()
-	}
-	return pb
+// IsEmpty returns true if the blob is empty. This is an invalid
+// construction that can only occur if using the nil value. We
+// only check that the data is empty but this also implies that
+// all other fields would have their zero value
+func (b *Blob) IsEmpty() bool {
+	return len(b.data) == 0
 }
 
 // Sort sorts the blobs by their namespace.
@@ -161,37 +180,12 @@ func SortBlobs(blobs []*Blob) {
 	})
 }
 
-// UnmarshalIndexWrapper attempts to unmarshal the provided transaction into an
-// IndexWrapper transaction. It returns true if the provided transaction is an
-// IndexWrapper transaction. An IndexWrapper transaction is a transaction that contains
-// a MsgPayForBlob that has been wrapped with a share index.
-//
-// NOTE: protobuf sometimes does not throw an error if the transaction passed is
-// not a IndexWrapper, since the protobuf definition for MsgPayForBlob is
-// kept in the app, we cannot perform further checks without creating an import
-// cycle.
-func UnmarshalIndexWrapper(tx []byte) (*IndexWrapper, bool) {
-	indexWrapper := IndexWrapper{}
-	// attempt to unmarshal into an IndexWrapper transaction
-	err := proto.Unmarshal(tx, &indexWrapper)
+// ToShares converts blob's data back to shares.
+func (b *Blob) ToShares() ([]Share, error) {
+	splitter := NewSparseShareSplitter()
+	err := splitter.Write(b)
 	if err != nil {
-		return &indexWrapper, false
+		return nil, err
 	}
-	if indexWrapper.TypeId != ProtoIndexWrapperTypeID {
-		return &indexWrapper, false
-	}
-	return &indexWrapper, true
-}
-
-// MarshalIndexWrapper creates a wrapped Tx that includes the original transaction
-// and the share index of the start of its blob.
-//
-// NOTE: must be unwrapped to be a viable sdk.Tx
-func MarshalIndexWrapper(tx []byte, shareIndexes ...uint32) ([]byte, error) {
-	wTx := IndexWrapper{
-		Tx:           tx,
-		ShareIndexes: shareIndexes,
-		TypeId:       ProtoIndexWrapperTypeID,
-	}
-	return proto.Marshal(&wTx)
+	return splitter.Export(), nil
 }

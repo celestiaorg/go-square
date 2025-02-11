@@ -7,7 +7,8 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/celestiaorg/go-square/share"
+	"github.com/celestiaorg/go-square/v2/share"
+	"github.com/celestiaorg/go-square/v2/tx"
 	"golang.org/x/exp/constraints"
 )
 
@@ -23,15 +24,18 @@ func Build(txs [][]byte, maxSquareSize, subtreeRootThreshold int) (Square, [][]b
 	}
 	normalTxs := make([][]byte, 0, len(txs))
 	blobTxs := make([][]byte, 0, len(txs))
-	for _, tx := range txs {
-		blobTx, isBlobTx := share.UnmarshalBlobTx(tx)
+	for idx, txBytes := range txs {
+		blobTx, isBlobTx, err := tx.UnmarshalBlobTx(txBytes)
+		if err != nil && isBlobTx {
+			return nil, nil, fmt.Errorf("unmarshalling blob tx at index %d: %w", idx, err)
+		}
 		if isBlobTx {
 			if builder.AppendBlobTx(blobTx) {
-				blobTxs = append(blobTxs, tx)
+				blobTxs = append(blobTxs, txBytes)
 			}
 		} else {
-			if builder.AppendTx(tx) {
-				normalTxs = append(normalTxs, tx)
+			if builder.AppendTx(txBytes) {
+				normalTxs = append(normalTxs, txBytes)
 			}
 		}
 	}
@@ -97,7 +101,7 @@ func Deconstruct(s Square, decoder PFBDecoder) ([][]byte, error) {
 	// loop through the wrapped pfbs and generate the original
 	// blobTx that they derive from
 	for i, wpfbBytes := range wpfbs {
-		wpfb, isWpfb := share.UnmarshalIndexWrapper(wpfbBytes)
+		wpfb, isWpfb := tx.UnmarshalIndexWrapper(wpfbBytes)
 		if !isWpfb {
 			return nil, fmt.Errorf("expected wrapped PFB at index %d", i)
 		}
@@ -126,11 +130,11 @@ func Deconstruct(s Square, decoder PFBDecoder) ([][]byte, error) {
 			blobs[j] = parsedBlobs[0]
 		}
 
-		tx, err := share.MarshalBlobTx(wpfb.Tx, blobs...)
+		txBytes, err := tx.MarshalBlobTx(wpfb.Tx, blobs...)
 		if err != nil {
 			return nil, err
 		}
-		txs = append(txs, tx)
+		txs = append(txs, txBytes)
 	}
 
 	return txs, nil

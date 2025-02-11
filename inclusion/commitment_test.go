@@ -5,8 +5,8 @@ import (
 	"crypto/sha256"
 	"testing"
 
-	"github.com/celestiaorg/go-square/inclusion"
-	"github.com/celestiaorg/go-square/share"
+	"github.com/celestiaorg/go-square/v2/inclusion"
+	"github.com/celestiaorg/go-square/v2/share"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -87,13 +87,6 @@ func TestCreateCommitment(t *testing.T) {
 			expected:     []byte{0x88, 0x3c, 0x74, 0x6, 0x4e, 0x8e, 0x26, 0x27, 0xad, 0x58, 0x8, 0x38, 0x9f, 0x1f, 0x19, 0x24, 0x19, 0x4c, 0x1a, 0xe2, 0x3c, 0x7d, 0xf9, 0x62, 0xc8, 0xd5, 0x6d, 0xf0, 0x62, 0xa9, 0x2b, 0x2b},
 			shareVersion: share.ShareVersionOne,
 			signer:       bytes.Repeat([]byte{1}, share.SignerSize),
-		},
-		{
-			name:         "blob with unsupported share version should return error",
-			namespace:    ns1,
-			blob:         bytes.Repeat([]byte{0xFF}, share.AvailableBytesFromSparseShares(2)),
-			expectErr:    true,
-			shareVersion: uint8(2), // unsupported share version
 		},
 	}
 	for _, tt := range tests {
