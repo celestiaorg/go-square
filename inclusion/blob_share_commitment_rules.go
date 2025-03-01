@@ -3,6 +3,7 @@ package inclusion
 import (
 	"fmt"
 	"math"
+	"math/bits"
 
 	"golang.org/x/exp/constraints"
 )
@@ -50,11 +51,19 @@ func RoundUpByMultipleOf(cursor, v int) int {
 
 // RoundUpPowerOfTwo returns the next power of two greater than or equal to input.
 func RoundUpPowerOfTwo[I constraints.Integer](input I) I {
-	var result I = 1
-	for result < input {
-		result <<= 1
+	if input <= 1 {
+		return 1
 	}
-	return result
+	if input&(input-1) == 0 { // It is already a power of 2
+		return input
+	}
+	var powUp I = 1 << bits.Len64(uint64(input))
+	if powUp < input {
+		// An overflow occurred due to a very large size
+		// of input and we should return a positive power of 2.
+		powUp = 1
+	}
+	return powUp
 }
 
 // RoundDownPowerOfTwo returns the next power of two less than or equal to input.
@@ -62,11 +71,12 @@ func RoundDownPowerOfTwo[I constraints.Integer](input I) (I, error) {
 	if input <= 0 {
 		return 0, fmt.Errorf("input %v must be positive", input)
 	}
-	roundedUp := RoundUpPowerOfTwo(input)
-	if roundedUp == input {
-		return roundedUp, nil
+	if input&(input-1) == 0 { // It is already a power of 2
+		return input, nil
 	}
-	return roundedUp / 2, nil
+
+	// Return 1 << (numberOfBits-1)
+	return 1 << (bits.Len64(uint64(input)) - 1), nil
 }
 
 // BlobMinSquareSize returns the minimum square size that can contain shareCount
@@ -79,6 +89,9 @@ func BlobMinSquareSize(shareCount int) int {
 // commitment over a given blob. The input should be the total number of shares
 // used by that blob. See ADR-013.
 func SubTreeWidth(shareCount, subtreeRootThreshold int) int {
+	if subtreeRootThreshold <= 0 {
+		return 1
+	}
 	// Per ADR-013, we use a predetermined threshold to determine width of sub
 	// trees used to create share commitments
 	s := (shareCount / subtreeRootThreshold)
