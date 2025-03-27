@@ -89,13 +89,18 @@ func CompactSharesNeeded(sequenceLen uint32) (sharesNeeded int) {
 		return 1
 	}
 
-	bytesAvailable := uint32(FirstCompactShareContentSize)
-	sharesNeeded++
-	for bytesAvailable < sequenceLen {
-		bytesAvailable += ContinuationCompactShareContentSize
-		sharesNeeded++
+	// Calculate remaining bytes after first share
+	remainingBytes := sequenceLen - FirstCompactShareContentSize
+
+	// Calculate number of continuation shares needed
+	continuationShares := remainingBytes / ContinuationCompactShareContentSize
+	isOverflowLastShare := remainingBytes % ContinuationCompactShareContentSize
+	if isOverflowLastShare > 0 {
+		continuationShares++
 	}
-	return sharesNeeded
+
+	// 1 first share + continuation shares
+	return 1 + int(continuationShares)
 }
 
 // SparseSharesNeeded returns the number of shares needed to store a sequence of
@@ -119,6 +124,6 @@ func SparseSharesNeeded(sequenceLen uint32) (sharesNeeded int) {
 		continuationShares++
 	}
 
-	// 1 sparse share + continuation shares
+	// 1 first share + continuation shares
 	return 1 + int(continuationShares)
 }

@@ -93,6 +93,8 @@ func TestCompactSharesNeeded(t *testing.T) {
 		{1000, 3},
 		{10000, 21},
 		{100000, 210},
+		{math.MaxUint32 - ShareSize, 8985287},
+		{math.MaxUint32, 8985288},
 	}
 	for _, tc := range testCases {
 		got := CompactSharesNeeded(tc.sequenceLen)
