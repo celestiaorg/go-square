@@ -103,8 +103,8 @@ func TestBuilderInvalidConstructor(t *testing.T) {
 	require.Error(t, err)
 }
 
-func newTx(len int) []byte {
-	return bytes.Repeat([]byte{0}, len-test.DelimLen(uint64(len)))
+func newTx(length int) []byte {
+	return bytes.Repeat([]byte{0}, length-test.DelimLen(uint64(length)))
 }
 
 func TestBuilderFindTxShareRange(t *testing.T) {
