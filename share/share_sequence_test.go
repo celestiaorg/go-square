@@ -3,6 +3,7 @@ package share
 import (
 	"bytes"
 	"encoding/binary"
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -113,6 +114,8 @@ func TestSparseSharesNeeded(t *testing.T) {
 		{1000, 3},
 		{10000, 21},
 		{100000, 208},
+		{math.MaxUint32 - ShareSize, 8910720},
+		{math.MaxUint32, 8910721},
 	}
 	for _, tc := range testCases {
 		got := SparseSharesNeeded(tc.sequenceLen)

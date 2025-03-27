@@ -109,11 +109,16 @@ func SparseSharesNeeded(sequenceLen uint32) (sharesNeeded int) {
 		return 1
 	}
 
-	bytesAvailable := FirstSparseShareContentSize
-	sharesNeeded++
-	for uint32(bytesAvailable) < sequenceLen {
-		bytesAvailable += ContinuationSparseShareContentSize
-		sharesNeeded++
+	// Calculate remaining bytes after first share
+	remainingBytes := sequenceLen - FirstSparseShareContentSize
+
+	// Calculate number of continuation shares needed
+	continuationShares := remainingBytes / ContinuationSparseShareContentSize
+	isOverflowLastShare := remainingBytes % ContinuationSparseShareContentSize
+	if isOverflowLastShare > 0 {
+		continuationShares++
 	}
-	return sharesNeeded
+
+	// 1 sparse share + continuation shares
+	return 1 + int(continuationShares)
 }
