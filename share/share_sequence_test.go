@@ -90,6 +90,9 @@ func TestCompactSharesNeeded(t *testing.T) {
 		{FirstCompactShareContentSize + 1, 2},
 		{FirstCompactShareContentSize + ContinuationCompactShareContentSize, 2},
 		{FirstCompactShareContentSize + ContinuationCompactShareContentSize*100, 101},
+		{1000, 3},
+		{10000, 21},
+		{100000, 210},
 	}
 	for _, tc := range testCases {
 		got := CompactSharesNeeded(tc.sequenceLen)
