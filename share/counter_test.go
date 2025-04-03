@@ -61,14 +61,14 @@ func TestCompactShareCounterRevert(t *testing.T) {
 	require.Equal(t, counter.Size(), 1)
 }
 
-func newTx(len int) []byte {
-	return bytes.Repeat([]byte("a"), len)
+func newTx(length int) []byte {
+	return bytes.Repeat([]byte("a"), length)
 }
 
-func newTxs(n int, len int) [][]byte {
+func newTxs(n int, length int) [][]byte {
 	txs := make([][]byte, n)
 	for i := 0; i < n; i++ {
-		txs[i] = newTx(len)
+		txs[i] = newTx(length)
 	}
 	return txs
 }

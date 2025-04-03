@@ -185,8 +185,8 @@ func (s Square) Size() int {
 // function is currently a wrapper around the da packages equivalent function to
 // avoid breaking the api. In future versions there will not be a copy of this
 // code here.
-func Size(len int) int {
-	return RoundUpPowerOfTwo(int(math.Ceil(math.Sqrt(float64(len)))))
+func Size(length int) int {
+	return RoundUpPowerOfTwo(int(math.Ceil(math.Sqrt(float64(length)))))
 }
 
 // RoundUpPowerOfTwo returns the next power of two greater than or equal to input.

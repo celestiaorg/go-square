@@ -94,10 +94,10 @@ func SubTreeWidth(shareCount, subtreeRootThreshold int) int {
 
 	// use the minimum of the subtree width and the min square size, this
 	// gurarantees that a valid value is returned
-	return min(s, BlobMinSquareSize(shareCount))
+	return getMin(s, BlobMinSquareSize(shareCount))
 }
 
-func min[T constraints.Integer](i, j T) T {
+func getMin[T constraints.Integer](i, j T) T {
 	if i < j {
 		return i
 	}
