@@ -135,6 +135,9 @@ func (n Namespace) validate() error {
 
 // ValidateForData checks if the Namespace is of real/useful data.
 func (n Namespace) ValidateForData() error {
+	if err := n.validate(); err != nil {
+		return err
+	}
 	if !n.IsUsableNamespace() {
 		return fmt.Errorf("invalid data namespace(%s): parity and tail padding namespace are forbidden", n)
 	}
@@ -147,6 +150,9 @@ func (n Namespace) ValidateForData() error {
 // an error is returned indicating the issue. This ensures that only valid namespaces are
 // used when dealing with blob data.
 func (n Namespace) ValidateForBlob() error {
+	if err := n.validate(); err != nil {
+		return err
+	}
 	if err := n.ValidateForData(); err != nil {
 		return err
 	}
