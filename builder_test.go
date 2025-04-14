@@ -371,3 +371,28 @@ func TestBigBlock(t *testing.T) {
 
 //go:embed "internal/testdata/big_block.json"
 var bigBlockJSON string
+
+func TestIsPowerOfTwo(t *testing.T) {
+	tests := []struct {
+		input    int
+		expected bool
+	}{
+		{-1, false}, // negative numbers should return false
+		{0, false},  // zero should return false
+		{1, true},
+		{2, true},
+		{3, false},
+		{4, true},
+		{8, true},
+		{16, true},
+		{32, true},
+		{64, true},
+		{128, true},
+		{256, true},
+		{512, true},
+		{1024, true},
+	}
+	for _, test := range tests {
+		assert.Equal(t, test.expected, square.IsPowerOfTwo(test.input))
+	}
+}

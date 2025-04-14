@@ -430,5 +430,5 @@ func worstCaseShareIndexes(blobs int) []uint32 {
 
 // IsPowerOfTwo returns true if input is a power of two.
 func IsPowerOfTwo[I constraints.Integer](input I) bool {
-	return input&(input-1) == 0 && input != 0
+	return input > 0 && input&(input-1) == 0
 }
