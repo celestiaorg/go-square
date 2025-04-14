@@ -2,6 +2,7 @@ package share
 
 import (
 	"bytes"
+	"fmt"
 	"math"
 	"reflect"
 	"testing"
@@ -395,5 +396,84 @@ func BenchmarkCompare(b *testing.B) {
 		if n1.Compare(n2) != 1 {
 			b.Fatal()
 		}
+	}
+}
+
+func TestValidateForData(t *testing.T) {
+	valid := MustNewNamespace(NamespaceVersionZero, validID)
+	invalid := Namespace{
+		data: []byte{NamespaceVersionZero, 0xFF}, // invalid length
+	}
+
+	type testCase struct {
+		namespace Namespace
+		wantErr   error
+	}
+	testCases := []testCase{
+		{
+			namespace: valid,
+			wantErr:   nil,
+		},
+		{
+			namespace: ParitySharesNamespace,
+			wantErr:   fmt.Errorf("invalid data namespace(%s): parity and tail padding namespace are forbidden", ParitySharesNamespace),
+		},
+		{
+			namespace: TailPaddingNamespace,
+			wantErr:   fmt.Errorf("invalid data namespace(%s): parity and tail padding namespace are forbidden", TailPaddingNamespace),
+		},
+		{
+			namespace: invalid,
+			wantErr:   fmt.Errorf("unsupported namespace id length: id [255] must be 28 bytes but it was 1 bytes"),
+		},
+	}
+
+	for _, tc := range testCases {
+		err := tc.namespace.ValidateForData()
+		assert.Equal(t, tc.wantErr, err)
+	}
+}
+
+func TestValidateForBlob(t *testing.T) {
+	valid := MustNewNamespace(NamespaceVersionZero, validID)
+	invalidLength := Namespace{
+		data: []byte{NamespaceVersionZero, 0xFF}, // invalid length
+	}
+	invalidVersion := newNamespace(uint8(1), bytes.Repeat([]byte{0x00}, NamespaceIDSize))
+
+	type testCase struct {
+		namespace Namespace
+		wantErr   error
+	}
+	testCases := []testCase{
+		{
+			namespace: valid,
+			wantErr:   nil,
+		},
+		{
+			namespace: ParitySharesNamespace,
+			wantErr:   fmt.Errorf("invalid data namespace(%s): parity and tail padding namespace are forbidden", ParitySharesNamespace),
+		},
+		{
+			namespace: TailPaddingNamespace,
+			wantErr:   fmt.Errorf("invalid data namespace(%s): parity and tail padding namespace are forbidden", TailPaddingNamespace),
+		},
+		{
+			namespace: invalidLength,
+			wantErr:   fmt.Errorf("unsupported namespace id length: id [255] must be 28 bytes but it was 1 bytes"),
+		},
+		{
+			namespace: TxNamespace, // reserved namespace
+			wantErr:   fmt.Errorf("invalid data namespace(0000000000000000000000000000000000000000000000000000000001): reserved data is forbidden"),
+		},
+		{
+			namespace: invalidVersion,
+			wantErr:   fmt.Errorf("unsupported namespace version 1"),
+		},
+	}
+
+	for _, tc := range testCases {
+		err := tc.namespace.ValidateForBlob()
+		assert.Equal(t, tc.wantErr, err)
 	}
 }
