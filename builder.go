@@ -32,6 +32,9 @@ type Builder struct {
 	// for reverting the last addition
 	lastTxSizeChange     int
 	lastBlobTxSizeChange int
+	// track if a revert has already occurred to prevent multiple reverts
+	txReverted     bool
+	blobTxReverted bool
 
 	done                 bool
 	subtreeRootThreshold int
@@ -84,6 +87,7 @@ func (b *Builder) AppendTx(tx []byte) bool {
 		b.Txs = append(b.Txs, tx)
 		b.currentSize += lenChange
 		b.lastTxSizeChange = lenChange
+		b.txReverted = false // reset revert flag
 		b.done = false
 		return true
 	}
@@ -92,9 +96,9 @@ func (b *Builder) AppendTx(tx []byte) bool {
 }
 
 // RevertLastTx reverts the last transaction that was appended to the builder.
-// It returns false if there are no transactions to revert.
+// It returns false if there are no transactions to revert or if a revert has already been called.
 func (b *Builder) RevertLastTx() bool {
-	if len(b.Txs) == 0 {
+	if len(b.Txs) == 0 || b.txReverted {
 		return false
 	}
 
@@ -106,6 +110,9 @@ func (b *Builder) RevertLastTx() bool {
 
 	// Revert the size change
 	b.currentSize -= b.lastTxSizeChange
+
+	// Mark as reverted to prevent multiple reverts
+	b.txReverted = true
 
 	// Reset done flag as the square state has changed
 	b.done = false
@@ -134,6 +141,7 @@ func (b *Builder) AppendBlobTx(blobTx *tx.BlobTx) bool {
 		b.Pfbs = append(b.Pfbs, iw)
 		b.currentSize += totalSizeChange
 		b.lastBlobTxSizeChange = totalSizeChange
+		b.blobTxReverted = false // reset revert flag
 		b.done = false
 		return true
 	}
@@ -142,9 +150,9 @@ func (b *Builder) AppendBlobTx(blobTx *tx.BlobTx) bool {
 }
 
 // RevertLastBlobTx reverts the last blob transaction that was appended to the builder.
-// It returns false if there are no blob transactions to revert.
+// It returns false if there are no blob transactions to revert or if a revert has already been called.
 func (b *Builder) RevertLastBlobTx() bool {
-	if len(b.Pfbs) == 0 {
+	if len(b.Pfbs) == 0 || b.blobTxReverted {
 		return false
 	}
 
@@ -168,6 +176,9 @@ func (b *Builder) RevertLastBlobTx() bool {
 
 	// Revert the size change
 	b.currentSize -= b.lastBlobTxSizeChange
+
+	// Mark as reverted to prevent multiple reverts
+	b.blobTxReverted = true
 
 	// Reset done flag as the square state has changed
 	b.done = false
