@@ -40,7 +40,10 @@ func Build(txs [][]byte, maxSquareSize, subtreeRootThreshold int) (Square, [][]b
 		}
 	}
 	square, err := builder.Export()
-	return square, append(normalTxs, blobTxs...), err
+	if err != nil {
+		return nil, nil, err
+	}
+	return square, append(normalTxs, blobTxs...), nil
 }
 
 // Construct takes the exact list of ordered transactions and constructs a square, validating that
