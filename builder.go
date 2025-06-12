@@ -29,6 +29,10 @@ type Builder struct {
 	TxCounter  *share.CompactShareCounter
 	PfbCounter *share.CompactShareCounter
 
+	// for reverting the last addition
+	lastTxSizeChange     int
+	lastBlobTxSizeChange int
+
 	done                 bool
 	subtreeRootThreshold int
 }
@@ -79,11 +83,34 @@ func (b *Builder) AppendTx(tx []byte) bool {
 	if b.canFit(lenChange) {
 		b.Txs = append(b.Txs, tx)
 		b.currentSize += lenChange
+		b.lastTxSizeChange = lenChange
 		b.done = false
 		return true
 	}
 	b.TxCounter.Revert()
 	return false
+}
+
+// RevertLastTx reverts the last transaction that was appended to the builder.
+// It returns false if there are no transactions to revert.
+func (b *Builder) RevertLastTx() bool {
+	if len(b.Txs) == 0 {
+		return false
+	}
+
+	// Remove the last transaction
+	b.Txs = b.Txs[:len(b.Txs)-1]
+
+	// Revert the counter
+	b.TxCounter.Revert()
+
+	// Revert the size change
+	b.currentSize -= b.lastTxSizeChange
+
+	// Reset done flag as the square state has changed
+	b.done = false
+
+	return true
 }
 
 // AppendBlobTx attempts to allocate the blob transaction to the square. It returns false if there is not
@@ -101,15 +128,51 @@ func (b *Builder) AppendBlobTx(blobTx *tx.BlobTx) bool {
 		maxBlobShareCount += blobElements[idx].maxShareOffset()
 	}
 
-	if b.canFit(pfbShareDiff + maxBlobShareCount) {
+	totalSizeChange := pfbShareDiff + maxBlobShareCount
+	if b.canFit(totalSizeChange) {
 		b.Blobs = append(b.Blobs, blobElements...)
 		b.Pfbs = append(b.Pfbs, iw)
-		b.currentSize += (pfbShareDiff + maxBlobShareCount)
+		b.currentSize += totalSizeChange
+		b.lastBlobTxSizeChange = totalSizeChange
 		b.done = false
 		return true
 	}
 	b.PfbCounter.Revert()
 	return false
+}
+
+// RevertLastBlobTx reverts the last blob transaction that was appended to the builder.
+// It returns false if there are no blob transactions to revert.
+func (b *Builder) RevertLastBlobTx() bool {
+	if len(b.Pfbs) == 0 {
+		return false
+	}
+
+	// Find the last PFB index to determine which blobs to remove
+	lastPfbIndex := len(b.Pfbs) - 1
+
+	// Remove all blobs that belong to the last PFB
+	var remainingBlobs []*Element
+	for _, blob := range b.Blobs {
+		if blob.PfbIndex != lastPfbIndex {
+			remainingBlobs = append(remainingBlobs, blob)
+		}
+	}
+	b.Blobs = remainingBlobs
+
+	// Remove the last PFB
+	b.Pfbs = b.Pfbs[:len(b.Pfbs)-1]
+
+	// Revert the counter
+	b.PfbCounter.Revert()
+
+	// Revert the size change
+	b.currentSize -= b.lastBlobTxSizeChange
+
+	// Reset done flag as the square state has changed
+	b.done = false
+
+	return true
 }
 
 // Export constructs the square.
