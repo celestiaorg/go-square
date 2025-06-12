@@ -96,10 +96,13 @@ func (b *Builder) AppendTx(tx []byte) bool {
 }
 
 // RevertLastTx reverts the last transaction that was appended to the builder.
-// It returns false if there are no transactions to revert or if a revert has already been called.
-func (b *Builder) RevertLastTx() bool {
-	if len(b.Txs) == 0 || b.txReverted {
-		return false
+// It returns an error if there are no transactions to revert or if a revert has already been called.
+func (b *Builder) RevertLastTx() error {
+	if len(b.Txs) == 0 {
+		return errors.New("no transactions to revert")
+	}
+	if b.txReverted {
+		return errors.New("cannot revert: last transaction has already been reverted")
 	}
 
 	// Remove the last transaction
@@ -117,7 +120,7 @@ func (b *Builder) RevertLastTx() bool {
 	// Reset done flag as the square state has changed
 	b.done = false
 
-	return true
+	return nil
 }
 
 // AppendBlobTx attempts to allocate the blob transaction to the square. It returns false if there is not
@@ -150,10 +153,13 @@ func (b *Builder) AppendBlobTx(blobTx *tx.BlobTx) bool {
 }
 
 // RevertLastBlobTx reverts the last blob transaction that was appended to the builder.
-// It returns false if there are no blob transactions to revert or if a revert has already been called.
-func (b *Builder) RevertLastBlobTx() bool {
-	if len(b.Pfbs) == 0 || b.blobTxReverted {
-		return false
+// It returns an error if there are no blob transactions to revert or if a revert has already been called.
+func (b *Builder) RevertLastBlobTx() error {
+	if len(b.Pfbs) == 0 {
+		return errors.New("no blob transactions to revert")
+	}
+	if b.blobTxReverted {
+		return errors.New("cannot revert: last blob transaction has already been reverted")
 	}
 
 	// Find the last PFB index to determine which blobs to remove
@@ -183,7 +189,7 @@ func (b *Builder) RevertLastBlobTx() bool {
 	// Reset done flag as the square state has changed
 	b.done = false
 
-	return true
+	return nil
 }
 
 // Export constructs the square.
