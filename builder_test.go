@@ -651,6 +651,7 @@ func TestMultipleRevertBlobTxs(t *testing.T) {
 	// Size should remain the same since the revert was prevented
 	require.Equal(t, sizeAfterFirstRevert, sizeAfterSecondRevert)
 }
+
 // TestRevertAfterNewAdd demonstrates that you can revert again after adding a new transaction
 func TestRevertAfterNewAdd(t *testing.T) {
 	builder, err := square.NewBuilder(64, 64)
