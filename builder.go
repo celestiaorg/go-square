@@ -96,7 +96,8 @@ func (b *Builder) AppendTx(tx []byte) bool {
 }
 
 // RevertLastTx reverts the last transaction that was appended to the builder.
-// It returns an error if there are no transactions to revert or if a revert has already been called.
+// It returns an error if there are no transactions to revert or if this method
+// has been called consecutively without adding a tx in between calls.
 func (b *Builder) RevertLastTx() error {
 	if len(b.Txs) == 0 {
 		return errors.New("no transactions to revert")
@@ -105,19 +106,10 @@ func (b *Builder) RevertLastTx() error {
 		return errors.New("cannot revert: last transaction has already been reverted")
 	}
 
-	// Remove the last transaction
 	b.Txs = b.Txs[:len(b.Txs)-1]
-
-	// Revert the counter
 	b.TxCounter.Revert()
-
-	// Revert the size change
 	b.currentSize -= b.lastTxSizeChange
-
-	// Mark as reverted to prevent multiple reverts
 	b.txReverted = true
-
-	// Reset done flag as the square state has changed
 	b.done = false
 
 	return nil
@@ -153,7 +145,8 @@ func (b *Builder) AppendBlobTx(blobTx *tx.BlobTx) bool {
 }
 
 // RevertLastBlobTx reverts the last blob transaction that was appended to the builder.
-// It returns an error if there are no blob transactions to revert or if a revert has already been called.
+// It returns an error if there are no blob transactions to revert or if this method
+// has been called consecutively without adding a tx in between calls.
 func (b *Builder) RevertLastBlobTx() error {
 	if len(b.Pfbs) == 0 {
 		return errors.New("no blob transactions to revert")
@@ -162,31 +155,20 @@ func (b *Builder) RevertLastBlobTx() error {
 		return errors.New("cannot revert: last blob transaction has already been reverted")
 	}
 
-	// Find the last PFB index to determine which blobs to remove
 	lastPfbIndex := len(b.Pfbs) - 1
 
-	// Remove all blobs that belong to the last PFB
 	var remainingBlobs []*Element
 	for _, blob := range b.Blobs {
 		if blob.PfbIndex != lastPfbIndex {
 			remainingBlobs = append(remainingBlobs, blob)
 		}
 	}
+
 	b.Blobs = remainingBlobs
-
-	// Remove the last PFB
 	b.Pfbs = b.Pfbs[:len(b.Pfbs)-1]
-
-	// Revert the counter
 	b.PfbCounter.Revert()
-
-	// Revert the size change
 	b.currentSize -= b.lastBlobTxSizeChange
-
-	// Mark as reverted to prevent multiple reverts
 	b.blobTxReverted = true
-
-	// Reset done flag as the square state has changed
 	b.done = false
 
 	return nil
