@@ -208,3 +208,25 @@ func TestSize(t *testing.T) {
 		assert.True(t, square.IsPowerOfTwo(res))
 	}
 }
+
+func TestBuild(t *testing.T) {
+	// Previously there was an edge case where square.Build would continue
+	// building a square even after encountering a tx that could not fit. This
+	// was problematic because it meant square.Build could remove a tx with a
+	// nonce that invalidated subsequent txs which were included.
+	//
+	// https://github.com/celestiaorg/celestia-app/issues/4961
+	t.Run("should stop building square if a blob tx can not fit", func(t *testing.T) {
+		// Generate 8 blob txs that are 1 MiB each.
+		txs := test.GenerateBlobTxs(8, 1, 1*mebibyte)
+		// Generate 1 blob tx that is 100 bytes.
+		txs = append(txs, test.GenerateBlobTx([]int{100}))
+
+		square, squareTxs, err := square.Build(txs, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+		require.NoError(t, err)
+
+		// Only the first 7 blob txs should be included in the square. The last 2 txs should be removed.
+		require.Equal(t, 7, len(squareTxs))
+		require.Equal(t, 128, square.Size())
+	})
+}
