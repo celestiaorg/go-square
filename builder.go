@@ -29,6 +29,13 @@ type Builder struct {
 	TxCounter  *share.CompactShareCounter
 	PfbCounter *share.CompactShareCounter
 
+	// for reverting the last addition
+	lastTxSizeChange     int
+	lastBlobTxSizeChange int
+	// track if a revert has already occurred to prevent multiple reverts
+	txReverted     bool
+	blobTxReverted bool
+
 	done                 bool
 	subtreeRootThreshold int
 }
@@ -79,11 +86,33 @@ func (b *Builder) AppendTx(tx []byte) bool {
 	if b.canFit(lenChange) {
 		b.Txs = append(b.Txs, tx)
 		b.currentSize += lenChange
+		b.lastTxSizeChange = lenChange
+		b.txReverted = false // reset revert flag
 		b.done = false
 		return true
 	}
 	b.TxCounter.Revert()
 	return false
+}
+
+// RevertLastTx reverts the last transaction that was appended to the builder.
+// It returns an error if there are no transactions to revert or if this method
+// has been called consecutively without adding a tx in between calls.
+func (b *Builder) RevertLastTx() error {
+	if len(b.Txs) == 0 {
+		return errors.New("no transactions to revert")
+	}
+	if b.txReverted {
+		return errors.New("cannot revert: last transaction has already been reverted")
+	}
+
+	b.Txs = b.Txs[:len(b.Txs)-1]
+	b.TxCounter.Revert()
+	b.currentSize -= b.lastTxSizeChange
+	b.txReverted = true
+	b.done = false
+
+	return nil
 }
 
 // AppendBlobTx attempts to allocate the blob transaction to the square. It returns false if there is not
@@ -101,15 +130,48 @@ func (b *Builder) AppendBlobTx(blobTx *tx.BlobTx) bool {
 		maxBlobShareCount += blobElements[idx].maxShareOffset()
 	}
 
-	if b.canFit(pfbShareDiff + maxBlobShareCount) {
+	totalSizeChange := pfbShareDiff + maxBlobShareCount
+	if b.canFit(totalSizeChange) {
 		b.Blobs = append(b.Blobs, blobElements...)
 		b.Pfbs = append(b.Pfbs, iw)
-		b.currentSize += (pfbShareDiff + maxBlobShareCount)
+		b.currentSize += totalSizeChange
+		b.lastBlobTxSizeChange = totalSizeChange
+		b.blobTxReverted = false // reset revert flag
 		b.done = false
 		return true
 	}
 	b.PfbCounter.Revert()
 	return false
+}
+
+// RevertLastBlobTx reverts the last blob transaction that was appended to the builder.
+// It returns an error if there are no blob transactions to revert or if this method
+// has been called consecutively without adding a tx in between calls.
+func (b *Builder) RevertLastBlobTx() error {
+	if len(b.Pfbs) == 0 {
+		return errors.New("no blob transactions to revert")
+	}
+	if b.blobTxReverted {
+		return errors.New("cannot revert: last blob transaction has already been reverted")
+	}
+
+	lastPfbIndex := len(b.Pfbs) - 1
+
+	var remainingBlobs []*Element
+	for _, blob := range b.Blobs {
+		if blob.PfbIndex != lastPfbIndex {
+			remainingBlobs = append(remainingBlobs, blob)
+		}
+	}
+
+	b.Blobs = remainingBlobs
+	b.Pfbs = b.Pfbs[:len(b.Pfbs)-1]
+	b.PfbCounter.Revert()
+	b.currentSize -= b.lastBlobTxSizeChange
+	b.blobTxReverted = true
+	b.done = false
+
+	return nil
 }
 
 // Export constructs the square.

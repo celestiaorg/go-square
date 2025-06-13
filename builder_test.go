@@ -396,3 +396,313 @@ func TestIsPowerOfTwo(t *testing.T) {
 		assert.Equal(t, test.expected, square.IsPowerOfTwo(test.input))
 	}
 }
+
+func TestBuilderRevertLastTx(t *testing.T) {
+	builder, err := square.NewBuilder(8, 64)
+	require.NoError(t, err)
+
+	// Test reverting when there are no transactions
+	err = builder.RevertLastTx()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no transactions to revert")
+
+	// Add a transaction and verify it was added
+	tx1 := newTx(100)
+	require.True(t, builder.AppendTx(tx1))
+	require.Len(t, builder.Txs, 1)
+	require.Equal(t, tx1, builder.Txs[0])
+	initialSize := builder.CurrentSize()
+	require.Greater(t, initialSize, 0)
+
+	// Revert the transaction
+	err = builder.RevertLastTx()
+	require.NoError(t, err)
+	require.Len(t, builder.Txs, 0)
+	require.Equal(t, 0, builder.CurrentSize())
+
+	// Test reverting when there are no transactions left
+	err = builder.RevertLastTx()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no transactions to revert")
+
+	// Add multiple transactions and revert only the last one
+	tx2 := newTx(50)
+	tx3 := newTx(75)
+	require.True(t, builder.AppendTx(tx2))
+	sizeAfterOneTx := builder.CurrentSize()
+	require.True(t, builder.AppendTx(tx3))
+	require.Len(t, builder.Txs, 2)
+
+	err = builder.RevertLastTx()
+	require.NoError(t, err)
+	require.Len(t, builder.Txs, 1)
+	require.Equal(t, tx2, builder.Txs[0])
+	require.Equal(t, sizeAfterOneTx, builder.CurrentSize())
+	require.Greater(t, builder.CurrentSize(), 0)
+}
+
+func TestBuilderRevertLastBlobTx(t *testing.T) {
+	builder, err := square.NewBuilder(64, 64)
+	require.NoError(t, err)
+
+	// Test reverting when there are no blob transactions
+	err = builder.RevertLastBlobTx()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no blob transactions to revert")
+
+	// Add a blob transaction and verify it was added
+	ns1 := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
+	blobTxs := generateBlobTxsWithNamespaces([]share.Namespace{ns1}, [][]int{{100}})
+	require.Len(t, blobTxs, 1)
+
+	blobTx, isBlobTx, err := tx.UnmarshalBlobTx(blobTxs[0])
+	require.NoError(t, err)
+	require.True(t, isBlobTx)
+
+	require.True(t, builder.AppendBlobTx(blobTx))
+	require.Len(t, builder.Pfbs, 1)
+	require.Len(t, builder.Blobs, 1)
+	initialSize := builder.CurrentSize()
+	require.Greater(t, initialSize, 0)
+
+	// Revert the blob transaction
+	err = builder.RevertLastBlobTx()
+	require.NoError(t, err)
+	require.Len(t, builder.Pfbs, 0)
+	require.Len(t, builder.Blobs, 0)
+	require.Equal(t, 0, builder.CurrentSize())
+
+	// Test reverting when there are no blob transactions left
+	err = builder.RevertLastBlobTx()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no blob transactions to revert")
+}
+
+func TestBuilderRevertLastBlobTxWithMultipleBlobs(t *testing.T) {
+	builder, err := square.NewBuilder(64, 64)
+	require.NoError(t, err)
+
+	// Create a blob transaction with multiple blobs
+	ns1 := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
+	ns2 := share.MustNewV0Namespace(bytes.Repeat([]byte{2}, share.NamespaceVersionZeroIDSize))
+	blobTxs := generateBlobTxsWithNamespaces([]share.Namespace{ns1, ns2}, [][]int{{100, 150}})
+	require.Len(t, blobTxs, 1)
+
+	blobTx, isBlobTx, err := tx.UnmarshalBlobTx(blobTxs[0])
+	require.NoError(t, err)
+	require.True(t, isBlobTx)
+	require.Len(t, blobTx.Blobs, 2)
+
+	require.True(t, builder.AppendBlobTx(blobTx))
+	require.Len(t, builder.Pfbs, 1)
+	require.Len(t, builder.Blobs, 2) // Should have 2 blobs
+
+	// Add another single blob transaction
+	blobTxs2 := generateBlobTxsWithNamespaces([]share.Namespace{ns1}, [][]int{{200}})
+	blobTx2, isBlobTx2, err := tx.UnmarshalBlobTx(blobTxs2[0])
+	require.NoError(t, err)
+	require.True(t, isBlobTx2)
+
+	require.True(t, builder.AppendBlobTx(blobTx2))
+	require.Len(t, builder.Pfbs, 2)
+	require.Len(t, builder.Blobs, 3) // Should have 3 blobs total
+
+	// Revert the last blob transaction (which had 1 blob)
+	err = builder.RevertLastBlobTx()
+	require.NoError(t, err)
+	require.Len(t, builder.Pfbs, 1)
+	require.Len(t, builder.Blobs, 2) // Should be back to 2 blobs
+
+	// Try to revert the first blob transaction - this should return error
+	// because the last blob tx has already been reverted
+	err = builder.RevertLastBlobTx()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "already been reverted")
+	require.Len(t, builder.Pfbs, 1)  // Should remain at 1
+	require.Len(t, builder.Blobs, 2) // Should remain at 2 blobs
+}
+
+func TestBuilderRevertMixed(t *testing.T) {
+	builder, err := square.NewBuilder(64, 64)
+	require.NoError(t, err)
+
+	// Add a regular transaction
+	tx1 := newTx(100)
+	require.True(t, builder.AppendTx(tx1))
+
+	// Add a blob transaction
+	ns1 := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
+	blobTxs := generateBlobTxsWithNamespaces([]share.Namespace{ns1}, [][]int{{100}})
+	blobTx, isBlobTx, err := tx.UnmarshalBlobTx(blobTxs[0])
+	require.NoError(t, err)
+	require.True(t, isBlobTx)
+	require.True(t, builder.AppendBlobTx(blobTx))
+
+	// Verify state
+	require.Len(t, builder.Txs, 1)
+	require.Len(t, builder.Pfbs, 1)
+	require.Len(t, builder.Blobs, 1)
+
+	// Revert blob transaction - should not affect regular transaction
+	err = builder.RevertLastBlobTx()
+	require.NoError(t, err)
+	require.Len(t, builder.Txs, 1)
+	require.Len(t, builder.Pfbs, 0)
+	require.Len(t, builder.Blobs, 0)
+
+	// Regular transaction should still be there
+	require.Equal(t, tx1, builder.Txs[0])
+
+	// Should not be able to revert blob tx when there are none
+	err = builder.RevertLastBlobTx()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no blob transactions to revert")
+
+	// Should still be able to revert the regular transaction
+	err = builder.RevertLastTx()
+	require.NoError(t, err)
+	require.Len(t, builder.Txs, 0)
+}
+
+// TestConsecutiveRevertCalls demonstrates that consecutive revert calls are prevented
+// by returning errors
+func TestConsecutiveRevertCalls(t *testing.T) {
+	builder, err := square.NewBuilder(64, 64)
+	require.NoError(t, err)
+
+	// Add two transactions to demonstrate the footgun
+	tx1 := make([]byte, 50)
+	tx2 := make([]byte, 50)
+
+	require.True(t, builder.AppendTx(tx1))
+	require.True(t, builder.AppendTx(tx2))
+	require.Len(t, builder.Txs, 2)
+
+	sizeAfterTwoTxs := builder.CurrentSize()
+	require.Greater(t, sizeAfterTwoTxs, 0)
+
+	// First revert should work
+	err = builder.RevertLastTx()
+	require.NoError(t, err)
+	require.Len(t, builder.Txs, 1)
+
+	sizeAfterFirstRevert := builder.CurrentSize()
+	t.Logf("Size after first revert: %d (was %d)", sizeAfterFirstRevert, sizeAfterTwoTxs)
+
+	// Second revert should now return error due to counter limitation prevention
+	err = builder.RevertLastTx()
+	require.Error(t, err, "Second revert should return error due to counter limitation")
+	require.Contains(t, err.Error(), "already been reverted")
+	require.Len(t, builder.Txs, 1) // Should remain at 1
+
+	// Size should remain consistent
+	sizeAfterSecondRevert := builder.CurrentSize()
+
+	t.Logf("Size after second revert: %d (was %d)", sizeAfterSecondRevert, sizeAfterFirstRevert)
+
+	// Size should remain the same since the revert was prevented
+	require.Equal(t, sizeAfterFirstRevert, sizeAfterSecondRevert)
+}
+
+// TestMultipleRevertBlobTxs demonstrates that consecutive revert calls are prevented for blob transactions
+func TestMultipleRevertBlobTxs(t *testing.T) {
+	builder, err := square.NewBuilder(64, 64)
+	require.NoError(t, err)
+
+	// Add two blob transactions
+	ns1 := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
+	ns2 := share.MustNewV0Namespace(bytes.Repeat([]byte{2}, share.NamespaceVersionZeroIDSize))
+
+	blobTxs1 := generateBlobTxsWithNamespaces([]share.Namespace{ns1}, [][]int{{100}})
+	blobTx1, _, err := tx.UnmarshalBlobTx(blobTxs1[0])
+	require.NoError(t, err)
+
+	blobTxs2 := generateBlobTxsWithNamespaces([]share.Namespace{ns2}, [][]int{{100}})
+	blobTx2, _, err := tx.UnmarshalBlobTx(blobTxs2[0])
+	require.NoError(t, err)
+
+	require.True(t, builder.AppendBlobTx(blobTx1))
+	require.True(t, builder.AppendBlobTx(blobTx2))
+	require.Len(t, builder.Pfbs, 2)
+
+	sizeAfterTwoBlobTxs := builder.CurrentSize()
+	require.Greater(t, sizeAfterTwoBlobTxs, 0)
+
+	// First revert should work
+	err = builder.RevertLastBlobTx()
+	require.NoError(t, err)
+	require.Len(t, builder.Pfbs, 1)
+
+	sizeAfterFirstRevert := builder.CurrentSize()
+	t.Logf("Size after first revert: %d (was %d)", sizeAfterFirstRevert, sizeAfterTwoBlobTxs)
+
+	// Second revert should now return error due to counter limitation prevention
+	err = builder.RevertLastBlobTx()
+	require.Error(t, err, "Second revert should return error due to counter limitation")
+	require.Contains(t, err.Error(), "already been reverted")
+	require.Len(t, builder.Pfbs, 1)  // Should remain at 1
+	require.Len(t, builder.Blobs, 1) // Should remain at 1 (only blobTx1's blob)
+
+	// Size should remain consistent
+	sizeAfterSecondRevert := builder.CurrentSize()
+
+	t.Logf("Size after second revert: %d (was %d)", sizeAfterSecondRevert, sizeAfterFirstRevert)
+
+	// Size should remain the same since the revert was prevented
+	require.Equal(t, sizeAfterFirstRevert, sizeAfterSecondRevert)
+}
+
+// TestRevertAfterNewAdd demonstrates that you can revert again after adding a new transaction
+func TestRevertAfterNewAdd(t *testing.T) {
+	builder, err := square.NewBuilder(64, 64)
+	require.NoError(t, err)
+
+	// Add and revert a transaction
+	tx1 := make([]byte, 50)
+	require.True(t, builder.AppendTx(tx1))
+	err = builder.RevertLastTx()
+	require.NoError(t, err)
+
+	// Try to revert again - should return error
+	err = builder.RevertLastTx()
+	require.Error(t, err)
+	// After reverting, there are no transactions left, so we get this error instead of "already been reverted"
+	require.Contains(t, err.Error(), "no transactions to revert")
+
+	// Add a new transaction
+	tx2 := make([]byte, 50)
+	require.True(t, builder.AppendTx(tx2))
+
+	// Now revert should work again
+	err = builder.RevertLastTx()
+	require.NoError(t, err)
+	require.Len(t, builder.Txs, 0)
+
+	// Same test for blob transactions
+	ns1 := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
+	blobTxs1 := generateBlobTxsWithNamespaces([]share.Namespace{ns1}, [][]int{{100}})
+	blobTx1, _, err := tx.UnmarshalBlobTx(blobTxs1[0])
+	require.NoError(t, err)
+
+	require.True(t, builder.AppendBlobTx(blobTx1))
+	err = builder.RevertLastBlobTx()
+	require.NoError(t, err)
+
+	// Try to revert again - should return error
+	err = builder.RevertLastBlobTx()
+	require.Error(t, err)
+	// After reverting, there are no blob transactions left, so we get this error instead of "already been reverted"
+	require.Contains(t, err.Error(), "no blob transactions to revert")
+
+	// Add a new blob transaction
+	blobTxs2 := generateBlobTxsWithNamespaces([]share.Namespace{ns1}, [][]int{{200}})
+	blobTx2, _, err := tx.UnmarshalBlobTx(blobTxs2[0])
+	require.NoError(t, err)
+
+	require.True(t, builder.AppendBlobTx(blobTx2))
+
+	// Now revert should work again
+	err = builder.RevertLastBlobTx()
+	require.NoError(t, err)
+	require.Len(t, builder.Pfbs, 0)
+}
