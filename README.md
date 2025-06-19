@@ -51,5 +51,5 @@ make test
 make lint
 
 # Perform benchmarking
-make bench
+make benchmark
 ```
