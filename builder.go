@@ -208,10 +208,10 @@ func (b *Builder) Export() (Square, error) {
 	cursor := nonReservedStart
 	endOfLastBlob := nonReservedStart
 	blobWriter := share.NewSparseShareSplitter()
+	var err error
 	for i, element := range b.Blobs {
 		// NextShareIndex returned where the next blob should start so as to comply with the share commitment rules
 		// We fill out the remaining
-		var err error
 		cursor, err = inclusion.NextShareIndex(cursor, element.NumShares, b.subtreeRootThreshold)
 		if err != nil {
 			return nil, fmt.Errorf("failed to calculate next share index for blob %d: %w", i, err)
