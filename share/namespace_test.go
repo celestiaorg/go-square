@@ -602,9 +602,7 @@ func TestAddInt(t *testing.T) {
 
 			if tc.wantErr {
 				assert.Error(t, err, "expected error for test case: %s", tc.name)
-				if err != nil {
-					assert.Equal(t, "namespace overflow", err.Error(), "expected overflow error message")
-				}
+				assert.Equal(t, "namespace overflow", err.Error(), "expected overflow error message")
 				assert.Equal(t, Namespace{}, result, "expected empty namespace on error")
 			} else {
 				assert.NoError(t, err, "unexpected error for test case: %s", tc.name)
