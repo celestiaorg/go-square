@@ -477,3 +477,139 @@ func TestValidateForBlob(t *testing.T) {
 		assert.Equal(t, tc.wantErr, err)
 	}
 }
+
+func TestAddInt(t *testing.T) {
+	type testCase struct {
+		name      string
+		namespace Namespace
+		value     int
+		want      Namespace
+		wantErr   bool
+	}
+
+	// Helper to create a namespace with specific bytes for testing
+	createTestNamespace := func(bytes []byte) Namespace {
+		if len(bytes) > NamespaceSize {
+			bytes = bytes[:NamespaceSize]
+		}
+		ns := Namespace{data: make([]byte, NamespaceSize)}
+		copy(ns.data, bytes)
+		return ns
+	}
+
+	// Create test namespaces
+	zeroNamespace := createTestNamespace(make([]byte, NamespaceSize))
+
+	// Namespace with version 0 and simple ID pattern
+	simpleNS := MustNewV0Namespace([]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01})
+
+	// Namespace close to overflow (high values in last bytes)
+	nearOverflowBytes := make([]byte, NamespaceSize)
+	// Set all bytes to 0xFF to create maximum namespace value
+	for i := range nearOverflowBytes {
+		nearOverflowBytes[i] = 0xFF
+	}
+	nearOverflowNS := createTestNamespace(nearOverflowBytes)
+
+	// Expected results for simple additions
+	simpleNSPlus1 := MustNewV0Namespace([]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02})
+	simpleNSPlus255 := MustNewV0Namespace([]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00})
+	simpleNSPlus256 := MustNewV0Namespace([]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01})
+
+	testCases := []testCase{
+		{
+			name:      "add zero returns original namespace",
+			namespace: simpleNS,
+			value:     0,
+			want:      simpleNS,
+			wantErr:   false,
+		},
+		{
+			name:      "add positive small value",
+			namespace: simpleNS,
+			value:     1,
+			want:      simpleNSPlus1,
+			wantErr:   false,
+		},
+		{
+			name:      "add positive value causing carry",
+			namespace: simpleNS,
+			value:     255,
+			want:      simpleNSPlus255,
+			wantErr:   false,
+		},
+		{
+			name:      "add positive value causing multiple carries",
+			namespace: simpleNS,
+			value:     256,
+			want:      simpleNSPlus256,
+			wantErr:   false,
+		},
+		{
+			name:      "subtract small positive value",
+			namespace: simpleNSPlus1,
+			value:     -1,
+			want:      simpleNS,
+			wantErr:   false,
+		},
+		{
+			name:      "subtract value causing borrow",
+			namespace: simpleNSPlus256,
+			value:     -256,
+			want:      simpleNS,
+			wantErr:   false,
+		},
+		{
+			name:      "add to zero namespace",
+			namespace: zeroNamespace,
+			value:     42,
+			want:      createTestNamespace(append(make([]byte, NamespaceSize-1), 42)),
+			wantErr:   false,
+		},
+		{
+			name:      "add large value",
+			namespace: zeroNamespace,
+			value:     65536, // 2^16
+			want:      createTestNamespace(append(make([]byte, NamespaceSize-3), 0x01, 0x00, 0x00)),
+			wantErr:   false,
+		},
+		{
+			name:      "overflow scenario - adding 1 to near-max namespace",
+			namespace: nearOverflowNS,
+			value:     1,
+			want:      Namespace{}, // expect empty namespace due to error
+			wantErr:   true,
+		},
+		{
+			name:      "underflow scenario - subtracting from zero",
+			namespace: zeroNamespace,
+			value:     -1,
+			want:      Namespace{}, // expect empty namespace due to error
+			wantErr:   true,
+		},
+		{
+			name:      "large negative value causing underflow",
+			namespace: simpleNS,
+			value:     -1000,
+			want:      Namespace{}, // expect empty namespace due to error
+			wantErr:   true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := tc.namespace.AddInt(tc.value)
+
+			if tc.wantErr {
+				assert.Error(t, err, "expected error for test case: %s", tc.name)
+				if err != nil {
+					assert.Equal(t, "namespace overflow", err.Error(), "expected overflow error message")
+				}
+				assert.Equal(t, Namespace{}, result, "expected empty namespace on error")
+			} else {
+				assert.NoError(t, err, "unexpected error for test case: %s", tc.name)
+				assert.Equal(t, tc.want.Bytes(), result.Bytes(), "namespace bytes should match expected result")
+			}
+		})
+	}
+}
