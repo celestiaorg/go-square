@@ -211,15 +211,14 @@ func (b *Builder) Export() (Square, error) {
 	for i, element := range b.Blobs {
 		// NextShareIndex returned where the next blob should start so as to comply with the share commitment rules
 		// We fill out the remaining
-		nextCursor, err := inclusion.NextShareIndex(cursor, element.NumShares, b.subtreeRootThreshold)
+		var err error
+		cursor, err = inclusion.NextShareIndex(cursor, element.NumShares, b.subtreeRootThreshold)
 		if err != nil {
 			return nil, fmt.Errorf("failed to calculate next share index for blob %d: %w", i, err)
 		}
 		if i == 0 {
 			nonReservedStart = cursor
 		}
-
-		cursor = nextCursor
 
 		// defensively check that the actual padding never exceeds the max padding initially allocated for it
 		padding := cursor - endOfLastBlob
