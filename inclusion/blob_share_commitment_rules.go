@@ -10,15 +10,18 @@ import (
 // BlobSharesUsedNonInteractiveDefaults returns the number of shares used by a
 // given set of blobs share lengths. It follows the blob share commitment rules
 // and returns the total shares used and share indexes for each blob.
-func BlobSharesUsedNonInteractiveDefaults(cursor, subtreeRootThreshold int, blobShareLens ...int) (sharesUsed int, indexes []uint32) {
+func BlobSharesUsedNonInteractiveDefaults(cursor, subtreeRootThreshold int, blobShareLens ...int) (sharesUsed int, indexes []uint32, err error) {
 	start := cursor
 	indexes = make([]uint32, len(blobShareLens))
 	for i, blobLen := range blobShareLens {
-		cursor = NextShareIndex(cursor, blobLen, subtreeRootThreshold)
+		cursor, err = NextShareIndex(cursor, blobLen, subtreeRootThreshold)
+		if err != nil {
+			return 0, nil, fmt.Errorf("failed to calculate next share index: %w", err)
+		}
 		indexes[i] = uint32(cursor)
 		cursor += blobLen
 	}
-	return cursor - start, indexes
+	return cursor - start, indexes, nil
 }
 
 // NextShareIndex determines the next index in a square that can be used. It
@@ -29,23 +32,30 @@ func BlobSharesUsedNonInteractiveDefaults(cursor, subtreeRootThreshold int, blob
 //
 // See https://github.com/celestiaorg/celestia-app/blob/main/specs/src/specs/data_square_layout.md
 // for more information.
-func NextShareIndex(cursor, blobShareLen, subtreeRootThreshold int) int {
+func NextShareIndex(cursor, blobShareLen, subtreeRootThreshold int) (int, error) {
 	// Calculate the subtreewidth. This is the width of the first mountain in the
 	// merkle mountain range that makes up the blob share commitment (given the
 	// subtreeRootThreshold and the BlobMinSquareSize).
 	treeWidth := SubTreeWidth(blobShareLen, subtreeRootThreshold)
 	// Round up the cursor to the next multiple of treeWidth. For example, if
 	// the cursor was at 13 and the tree width is 4, return 16.
-	return RoundUpByMultipleOf(cursor, treeWidth)
+	roundedUpCursor, err := RoundUpByMultipleOf(cursor, treeWidth)
+	if err != nil {
+		return 0, fmt.Errorf("failed to round up cursor %d by multiple of %d: %w", cursor, treeWidth, err)
+	}
+	return roundedUpCursor, nil
 }
 
 // RoundUpByMultipleOf rounds cursor up to the next multiple of v. If cursor is divisible
 // by v, then it returns cursor.
-func RoundUpByMultipleOf(cursor, v int) int {
-	if cursor%v == 0 {
-		return cursor
+func RoundUpByMultipleOf(cursor, v int) (int, error) {
+	if v == 0 {
+		return 0, fmt.Errorf("v cannot be 0")
 	}
-	return ((cursor / v) + 1) * v
+	if cursor%v == 0 {
+		return cursor, nil
+	}
+	return ((cursor / v) + 1) * v, nil
 }
 
 // RoundUpPowerOfTwo returns the next power of two greater than or equal to input.
