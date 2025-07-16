@@ -2,6 +2,7 @@ package share
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"testing"
 
@@ -160,6 +161,24 @@ func Test_parseShareVersionOne(t *testing.T) {
 	require.Len(t, parsedBlobs, 1)
 	got := parsedBlobs[0]
 	require.Equal(t, v1blob, got)
+}
+
+// The blob in this test was taken from Mocha block height 7,132,999.
+// https://www.mintscan.io/celestia-testnet/tx/5E0A7F8FAAF15FA8C098F43B0AC6E033E9614AFE89182A1668E4230961A2BB3D
+func Test_parseSparseSharesWithMochaBlob(t *testing.T) {
+	namespace, err := NewV0Namespace([]byte("sov-mini-e"))
+	require.NoError(t, err)
+
+	// base64 encode the namespace bytes and ensure they match the namespace shown on Mintscan.
+	namespaceBase64 := base64.StdEncoding.EncodeToString(namespace.Bytes())
+	require.Equal(t, "AAAAAAAAAAAAAAAAAAAAAAAAAHNvdi1taW5pLWU=", namespaceBase64)
+
+	// TODO: get the real blob data.
+	data := []byte("data")
+	// TODO: get the real signer.
+	signer := []byte("signer")
+
+	_, err = NewV1Blob(namespace, data, signer)
 }
 
 func splitBlobs(blobs ...*Blob) ([]Share, error) {
