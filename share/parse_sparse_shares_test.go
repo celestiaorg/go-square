@@ -143,7 +143,10 @@ func Test_parseSparseSharesWithNamespacedPadding(t *testing.T) {
 }
 
 func Test_parseShareVersionOne(t *testing.T) {
-	v1blob, err := NewV1Blob(MustNewV0Namespace(bytes.Repeat([]byte{1}, NamespaceVersionZeroIDSize)), []byte("data"), bytes.Repeat([]byte{1}, SignerSize))
+	namespace := MustNewV0Namespace(bytes.Repeat([]byte{1}, NamespaceVersionZeroIDSize))
+	data := []byte("data")
+	signer := bytes.Repeat([]byte{1}, SignerSize)
+	v1blob, err := NewV1Blob(namespace, data, signer)
 	require.NoError(t, err)
 	v1shares, err := splitBlobs(v1blob)
 	require.NoError(t, err)
