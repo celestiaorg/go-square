@@ -163,3 +163,117 @@ func splitBlobs(blobs ...*Blob) ([]Share, error) {
 	}
 	return writer.Export(), nil
 }
+
+func Test_parseSparseSharesV1(t *testing.T) {
+	type testCase struct {
+		name      string
+		blobSize  int
+		blobCount int
+		signer    []byte
+	}
+
+	tests := []testCase{
+		{
+			name:      "single small v1 blob",
+			blobSize:  10,
+			blobCount: 1,
+			signer:    bytes.Repeat([]byte{1}, SignerSize),
+		},
+		{
+			name:      "multiple small v1 blobs",
+			blobSize:  10,
+			blobCount: 5,
+			signer:    bytes.Repeat([]byte{2}, SignerSize),
+		},
+		{
+			name:      "single large v1 blob",
+			blobSize:  ContinuationSparseShareContentSize * 100,
+			blobCount: 1,
+			signer:    bytes.Repeat([]byte{3}, SignerSize),
+		},
+		{
+			name:      "multiple large v1 blobs",
+			blobSize:  ContinuationSparseShareContentSize * 100,
+			blobCount: 3,
+			signer:    bytes.Repeat([]byte{4}, SignerSize),
+		},
+		{
+			name:      "v1 blob exact first share size",
+			blobSize:  FirstSparseShareContentSize,
+			blobCount: 1,
+			signer:    bytes.Repeat([]byte{6}, SignerSize),
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create v1 blobs with the specified parameters
+			blobs := make([]*Blob, tc.blobCount)
+			for i := 0; i < tc.blobCount; i++ {
+				namespace := MustNewV0Namespace(bytes.Repeat([]byte{byte(i + 1)}, NamespaceVersionZeroIDSize))
+
+				// Generate random data for the blob
+				data := make([]byte, tc.blobSize)
+				for j := range data {
+					data[j] = byte(i*100 + j)
+				}
+
+				blob, err := NewV1Blob(namespace, data, tc.signer)
+				require.NoError(t, err)
+				blobs[i] = blob
+			}
+
+			// Sort blobs by namespace
+			SortBlobs(blobs)
+
+			// Split blobs into shares
+			shares, err := splitBlobs(blobs...)
+			require.NoError(t, err)
+
+			// Parse shares back to blobs
+			parsedBlobs, err := parseSparseShares(shares)
+			require.NoError(t, err)
+
+			// Verify the number of blobs matches
+			require.Len(t, parsedBlobs, tc.blobCount)
+
+			// Verify each blob matches the original
+			for i := 0; i < tc.blobCount; i++ {
+				original := blobs[i]
+				parsed := parsedBlobs[i]
+
+				// Check namespace
+				assert.Equal(t, original.Namespace(), parsed.Namespace(),
+					"blob %d: namespace mismatch", i)
+
+				// Check data
+				assert.Equal(t, original.Data(), parsed.Data(),
+					"blob %d: data mismatch", i)
+
+				// Check share version
+				assert.Equal(t, original.ShareVersion(), parsed.ShareVersion(),
+					"blob %d: share version mismatch", i)
+				assert.Equal(t, ShareVersionOne, parsed.ShareVersion(),
+					"blob %d: expected share version 1", i)
+
+				// Check signer
+				assert.Equal(t, original.Signer(), parsed.Signer(),
+					"blob %d: signer mismatch", i)
+				assert.Equal(t, tc.signer, parsed.Signer(),
+					"blob %d: expected signer", i)
+
+				// Verify the blob is a v1 blob
+				assert.Equal(t, ShareVersionOne, parsed.ShareVersion())
+				assert.Len(t, parsed.Signer(), SignerSize)
+			}
+
+			// Verify share versions in the actual shares
+			for _, share := range shares {
+				if !share.IsPadding() {
+					assert.Equal(t, ShareVersionOne, share.Version(),
+						"all non-padding shares should be version 1")
+				}
+			}
+		})
+	}
+}
