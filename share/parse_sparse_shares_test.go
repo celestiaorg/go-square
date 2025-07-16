@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const mebibyte = 1024 * 1024
+
 func Test_parseSparseShares(t *testing.T) {
 	type test struct {
 		name          string
@@ -144,17 +146,20 @@ func Test_parseSparseSharesWithNamespacedPadding(t *testing.T) {
 
 func Test_parseShareVersionOne(t *testing.T) {
 	namespace := MustNewV0Namespace(bytes.Repeat([]byte{1}, NamespaceVersionZeroIDSize))
-	data := []byte("data")
+	data := bytes.Repeat([]byte{1}, mebibyte)
 	signer := bytes.Repeat([]byte{1}, SignerSize)
+
 	v1blob, err := NewV1Blob(namespace, data, signer)
 	require.NoError(t, err)
+
 	v1shares, err := splitBlobs(v1blob)
 	require.NoError(t, err)
 
 	parsedBlobs, err := parseSparseShares(v1shares)
 	require.NoError(t, err)
-	require.Equal(t, v1blob, parsedBlobs[0])
 	require.Len(t, parsedBlobs, 1)
+	got := parsedBlobs[0]
+	require.Equal(t, v1blob, got)
 }
 
 func splitBlobs(blobs ...*Blob) ([]Share, error) {
