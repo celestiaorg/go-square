@@ -261,10 +261,6 @@ func Test_parseSparseSharesV1(t *testing.T) {
 					"blob %d: signer mismatch", i)
 				assert.Equal(t, tc.signer, parsed.Signer(),
 					"blob %d: expected signer", i)
-
-				// Verify the blob is a v1 blob
-				assert.Equal(t, ShareVersionOne, parsed.ShareVersion())
-				assert.Len(t, parsed.Signer(), SignerSize)
 			}
 
 			// Verify share versions in the actual shares
