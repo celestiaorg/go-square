@@ -20,28 +20,35 @@ func TestBlobSharesUsedNonInteractiveDefaults(t *testing.T) {
 		cursor, expected int
 		blobLens         []int
 		indexes          []uint32
+		expectError      bool
 	}
 	tests := []test{
-		{2, 1, []int{1}, []uint32{2}},
-		{2, 1, []int{1}, []uint32{2}},
-		{3, 6, []int{3, 3}, []uint32{3, 6}},
-		{0, 8, []int{8}, []uint32{0}},
-		{1, 6, []int{3, 3}, []uint32{1, 4}},
-		{1, 32, []int{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, []uint32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32}},
-		{3, 12, []int{5, 7}, []uint32{3, 8}},
-		{0, 20, []int{5, 5, 5, 5}, []uint32{0, 5, 10, 15}},
-		{0, 10, []int{10}, []uint32{0}},
-		{1, 20, []int{10, 10}, []uint32{1, 11}},
-		{0, 1000, []int{1000}, []uint32{0}},
-		{0, defaultSquareSize + 1, []int{defaultSquareSize + 1}, []uint32{0}},
-		{1, 385, []int{128, 128, 128}, []uint32{2, 130, 258}},
-		{1024, 32, []int{32}, []uint32{1024}},
+		{2, 1, []int{1}, []uint32{2}, false},
+		{2, 1, []int{1}, []uint32{2}, false},
+		{3, 6, []int{3, 3}, []uint32{3, 6}, false},
+		{0, 8, []int{8}, []uint32{0}, false},
+		{1, 6, []int{3, 3}, []uint32{1, 4}, false},
+		{1, 32, []int{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, []uint32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32}, false},
+		{3, 12, []int{5, 7}, []uint32{3, 8}, false},
+		{0, 20, []int{5, 5, 5, 5}, []uint32{0, 5, 10, 15}, false},
+		{0, 10, []int{10}, []uint32{0}, false},
+		{0, 0, []int{0}, []uint32{0}, false}, // This case has blobLen=0, which should work
+		{1, 20, []int{10, 10}, []uint32{1, 11}, false},
+		{0, 1000, []int{1000}, []uint32{0}, false},
+		{0, defaultSquareSize + 1, []int{defaultSquareSize + 1}, []uint32{0}, false},
+		{1, 385, []int{128, 128, 128}, []uint32{2, 130, 258}, false},
+		{1024, 32, []int{32}, []uint32{1024}, false},
 	}
 	for i, tt := range tests {
-		res, indexes := inclusion.BlobSharesUsedNonInteractiveDefaults(tt.cursor, defaultSubtreeRootThreshold, tt.blobLens...)
+		res, indexes, err := inclusion.BlobSharesUsedNonInteractiveDefaults(tt.cursor, defaultSubtreeRootThreshold, tt.blobLens...)
 		test := fmt.Sprintf("test %d: cursor %d", i, tt.cursor)
-		assert.Equal(t, tt.expected, res, test)
-		assert.Equal(t, tt.indexes, indexes, test)
+		if tt.expectError {
+			assert.Error(t, err, test)
+		} else {
+			assert.NoError(t, err, test)
+			assert.Equal(t, tt.expected, res, test)
+			assert.Equal(t, tt.indexes, indexes, test)
+		}
 	}
 }
 
@@ -50,6 +57,7 @@ func TestNextShareIndex(t *testing.T) {
 		name                        string
 		cursor, blobLen, squareSize int
 		expectedIndex               int
+		expectError                 bool
 	}
 	tests := []test{
 		{
@@ -58,6 +66,7 @@ func TestNextShareIndex(t *testing.T) {
 			blobLen:       4,
 			squareSize:    4,
 			expectedIndex: 0,
+			expectError:   false,
 		},
 		{
 			name:          "half row blobLen 2 cursor 1",
@@ -65,6 +74,7 @@ func TestNextShareIndex(t *testing.T) {
 			blobLen:       2,
 			squareSize:    4,
 			expectedIndex: 1,
+			expectError:   false,
 		},
 		{
 			name:          "half row blobLen 2 cursor 2",
@@ -72,6 +82,7 @@ func TestNextShareIndex(t *testing.T) {
 			blobLen:       2,
 			squareSize:    4,
 			expectedIndex: 2,
+			expectError:   false,
 		},
 		{
 			name:          "half row blobLen 4 cursor 3",
@@ -79,6 +90,7 @@ func TestNextShareIndex(t *testing.T) {
 			blobLen:       4,
 			squareSize:    8,
 			expectedIndex: 3,
+			expectError:   false,
 		},
 		{
 			name:          "blobLen 5 cursor 3 size 8",
@@ -86,6 +98,7 @@ func TestNextShareIndex(t *testing.T) {
 			blobLen:       5,
 			squareSize:    8,
 			expectedIndex: 3,
+			expectError:   false,
 		},
 		{
 			name:          "blobLen 2 cursor 3 square size 8",
@@ -93,6 +106,7 @@ func TestNextShareIndex(t *testing.T) {
 			blobLen:       2,
 			squareSize:    8,
 			expectedIndex: 3,
+			expectError:   false,
 		},
 		{
 			name:          "cursor 3 blobLen 5 size 8",
@@ -100,6 +114,7 @@ func TestNextShareIndex(t *testing.T) {
 			blobLen:       5,
 			squareSize:    8,
 			expectedIndex: 3,
+			expectError:   false,
 		},
 		{
 			name:          "bloblen 12 cursor 1 size 16",
@@ -107,6 +122,7 @@ func TestNextShareIndex(t *testing.T) {
 			blobLen:       12,
 			squareSize:    16,
 			expectedIndex: 1,
+			expectError:   false,
 		},
 		{
 			name:          "edge case where there are many blobs with a single size",
@@ -114,6 +130,7 @@ func TestNextShareIndex(t *testing.T) {
 			blobLen:       1,
 			squareSize:    128,
 			expectedIndex: 10291,
+			expectError:   false,
 		},
 		{
 			name:          "second row blobLen 2 cursor 11 square size 8",
@@ -121,6 +138,7 @@ func TestNextShareIndex(t *testing.T) {
 			blobLen:       2,
 			squareSize:    8,
 			expectedIndex: 11,
+			expectError:   false,
 		},
 		{
 			name:          "blob share commitment rules for reduced padding diagram",
@@ -128,6 +146,7 @@ func TestNextShareIndex(t *testing.T) {
 			blobLen:       11,
 			squareSize:    8,
 			expectedIndex: 11,
+			expectError:   false,
 		},
 		{
 			name:          "at threshold",
@@ -135,6 +154,7 @@ func TestNextShareIndex(t *testing.T) {
 			blobLen:       defaultSubtreeRootThreshold,
 			squareSize:    inclusion.RoundUpPowerOfTwo(defaultSubtreeRootThreshold),
 			expectedIndex: 11,
+			expectError:   false,
 		},
 		{
 			name:          "one over the threshold",
@@ -142,6 +162,7 @@ func TestNextShareIndex(t *testing.T) {
 			blobLen:       defaultSubtreeRootThreshold + 1,
 			squareSize:    128,
 			expectedIndex: 64,
+			expectError:   false,
 		},
 		{
 			name:          "one under the threshold",
@@ -149,6 +170,7 @@ func TestNextShareIndex(t *testing.T) {
 			blobLen:       defaultSubtreeRootThreshold - 1,
 			squareSize:    128,
 			expectedIndex: 64,
+			expectError:   false,
 		},
 		{
 			name:          "one under the threshold small square size",
@@ -156,6 +178,7 @@ func TestNextShareIndex(t *testing.T) {
 			blobLen:       defaultSubtreeRootThreshold - 1,
 			squareSize:    16,
 			expectedIndex: 1,
+			expectError:   false,
 		},
 		{
 			name:          "max padding for square size 128",
@@ -163,6 +186,7 @@ func TestNextShareIndex(t *testing.T) {
 			blobLen:       16256,
 			squareSize:    128,
 			expectedIndex: 128,
+			expectError:   false,
 		},
 		{
 			name:          "half max padding for square size 128",
@@ -170,6 +194,7 @@ func TestNextShareIndex(t *testing.T) {
 			blobLen:       8192,
 			squareSize:    128,
 			expectedIndex: 128,
+			expectError:   false,
 		},
 		{
 			name:          "quarter max padding for square size 128",
@@ -177,6 +202,7 @@ func TestNextShareIndex(t *testing.T) {
 			blobLen:       4096,
 			squareSize:    128,
 			expectedIndex: 64,
+			expectError:   false,
 		},
 		{
 			name:          "round up to 128 subtree size",
@@ -184,12 +210,18 @@ func TestNextShareIndex(t *testing.T) {
 			blobLen:       8193,
 			squareSize:    128,
 			expectedIndex: 128,
+			expectError:   false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			res := inclusion.NextShareIndex(tt.cursor, tt.blobLen, defaultSubtreeRootThreshold)
-			assert.Equal(t, tt.expectedIndex, res)
+			res, err := inclusion.NextShareIndex(tt.cursor, tt.blobLen, defaultSubtreeRootThreshold)
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expectedIndex, res)
+			}
 		})
 	}
 }
@@ -198,47 +230,62 @@ func TestRoundUpByMultipleOf(t *testing.T) {
 	type test struct {
 		cursor, v     int
 		expectedIndex int
+		expectError   bool
 	}
 	tests := []test{
 		{
 			cursor:        1,
 			v:             2,
 			expectedIndex: 2,
+			expectError:   false,
 		},
 		{
 			cursor:        2,
 			v:             2,
 			expectedIndex: 2,
+			expectError:   false,
 		},
 		{
 			cursor:        0,
 			v:             2,
 			expectedIndex: 0,
+			expectError:   false,
 		},
 		{
 			cursor:        5,
 			v:             2,
 			expectedIndex: 6,
+			expectError:   false,
 		},
 		{
 			cursor:        8,
 			v:             16,
 			expectedIndex: 16,
+			expectError:   false,
 		},
 		{
 			cursor:        33,
 			v:             1,
 			expectedIndex: 33,
+			expectError:   false,
 		},
 		{
 			cursor:        32,
 			v:             16,
 			expectedIndex: 32,
+			expectError:   false,
 		},
 		{
 			cursor:        33,
 			v:             16,
 			expectedIndex: 48,
+			expectError:   false,
+		},
+		{
+			cursor:        10,
+			v:             0,
+			expectedIndex: 0,
+			expectError:   true,
 		},
 	}
 	for i, tt := range tests {
@@ -251,8 +298,13 @@ func TestRoundUpByMultipleOf(t *testing.T) {
 				tt.expectedIndex,
 			),
 			func(t *testing.T) {
-				res := inclusion.RoundUpByMultipleOf(tt.cursor, tt.v)
-				assert.Equal(t, tt.expectedIndex, res)
+				res, err := inclusion.RoundUpByMultipleOf(tt.cursor, tt.v)
+				if tt.expectError {
+					assert.Error(t, err)
+				} else {
+					assert.NoError(t, err)
+					assert.Equal(t, tt.expectedIndex, res)
+				}
 			})
 	}
 }
