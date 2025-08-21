@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Reproduces https://github.com/celestiaorg/celestia-node/issues/4490
+// TestMochaShares reproduces https://github.com/celestiaorg/celestia-node/issues/4490
 func TestMochaShares(t *testing.T) {
 	jsonData, err := os.ReadFile("./testdata/mocha-shares.json")
 	require.NoError(t, err)
@@ -30,4 +30,9 @@ func TestMochaShares(t *testing.T) {
 
 	_, err = parseSparseShares(shares)
 	require.NoError(t, err)
+
+	// Reproduce the error in the issue by attempting to parse the first 3422 shares.
+	_, err = parseSparseShares(shares[:3422])
+	require.Error(t, err)
+	require.ErrorContains(t, err, "sequence length 1649397 is greater than the number of bytes in the sequence 1649380")
 }
