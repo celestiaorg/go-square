@@ -30,5 +30,4 @@ func TestMochaShares(t *testing.T) {
 
 	_, err = parseSparseShares(shares)
 	require.NoError(t, err)
-	// require.ErrorContains(t, err, "sequence length 1649397 is greater than the number of bytes in the sequence 1649380")
 }
