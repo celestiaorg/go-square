@@ -131,7 +131,7 @@ func SparseSharesNeeded(sequenceLen uint32) (sharesNeeded int) {
 }
 
 // SparseSharesNeededV2 returns the number of shares needed to store a sequence
-// of length sequenceLen. It accounts for the signer.
+// of length sequenceLen.
 func SparseSharesNeededV2(sequenceLen uint32, containsSigner bool) (sharesNeeded int) {
 	if sequenceLen == 0 {
 		return 0
