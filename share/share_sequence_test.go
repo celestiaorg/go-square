@@ -102,28 +102,31 @@ func TestCompactSharesNeeded(t *testing.T) {
 	}
 }
 
-func TestSparseSharesNeeded(t *testing.T) {
+func TestSparseSharesNeededV2(t *testing.T) {
 	type testCase struct {
-		sequenceLen uint32
-		want        int
+		sequenceLen    uint32
+		containsSigner bool
+		want           int
 	}
 	testCases := []testCase{
-		{0, 0},
-		{1, 1},
-		{2, 1},
-		{FirstSparseShareContentSize, 1},
-		{FirstSparseShareContentSize + 1, 2},
-		{FirstSparseShareContentSize + ContinuationSparseShareContentSize, 2},
-		{FirstSparseShareContentSize + ContinuationCompactShareContentSize*2, 3},
-		{FirstSparseShareContentSize + ContinuationCompactShareContentSize*99, 100},
-		{1000, 3},
-		{10000, 21},
-		{100000, 208},
-		{math.MaxUint32 - ShareSize, 8910720},
-		{math.MaxUint32, 8910721},
+		{0, false, 0},
+		{1, false, 1},
+		{2, false, 1},
+		{FirstSparseShareContentSize, false, 1},
+		{FirstSparseShareContentSize + 1, false, 2},
+		{FirstSparseShareContentSize + ContinuationSparseShareContentSize, false, 2},
+		{FirstSparseShareContentSize + ContinuationCompactShareContentSize*2, false, 3},
+		{FirstSparseShareContentSize + ContinuationCompactShareContentSize*99, false, 100},
+		{1000, false, 3},
+		{10000, false, 21},
+		{100000, false, 208},
+		{math.MaxUint32 - ShareSize, false, 8910720},
+		{math.MaxUint32, false, 8910721},
+		// Test cases inspired by https://github.com/celestiaorg/celestia-node/issues/4490#issuecomment-3210533374
+		{1649397, true, 3423},
 	}
 	for _, tc := range testCases {
-		got := SparseSharesNeeded(tc.sequenceLen)
+		got := SparseSharesNeededV2(tc.sequenceLen, tc.containsSigner)
 		assert.Equal(t, tc.want, got)
 	}
 }
