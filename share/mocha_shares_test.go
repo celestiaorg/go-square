@@ -10,7 +10,6 @@ import (
 
 // Reproduces https://github.com/celestiaorg/celestia-node/issues/4490
 func TestMochaShares(t *testing.T) {
-
 	jsonData, err := os.ReadFile("./testdata/mocha-shares.json")
 	require.NoError(t, err)
 
@@ -28,4 +27,8 @@ func TestMochaShares(t *testing.T) {
 	for _, share := range shares {
 		require.Equal(t, wantNamespace, share.Namespace())
 	}
+
+	_, err = parseSparseShares(shares)
+	require.NoError(t, err)
+	// require.ErrorContains(t, err, "sequence length 1649397 is greater than the number of bytes in the sequence 1649380")
 }
