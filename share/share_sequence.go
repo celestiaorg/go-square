@@ -137,8 +137,14 @@ func SparseSharesNeededV2(sequenceLen uint32, containsSigner bool) (sharesNeeded
 		return 0
 	}
 
-	if sequenceLen < FirstSparseShareContentSize {
-		return 1
+	if containsSigner {
+		if sequenceLen < FirstSparseShareContentSizeWithSigner {
+			return 1
+		}
+	} else {
+		if sequenceLen < FirstSparseShareContentSize {
+			return 1
+		}
 	}
 
 	// Calculate remaining bytes after first share

@@ -151,7 +151,8 @@ func TestSparseSharesNeededV2(t *testing.T) {
 		{math.MaxUint32 - ShareSize, false, 8910720},
 		{math.MaxUint32, false, 8910721},
 		// Test case inspired by https://github.com/celestiaorg/celestia-node/issues/4490#issuecomment-3210533374
-		{1649397, true, 3423},
+		{FirstSparseShareContentSizeWithSigner, true, 1},
+		{FirstSparseShareContentSizeWithSigner + 1, true, 2},
 	}
 	for _, tc := range testCases {
 		got := SparseSharesNeededV2(tc.sequenceLen, tc.containsSigner)
