@@ -121,9 +121,41 @@ func TestSparseSharesNeeded(t *testing.T) {
 		{100000, 208},
 		{math.MaxUint32 - ShareSize, 8910720},
 		{math.MaxUint32, 8910721},
+		// Test case inspired by https://github.com/celestiaorg/celestia-node/issues/4490#issuecomment-3210533374
+		{1649397, 3422}, // This is a bug if the sparse share contains a signer. The fix is in SparseSharesNeededV2.
 	}
 	for _, tc := range testCases {
 		got := SparseSharesNeeded(tc.sequenceLen)
+		assert.Equal(t, tc.want, got)
+	}
+}
+
+func TestSparseSharesNeededV2(t *testing.T) {
+	type testCase struct {
+		sequenceLen    uint32
+		containsSigner bool
+		want           int
+	}
+	testCases := []testCase{
+		{0, false, 0},
+		{1, false, 1},
+		{2, false, 1},
+		{FirstSparseShareContentSize, false, 1},
+		{FirstSparseShareContentSize + 1, false, 2},
+		{FirstSparseShareContentSize + ContinuationSparseShareContentSize, false, 2},
+		{FirstSparseShareContentSize + ContinuationCompactShareContentSize*2, false, 3},
+		{FirstSparseShareContentSize + ContinuationCompactShareContentSize*99, false, 100},
+		{1000, false, 3},
+		{10000, false, 21},
+		{100000, false, 208},
+		{math.MaxUint32 - ShareSize, false, 8910720},
+		{math.MaxUint32, false, 8910721},
+		// Test case inspired by https://github.com/celestiaorg/celestia-node/issues/4490#issuecomment-3210533374
+		{FirstSparseShareContentSizeWithSigner, true, 1},
+		{FirstSparseShareContentSizeWithSigner + 1, true, 2},
+	}
+	for _, tc := range testCases {
+		got := SparseSharesNeededV2(tc.sequenceLen, tc.containsSigner)
 		assert.Equal(t, tc.want, got)
 	}
 }

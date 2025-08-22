@@ -150,6 +150,11 @@ func (b *Blob) Signer() []byte {
 	return b.signer
 }
 
+// HasSigner returns true if the blob has a signer.
+func (b *Blob) HasSigner() bool {
+	return b.signer != nil
+}
+
 // Data returns the data of the blob
 func (b *Blob) Data() []byte {
 	return b.data
