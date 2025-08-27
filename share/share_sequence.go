@@ -74,7 +74,7 @@ func numberOfSharesNeeded(firstShare Share) (sharesUsed int, err error) {
 	if firstShare.IsCompactShare() {
 		return CompactSharesNeeded(sequenceLen), nil
 	}
-	return SparseSharesNeeded(sequenceLen), nil
+	return SparseSharesNeededV2(sequenceLen, firstShare.ContainsSigner()), nil
 }
 
 // CompactSharesNeeded returns the number of compact shares needed to store a

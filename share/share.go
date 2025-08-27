@@ -229,3 +229,8 @@ func FromBytes(bytes [][]byte) (shares []Share, err error) {
 	}
 	return shares, nil
 }
+
+func (s *Share) ContainsSigner() bool {
+	infoByte := s.InfoByte()
+	return infoByte.Version() == ShareVersionOne && infoByte.IsSequenceStart()
+}
