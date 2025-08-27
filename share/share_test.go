@@ -253,3 +253,73 @@ func TestMarshalShare(t *testing.T) {
 
 	require.Equal(t, sh[0], newShare)
 }
+
+func TestContainsSigner(t *testing.T) {
+	type testCase struct {
+		share Share
+		want  bool
+	}
+
+	testCases := []testCase{
+		{
+			share: shareWithSigner(t),
+			want:  true,
+		},
+		{
+			share: shareVersionOneWithoutSigner(t),
+			want:  false,
+		},
+		{
+			share: shareVersionZeroWithoutSigner(t),
+			want:  false,
+		},
+	}
+
+	for _, tc := range testCases {
+		assert.Equal(t, tc.want, tc.share.ContainsSigner())
+	}
+}
+
+func shareWithSigner(t *testing.T) Share {
+	infoByte, err := NewInfoByte(ShareVersionOne, true)
+	require.NoError(t, err)
+	signer := bytes.Repeat([]byte{1}, 20)
+
+	data := RandomBlobNamespace().Bytes()
+	data = append(data, byte(infoByte))
+	data = append(data, []byte{0, 0, 0, 0}...)
+	data = append(data, signer...)
+	data = append(data, bytes.Repeat([]byte{0}, ShareSize-len(data))...)
+
+	share, err := NewShare(data)
+	require.NoError(t, err)
+	return *share
+}
+
+func shareVersionOneWithoutSigner(t *testing.T) Share {
+	infoByte, err := NewInfoByte(ShareVersionOne, false)
+	require.NoError(t, err)
+
+	data := RandomBlobNamespace().Bytes()
+	data = append(data, byte(infoByte))
+	data = append(data, []byte{0, 0, 0, 0}...)
+	data = append(data, bytes.Repeat([]byte{0}, ShareSize-len(data))...)
+
+	share, err := NewShare(data)
+	require.NoError(t, err)
+	return *share
+}
+
+func shareVersionZeroWithoutSigner(t *testing.T) Share {
+	infoByte, err := NewInfoByte(ShareVersionZero, true)
+	require.NoError(t, err)
+
+	data := RandomBlobNamespace().Bytes()
+	data = append(data, byte(infoByte))
+	data = append(data, []byte{0, 0, 0, 0}...)
+	data = append(data, bytes.Repeat([]byte{0}, ShareSize-len(data))...)
+
+	share, err := NewShare(data)
+	require.NoError(t, err)
+	return *share
+}
