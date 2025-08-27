@@ -108,32 +108,31 @@ func CompactSharesNeeded(sequenceLen uint32) (sharesNeeded int) {
 //
 // Deprecated: use SparseSharesNeededV2
 func SparseSharesNeeded(sequenceLen uint32) (sharesNeeded int) {
-	if sequenceLen == 0 {
-		return 0
-	}
-
-	if sequenceLen < FirstSparseShareContentSize {
-		return 1
-	}
-
-	// Calculate remaining bytes after first share
-	remainingBytes := sequenceLen - FirstSparseShareContentSize
-
-	// Calculate number of continuation shares needed
-	continuationShares := remainingBytes / ContinuationSparseShareContentSize
-	overflow := remainingBytes % ContinuationSparseShareContentSize
-	if overflow > 0 {
-		continuationShares++
-	}
-
-	// 1 first share + continuation shares
-	return 1 + int(continuationShares)
+	return sparseSharesNeeded(sequenceLen, false)
 }
 
 // SparseSharesNeededV2 returns the number of shares needed to store a sequence
 // of length sequenceLen. This function can be used by all existing share
 // versions (v0 and v1).
 func SparseSharesNeededV2(sequenceLen uint32, containsSigner bool) (sharesNeeded int) {
+	return sparseSharesNeeded(sequenceLen, containsSigner)
+}
+
+func fitsInFirstShare(sequenceLen uint32, containsSigner bool) bool {
+	if containsSigner {
+		return sequenceLen <= FirstSparseShareContentSizeWithSigner
+	}
+	return sequenceLen <= FirstSparseShareContentSize
+}
+
+func bytesInFirstShare(containsSigner bool) int {
+	if containsSigner {
+		return FirstSparseShareContentSizeWithSigner
+	}
+	return FirstSparseShareContentSize
+}
+
+func sparseSharesNeeded(sequenceLen uint32, containsSigner bool) int {
 	if sequenceLen == 0 {
 		return 0
 	}
@@ -153,18 +152,4 @@ func SparseSharesNeededV2(sequenceLen uint32, containsSigner bool) (sharesNeeded
 
 	// 1 first share + continuation shares
 	return 1 + int(continuationShares)
-}
-
-func fitsInFirstShare(sequenceLen uint32, containsSigner bool) bool {
-	if containsSigner {
-		return sequenceLen <= FirstSparseShareContentSizeWithSigner
-	}
-	return sequenceLen <= FirstSparseShareContentSize
-}
-
-func bytesInFirstShare(containsSigner bool) int {
-	if containsSigner {
-		return FirstSparseShareContentSizeWithSigner
-	}
-	return FirstSparseShareContentSize
 }
