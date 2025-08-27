@@ -64,7 +64,7 @@ func Construct(txs [][]byte, maxSquareSize, subtreeRootThreshold int) (Square, e
 // decode the blobs. Data that may be included in the square but isn't
 // recognised by the square construction algorithm will be ignored
 //
-// Dreprecated. This function appears unused so it should be removed.
+// Deprecated. This function appears unused so it should be removed.
 func Deconstruct(s Square, decoder PFBDecoder) ([][]byte, error) {
 	if s.IsEmpty() {
 		return [][]byte{}, nil
