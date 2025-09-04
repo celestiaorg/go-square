@@ -102,7 +102,7 @@ func TestCompactSharesNeeded(t *testing.T) {
 	}
 }
 
-func TestSparseSharesNeededV2(t *testing.T) {
+func TestSparseSharesNeeded(t *testing.T) {
 	type testCase struct {
 		sequenceLen    uint32
 		containsSigner bool
@@ -127,7 +127,7 @@ func TestSparseSharesNeededV2(t *testing.T) {
 		{FirstSparseShareContentSizeWithSigner + 1, true, 2},
 	}
 	for _, tc := range testCases {
-		got := SparseSharesNeededV2(tc.sequenceLen, tc.containsSigner)
+		got := SparseSharesNeeded(tc.sequenceLen, tc.containsSigner)
 		assert.Equal(t, tc.want, got)
 	}
 }

@@ -74,7 +74,7 @@ func numberOfSharesNeeded(firstShare Share) (sharesUsed int, err error) {
 	if firstShare.IsCompactShare() {
 		return CompactSharesNeeded(sequenceLen), nil
 	}
-	return SparseSharesNeededV2(sequenceLen, firstShare.ContainsSigner()), nil
+	return SparseSharesNeeded(sequenceLen, firstShare.ContainsSigner()), nil
 }
 
 // CompactSharesNeeded returns the number of compact shares needed to store a
@@ -103,10 +103,10 @@ func CompactSharesNeeded(sequenceLen uint32) (sharesNeeded int) {
 	return 1 + int(continuationShares)
 }
 
-// SparseSharesNeededV2 returns the number of shares needed to store a sequence
+// SparseSharesNeeded returns the number of shares needed to store a sequence
 // of length sequenceLen. This function can be used by all existing share
 // versions (v0 and v1).
-func SparseSharesNeededV2(sequenceLen uint32, containsSigner bool) (sharesNeeded int) {
+func SparseSharesNeeded(sequenceLen uint32, containsSigner bool) (sharesNeeded int) {
 	if sequenceLen == 0 {
 		return 0
 	}
