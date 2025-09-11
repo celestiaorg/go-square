@@ -14,6 +14,12 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+const (
+	// TODO: de-duplicate this constant with celestia-app SquareSizeUpperBound constant.
+	// https://github.com/celestiaorg/celestia-app/blob/a93bb625c6dc0ae6c7c357e9991815a68ab33c79/pkg/appconsts/v1/app_consts.go#L5
+	squareSizeUpperBound = 512
+)
+
 type Builder struct {
 	// maxSquareSize is the maximum number of rows (or columns) in the original data square
 	maxSquareSize int
@@ -43,6 +49,9 @@ type Builder struct {
 func NewBuilder(maxSquareSize int, subtreeRootThreshold int, txs ...[]byte) (*Builder, error) {
 	if maxSquareSize <= 0 {
 		return nil, errors.New("max square size must be strictly positive")
+	}
+	if maxSquareSize > squareSizeUpperBound {
+		return nil, fmt.Errorf("got square size %d but go-square only supports up to %d", maxSquareSize, subtreeRootThreshold)
 	}
 	if !IsPowerOfTwo(maxSquareSize) {
 		return nil, errors.New("max square size must be a power of two")
@@ -479,9 +488,6 @@ func (e Element) maxShareOffset() int {
 // index is always 128 * 128 to preserve backwards compatibility with
 // celestia-app v1.x.
 func worstCaseShareIndexes(blobs int) []uint32 {
-	// TODO: de-duplicate this constant with celestia-app SquareSizeUpperBound constant.
-	// https://github.com/celestiaorg/celestia-app/blob/a93bb625c6dc0ae6c7c357e9991815a68ab33c79/pkg/appconsts/v1/app_consts.go#L5
-	squareSizeUpperBound := 512
 	worstCaseShareIndex := squareSizeUpperBound * squareSizeUpperBound
 	shareIndexes := make([]uint32, blobs)
 	for i := range shareIndexes {
