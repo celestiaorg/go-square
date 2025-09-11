@@ -51,7 +51,7 @@ func NewBuilder(maxSquareSize int, subtreeRootThreshold int, txs ...[]byte) (*Bu
 		return nil, errors.New("max square size must be strictly positive")
 	}
 	if maxSquareSize > squareSizeUpperBound {
-		return nil, fmt.Errorf("got square size %d but go-square only supports up to %d", maxSquareSize, subtreeRootThreshold)
+		return nil, fmt.Errorf("max square size %d but go-square only supports up to %d", maxSquareSize, squareSizeUpperBound)
 	}
 	if !IsPowerOfTwo(maxSquareSize) {
 		return nil, errors.New("max square size must be a power of two")
