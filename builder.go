@@ -483,10 +483,6 @@ func (e Element) maxShareOffset() int {
 // worstCaseShareIndexes returns the largest possible share indexes for a set of
 // blobs. Largest possible is "worst" in that protobuf uses varints to encode
 // integers, so larger integers can require more bytes to encode.
-//
-// Note: the implementation of this function assumes that the worst case share
-// index is always 128 * 128 to preserve backwards compatibility with
-// celestia-app v1.x.
 func worstCaseShareIndexes(blobs int) []uint32 {
 	worstCaseShareIndex := squareSizeUpperBound * squareSizeUpperBound
 	shareIndexes := make([]uint32, blobs)
