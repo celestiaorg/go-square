@@ -16,7 +16,7 @@ import (
 
 const (
 	// TODO: de-duplicate this constant with celestia-app SquareSizeUpperBound constant.
-	// https://github.com/celestiaorg/celestia-app/blob/a93bb625c6dc0ae6c7c357e9991815a68ab33c79/pkg/appconsts/v1/app_consts.go#L5
+	// https://github.com/celestiaorg/celestia-app/blob/31cf18b8b3711965bab622e2c4dbc2f306c2a49d/pkg/appconsts/app_consts.go#L12-L13
 	squareSizeUpperBound = 512
 )
 
@@ -51,7 +51,7 @@ func NewBuilder(maxSquareSize int, subtreeRootThreshold int, txs ...[]byte) (*Bu
 		return nil, errors.New("max square size must be strictly positive")
 	}
 	if maxSquareSize > squareSizeUpperBound {
-		return nil, fmt.Errorf("got square size %d but go-square only supports up to %d", maxSquareSize, subtreeRootThreshold)
+		return nil, fmt.Errorf("max square size %d but go-square only supports up to %d", maxSquareSize, squareSizeUpperBound)
 	}
 	if !IsPowerOfTwo(maxSquareSize) {
 		return nil, errors.New("max square size must be a power of two")
