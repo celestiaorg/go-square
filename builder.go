@@ -16,7 +16,7 @@ import (
 
 const (
 	// TODO: de-duplicate this constant with celestia-app SquareSizeUpperBound constant.
-	// https://github.com/celestiaorg/celestia-app/blob/a93bb625c6dc0ae6c7c357e9991815a68ab33c79/pkg/appconsts/v1/app_consts.go#L5
+	// https://github.com/celestiaorg/celestia-app/blob/31cf18b8b3711965bab622e2c4dbc2f306c2a49d/pkg/appconsts/app_consts.go#L12-L13
 	squareSizeUpperBound = 512
 )
 
