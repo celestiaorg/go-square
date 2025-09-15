@@ -3,9 +3,11 @@ package square_test
 import (
 	"bytes"
 	_ "embed"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"os"
 	"testing"
 
 	"github.com/celestiaorg/go-square/v2"
@@ -706,3 +708,44 @@ func TestRevertAfterNewAdd(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, builder.Pfbs, 0)
 }
+
+// TestBuilderBreak demonstrates that the builder broke backwards compatability in https://github.com/celestiaorg/go-square/pull/171.
+// The breaking change was switching from SparseSharesNeeded to SparseSharesNeededV2 in the newElement function,
+// which affects how blob share requirements are calculated when blobs contain signers.
+func TestBuilderBreak(t *testing.T) {
+	arabicaTxs := loadArabicaBlockTxs(t)
+
+	currentSquare, _, err := square.Build(arabicaTxs, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+	require.NoError(t, err)
+
+	got := currentSquare.Hash()
+	fmt.Printf("got: %x\n", got)
+}
+
+// loadArabicaBlockTxs loads the transaction data from Arabica block 8122437.
+func loadArabicaBlockTxs(t *testing.T) [][]byte {
+	txsJSON, err := os.ReadFile("testdata/arabica_8122437_txs.json")
+	require.NoError(t, err)
+
+	var txsBase64 []string
+	err = json.Unmarshal(txsJSON, &txsBase64)
+	require.NoError(t, err)
+
+	txs := make([][]byte, len(txsBase64))
+	for i, txBase64 := range txsBase64 {
+		txBytes, err := base64.StdEncoding.DecodeString(txBase64)
+		require.NoError(t, err)
+		txs[i] = txBytes
+	}
+
+	return txs
+}
+
+// func buildOldSquare(txs [][]byte, maxSquareSize, subtreeRootThreshold int) (square.Square, [][]byte, error) {
+// 	builder, err := square.NewBuilder(maxSquareSize, subtreeRootThreshold)
+// 	require.NoError(t, err)
+// 	for _, tx := range txs {
+// 		builder.AppendTx(tx)
+// 	}
+// 	return builder.Export()
+// }

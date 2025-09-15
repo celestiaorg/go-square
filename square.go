@@ -4,6 +4,7 @@ package square
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"fmt"
 	"math"
 
@@ -226,6 +227,21 @@ func (s Square) WrappedPFBs() ([][]byte, error) {
 
 func (s Square) IsEmpty() bool {
 	return s.Equals(EmptySquare())
+}
+
+// ToBytes returns all the shares in the square flattened into a single byte
+// slice.
+func (s Square) ToBytes() []byte {
+	result := []byte{}
+	for _, share := range s {
+		result = append(result, share.ToBytes()...)
+	}
+	return result
+}
+
+// Hash returns a hash based on the shares in the square.
+func (s Square) Hash() [32]byte {
+	return sha256.Sum256(s.ToBytes())
 }
 
 // EmptySquare returns a 1x1 square with a single tail padding share
