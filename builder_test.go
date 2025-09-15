@@ -709,21 +709,22 @@ func TestRevertAfterNewAdd(t *testing.T) {
 	require.Len(t, builder.Pfbs, 0)
 }
 
-// TestBuilderBreak demonstrates that the builder broke backwards compatability in https://github.com/celestiaorg/go-square/pull/171.
-// The breaking change was switching from SparseSharesNeeded to SparseSharesNeededV2 in the newElement function,
-// which affects how blob share requirements are calculated when blobs contain signers.
-func TestBuilderBreak(t *testing.T) {
-	arabicaTxs := loadArabicaBlockTxs(t)
+// TestArabicaSquareHash is a test that verifies that the square built from the
+// Arabica block 8122437 has the correct hash. This is an attempt to catch
+// future regressions that break square construction.
+func TestArabicaSquareHash(t *testing.T) {
+	arabicaTxs := loadArabicaTxs(t)
 
 	currentSquare, _, err := square.Build(arabicaTxs, defaultMaxSquareSize, defaultSubtreeRootThreshold)
 	require.NoError(t, err)
 
+	want := [32]uint8([32]uint8{0x18, 0x80, 0xb0, 0xe7, 0x7b, 0x46, 0x84, 0xcb, 0xc, 0xb, 0x33, 0x1b, 0xe3, 0xc9, 0xf9, 0x9f, 0x15, 0x7, 0x93, 0x3e, 0x5, 0xa1, 0x35, 0x2c, 0xdb, 0xaa, 0xba, 0xb3, 0x4e, 0x8f, 0xc0, 0x3f})
 	got := currentSquare.Hash()
-	fmt.Printf("got: %x\n", got)
+	require.Equal(t, want, got)
 }
 
-// loadArabicaBlockTxs loads the transaction data from Arabica block 8122437.
-func loadArabicaBlockTxs(t *testing.T) [][]byte {
+// loadArabicaTxs loads the transaction data from Arabica block 8122437.
+func loadArabicaTxs(t *testing.T) [][]byte {
 	txsJSON, err := os.ReadFile("testdata/arabica_8122437_txs.json")
 	require.NoError(t, err)
 
@@ -740,12 +741,3 @@ func loadArabicaBlockTxs(t *testing.T) [][]byte {
 
 	return txs
 }
-
-// func buildOldSquare(txs [][]byte, maxSquareSize, subtreeRootThreshold int) (square.Square, [][]byte, error) {
-// 	builder, err := square.NewBuilder(maxSquareSize, subtreeRootThreshold)
-// 	require.NoError(t, err)
-// 	for _, tx := range txs {
-// 		builder.AppendTx(tx)
-// 	}
-// 	return builder.Export()
-// }
