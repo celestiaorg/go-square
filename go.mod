@@ -3,8 +3,8 @@ module github.com/celestiaorg/go-square/v2
 go 1.23.6
 
 require (
-	github.com/celestiaorg/nmt v0.24.0
-	github.com/stretchr/testify v1.11.0
+	github.com/celestiaorg/nmt v0.24.1
+	github.com/stretchr/testify v1.11.1
 	golang.org/x/exp v0.0.0-20231206192017-f3f8817b8deb
 	google.golang.org/protobuf v1.36.8
 )
