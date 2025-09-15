@@ -162,7 +162,8 @@ func (s *Share) rawDataStartIndex() int {
 	if isCompact {
 		index += ShareReservedBytes
 	}
-	if s.Version() == ShareVersionOne {
+	if s.Version() == ShareVersionOne && s.IsSequenceStart() {
+		// the first share in v1 has the signer
 		index += SignerSize
 	}
 	return index
@@ -227,4 +228,9 @@ func FromBytes(bytes [][]byte) (shares []Share, err error) {
 		shares = append(shares, *share)
 	}
 	return shares, nil
+}
+
+func (s *Share) ContainsSigner() bool {
+	infoByte := s.InfoByte()
+	return infoByte.Version() == ShareVersionOne && infoByte.IsSequenceStart()
 }

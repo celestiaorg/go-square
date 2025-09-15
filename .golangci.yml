@@ -1,20 +1,35 @@
+version: "2"
 run:
-  timeout: 5m
   modules-download-mode: readonly
-
 linters:
   enable:
     - copyloopvar
-    - gofumpt
+    - gocritic
     - misspell
     - nakedret
+    - prealloc
     - revive
-    - prealloc
-    - stylecheck
-    - gocritic
-    - prealloc
-
-linters-settings:
-  nakedret:
-    # Ban the use of naked returns because they reduce code readability.
-    max-func-lines: 0 # override the default: 30
+    - staticcheck
+  settings:
+    nakedret:
+      max-func-lines: 0
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gofumpt
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
