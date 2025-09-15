@@ -434,7 +434,7 @@ type Element struct {
 }
 
 func newElement(blob *share.Blob, pfbIndex, blobIndex, subtreeRootThreshold int) *Element {
-	numShares := share.SparseSharesNeededV2(uint32(len(blob.Data())), blob.HasSigner())
+	numShares := share.SparseSharesNeeded(uint32(len(blob.Data())))
 	return &Element{
 		Blob:      blob,
 		PfbIndex:  pfbIndex,

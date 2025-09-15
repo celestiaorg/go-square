@@ -63,9 +63,6 @@ func Construct(txs [][]byte, maxSquareSize, subtreeRootThreshold int) (Square, e
 // This method uses the wrapped pfbs in the PFB namespace to identify and
 // decode the blobs. Data that may be included in the square but isn't
 // recognised by the square construction algorithm will be ignored
-//
-// Deprecated. This function appears unused so it should be removed.
-// It is not compatible with share version 1.
 func Deconstruct(s Square, decoder PFBDecoder) ([][]byte, error) {
 	if s.IsEmpty() {
 		return [][]byte{}, nil
@@ -121,8 +118,7 @@ func Deconstruct(s Square, decoder PFBDecoder) ([][]byte, error) {
 
 		blobs := make([]*share.Blob, len(wpfb.ShareIndexes))
 		for j, shareIndex := range wpfb.ShareIndexes {
-			containsSigner := false // TODO: it's not clear how to determine if a blob has a signer here so this preserves the behavior of SparseSharesNeeded where it assumes no signer.
-			end := int(shareIndex) + share.SparseSharesNeededV2(blobSizes[j], containsSigner)
+			end := int(shareIndex) + share.SparseSharesNeeded(blobSizes[j])
 			parsedBlobs, err := share.ParseBlobs(s[shareIndex:end])
 			if err != nil {
 				return nil, err
