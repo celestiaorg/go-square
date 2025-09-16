@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/celestiaorg/go-square/v2/share"
+	"github.com/celestiaorg/go-square/v3/share"
 	"github.com/stretchr/testify/require"
 )
 

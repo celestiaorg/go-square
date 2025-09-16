@@ -1,6 +1,6 @@
 # go-square
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/celestiaorg/go-square/v2.svg)](https://pkg.go.dev/github.com/celestiaorg/go-square/v2)
+[![Go Reference](https://pkg.go.dev/badge/github.com/celestiaorg/go-square/v3.svg)](https://pkg.go.dev/github.com/celestiaorg/go-square/v3)
 
 `go-square` is a Go module that provides data structures and utilities for interacting with data squares in the Celestia network. The data square is a special form of block serialization in the Celestia blockchain designed for sampling. This repo deals with the original data square which is distinct from the extended data square. Operations on the extended data square are handled by [rsmt2d](https://github.com/celestiaorg/rsmt2d).
 
@@ -17,12 +17,12 @@ tx        | Package tx contains BlobTx and IndexWrapper types
 To use `go-square` as a dependency in your Go project, you can use `go get`:
 
 ```bash
-go get github.com/celestiaorg/go-square/v2
+go get github.com/celestiaorg/go-square/v3
 ```
 
 ## Branches and Releasing
 
-This repo has one long living development branch `main`, for changes targeting the next major version as well as long living branches for each prior major version i.e. `v1.x`. Non breaking changes may be backported to these branches. This repo follows [semver](https://www.semver.org) versioning.
+This repo has one long living development branch `main`, for changes targeting the next major version as well as long living branches for each prior major version i.e. `v1.x`, `v2.x`. Non breaking changes may be backported to these branches. This repo follows [semver](https://www.semver.org) versioning.
 
 ## Contributing
 

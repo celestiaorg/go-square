@@ -3,7 +3,7 @@ package tx
 import (
 	"google.golang.org/protobuf/proto"
 
-	"github.com/celestiaorg/go-square/v2/proto/blob/v1"
+	v1 "github.com/celestiaorg/go-square/v3/proto/blob/v1"
 )
 
 const (

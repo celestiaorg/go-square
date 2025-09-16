@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/celestiaorg/go-square/v2/share"
-	"github.com/celestiaorg/go-square/v2/tx"
+	"github.com/celestiaorg/go-square/v3/share"
+	"github.com/celestiaorg/go-square/v3/tx"
 	"golang.org/x/exp/constraints"
 )
 
