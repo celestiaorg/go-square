@@ -21,15 +21,15 @@ func RandShares(total int) ([]Share, error) {
 			panic(err)
 		}
 
-		share, err := NewShare(shr)
+		sh, err := NewShare(shr)
 		if err != nil {
 			panic(err)
 		}
-		if err = share.Namespace().ValidateForData(); err != nil {
+		if err = sh.Namespace().ValidateForData(); err != nil {
 			panic(err)
 		}
 
-		shares[i] = share
+		shares[i] = *sh
 	}
 	sort.Slice(shares, func(i, j int) bool { return bytes.Compare(shares[i].ToBytes(), shares[j].ToBytes()) < 0 })
 	return shares, nil
@@ -59,11 +59,11 @@ func RandSharesWithNamespace(namespace Namespace, namespacedAmount, total int) (
 			panic(err)
 		}
 
-		share, err := NewShare(shr)
+		sh, err := NewShare(shr)
 		if err != nil {
 			panic(err)
 		}
-		shares[i] = share
+		shares[i] = *sh
 	}
 	sort.Slice(shares, func(i, j int) bool { return bytes.Compare(shares[i].ToBytes(), shares[j].ToBytes()) < 0 })
 	return shares, nil

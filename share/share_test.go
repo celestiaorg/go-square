@@ -293,7 +293,7 @@ func shareWithSigner(t *testing.T) Share {
 
 	share, err := NewShare(data)
 	require.NoError(t, err)
-	return share
+	return *share
 }
 
 func shareVersionOneWithoutSigner(t *testing.T) Share {
@@ -307,7 +307,7 @@ func shareVersionOneWithoutSigner(t *testing.T) Share {
 
 	share, err := NewShare(data)
 	require.NoError(t, err)
-	return share
+	return *share
 }
 
 func shareVersionZeroWithoutSigner(t *testing.T) Share {
@@ -321,5 +321,5 @@ func shareVersionZeroWithoutSigner(t *testing.T) Share {
 
 	share, err := NewShare(data)
 	require.NoError(t, err)
-	return share
+	return *share
 }
