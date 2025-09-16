@@ -49,10 +49,6 @@ const (
 	// first sparse share of a sequence.
 	FirstSparseShareContentSize = ShareSize - NamespaceSize - ShareInfoBytes - SequenceLenBytes
 
-	// FirstSparseShareContentSizeWithSigner is the number of bytes usable for data in the
-	// first sparse share of a sequence if it contains a signer (a.k.a authored blob).
-	FirstSparseShareContentSizeWithSigner = ShareSize - NamespaceSize - ShareInfoBytes - SequenceLenBytes - SignerSize
-
 	// ContinuationSparseShareContentSize is the number of bytes usable for data
 	// in a continuation sparse share of a sequence.
 	ContinuationSparseShareContentSize = ShareSize - NamespaceSize - ShareInfoBytes
