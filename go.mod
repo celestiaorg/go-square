@@ -1,4 +1,4 @@
-module github.com/celestiaorg/go-square/v2
+module github.com/celestiaorg/go-square/v3
 
 go 1.23.6
 

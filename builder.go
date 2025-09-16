@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/celestiaorg/go-square/v2/inclusion"
-	v1 "github.com/celestiaorg/go-square/v2/proto/blob/v1"
-	"github.com/celestiaorg/go-square/v2/share"
-	"github.com/celestiaorg/go-square/v2/tx"
+	"github.com/celestiaorg/go-square/v3/inclusion"
+	v1 "github.com/celestiaorg/go-square/v3/proto/blob/v1"
+	"github.com/celestiaorg/go-square/v3/share"
+	"github.com/celestiaorg/go-square/v3/tx"
 	"golang.org/x/exp/constraints"
 	"google.golang.org/protobuf/proto"
 )
