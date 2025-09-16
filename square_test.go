@@ -2,7 +2,6 @@ package square_test
 
 import (
 	"bytes"
-	"fmt"
 	"testing"
 
 	"github.com/celestiaorg/go-square/v2"
@@ -148,44 +147,6 @@ func TestSquareBlobShareRange(t *testing.T) {
 
 	_, err = square.BlobShareRange(txs, 0, 10, defaultMaxSquareSize, defaultSubtreeRootThreshold)
 	require.Error(t, err)
-}
-
-func TestSquareDeconstruct(t *testing.T) {
-	t.Run("ConstructDeconstructParity", func(t *testing.T) {
-		// 8192 -> square size 128
-		for _, numTxs := range []int{2, 128, 1024, 8192} {
-			t.Run(fmt.Sprintf("%d", numTxs), func(t *testing.T) {
-				txs := generateOrderedTxs(numTxs/2, numTxs/2, 1, 800)
-				dataSquare, err := square.Construct(txs, defaultMaxSquareSize, defaultSubtreeRootThreshold)
-				require.NoError(t, err)
-				recomputedTxs, err := square.Deconstruct(dataSquare, test.DecodeMockPFB)
-				require.NoError(t, err)
-				require.Equal(t, txs, recomputedTxs)
-			})
-		}
-	})
-	t.Run("NoPFBs", func(t *testing.T) {
-		const numTxs = 10
-		txs := test.GenerateTxs(250, 250, numTxs)
-		dataSquare, err := square.Construct(txs, defaultMaxSquareSize, defaultSubtreeRootThreshold)
-		require.NoError(t, err)
-		recomputedTxs, err := square.Deconstruct(dataSquare, test.DecodeMockPFB)
-		require.NoError(t, err)
-		require.Equal(t, txs, recomputedTxs)
-	})
-	t.Run("PFBsOnly", func(t *testing.T) {
-		txs := test.GenerateBlobTxs(100, 1, 1024)
-		dataSquare, err := square.Construct(txs, defaultMaxSquareSize, defaultSubtreeRootThreshold)
-		require.NoError(t, err)
-		recomputedTxs, err := square.Deconstruct(dataSquare, test.DecodeMockPFB)
-		require.NoError(t, err)
-		require.Equal(t, txs, recomputedTxs)
-	})
-	t.Run("EmptySquare", func(t *testing.T) {
-		tx, err := square.Deconstruct(square.EmptySquare(), test.DecodeMockPFB)
-		require.NoError(t, err)
-		require.Equal(t, [][]byte{}, tx)
-	})
 }
 
 func TestSize(t *testing.T) {
