@@ -254,7 +254,7 @@ func FuzzValidSequenceLen(f *testing.F) {
 
 		Sequence := Sequence{
 			Namespace: ns,
-			Shares:    []Share{*share},
+			Shares:    []Share{share},
 		}
 
 		// want := fmt.Errorf("share sequence has 1 shares but needed 0 shares")
