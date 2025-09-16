@@ -14,6 +14,12 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+const (
+	// TODO: de-duplicate this constant with celestia-app SquareSizeUpperBound constant.
+	// https://github.com/celestiaorg/celestia-app/blob/31cf18b8b3711965bab622e2c4dbc2f306c2a49d/pkg/appconsts/app_consts.go#L12-L13
+	squareSizeUpperBound = 512
+)
+
 type Builder struct {
 	// maxSquareSize is the maximum number of rows (or columns) in the original data square
 	maxSquareSize int
@@ -43,6 +49,9 @@ type Builder struct {
 func NewBuilder(maxSquareSize int, subtreeRootThreshold int, txs ...[]byte) (*Builder, error) {
 	if maxSquareSize <= 0 {
 		return nil, errors.New("max square size must be strictly positive")
+	}
+	if maxSquareSize > squareSizeUpperBound {
+		return nil, fmt.Errorf("max square size %d but go-square only supports up to %d", maxSquareSize, squareSizeUpperBound)
 	}
 	if !IsPowerOfTwo(maxSquareSize) {
 		return nil, errors.New("max square size must be a power of two")
@@ -434,7 +443,7 @@ type Element struct {
 }
 
 func newElement(blob *share.Blob, pfbIndex, blobIndex, subtreeRootThreshold int) *Element {
-	numShares := share.SparseSharesNeededV2(uint32(len(blob.Data())), blob.HasSigner())
+	numShares := share.SparseSharesNeeded(uint32(len(blob.Data())), blob.HasSigner())
 	return &Element{
 		Blob:      blob,
 		PfbIndex:  pfbIndex,
@@ -474,14 +483,7 @@ func (e Element) maxShareOffset() int {
 // worstCaseShareIndexes returns the largest possible share indexes for a set of
 // blobs. Largest possible is "worst" in that protobuf uses varints to encode
 // integers, so larger integers can require more bytes to encode.
-//
-// Note: the implementation of this function assumes that the worst case share
-// index is always 128 * 128 to preserve backwards compatibility with
-// celestia-app v1.x.
 func worstCaseShareIndexes(blobs int) []uint32 {
-	// TODO: de-duplicate this constant with celestia-app SquareSizeUpperBound constant.
-	// https://github.com/celestiaorg/celestia-app/blob/a93bb625c6dc0ae6c7c357e9991815a68ab33c79/pkg/appconsts/v1/app_consts.go#L5
-	squareSizeUpperBound := 128
 	worstCaseShareIndex := squareSizeUpperBound * squareSizeUpperBound
 	shareIndexes := make([]uint32, blobs)
 	for i := range shareIndexes {
