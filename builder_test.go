@@ -3,9 +3,11 @@ package square_test
 import (
 	"bytes"
 	_ "embed"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"os"
 	"testing"
 
 	"github.com/celestiaorg/go-square/v2"
@@ -705,4 +707,37 @@ func TestRevertAfterNewAdd(t *testing.T) {
 	err = builder.RevertLastBlobTx()
 	require.NoError(t, err)
 	require.Len(t, builder.Pfbs, 0)
+}
+
+// TestArabicaSquareHash is a test that verifies that the square built from the
+// Arabica block 8122437 has the correct hash. This is an attempt to catch
+// future regressions that break square construction.
+func TestArabicaSquareHash(t *testing.T) {
+	arabicaTxs := loadArabicaTxs(t)
+
+	currentSquare, _, err := square.Build(arabicaTxs, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+	require.NoError(t, err)
+
+	want := [32]uint8([32]uint8{0x18, 0x80, 0xb0, 0xe7, 0x7b, 0x46, 0x84, 0xcb, 0xc, 0xb, 0x33, 0x1b, 0xe3, 0xc9, 0xf9, 0x9f, 0x15, 0x7, 0x93, 0x3e, 0x5, 0xa1, 0x35, 0x2c, 0xdb, 0xaa, 0xba, 0xb3, 0x4e, 0x8f, 0xc0, 0x3f})
+	got := currentSquare.Hash()
+	require.Equal(t, want, got)
+}
+
+// loadArabicaTxs loads the transaction data from Arabica block 8122437.
+func loadArabicaTxs(t *testing.T) [][]byte {
+	txsJSON, err := os.ReadFile("testdata/arabica_8122437_txs.json")
+	require.NoError(t, err)
+
+	var txsBase64 []string
+	err = json.Unmarshal(txsJSON, &txsBase64)
+	require.NoError(t, err)
+
+	txs := make([][]byte, len(txsBase64))
+	for i, txBase64 := range txsBase64 {
+		txBytes, err := base64.StdEncoding.DecodeString(txBase64)
+		require.NoError(t, err)
+		txs[i] = txBytes
+	}
+
+	return txs
 }
