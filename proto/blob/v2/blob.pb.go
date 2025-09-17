@@ -2,9 +2,9 @@
 // versions:
 // 	protoc-gen-go v1.36.9
 // 	protoc        (unknown)
-// source: proto/blob/v1/blob.proto
+// source: proto/blob/v2/blob.proto
 
-package v1
+package v2
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -40,7 +40,7 @@ type BlobProto struct {
 
 func (x *BlobProto) Reset() {
 	*x = BlobProto{}
-	mi := &file_proto_blob_v1_blob_proto_msgTypes[0]
+	mi := &file_proto_blob_v2_blob_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -52,7 +52,7 @@ func (x *BlobProto) String() string {
 func (*BlobProto) ProtoMessage() {}
 
 func (x *BlobProto) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_blob_v1_blob_proto_msgTypes[0]
+	mi := &file_proto_blob_v2_blob_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -65,7 +65,7 @@ func (x *BlobProto) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BlobProto.ProtoReflect.Descriptor instead.
 func (*BlobProto) Descriptor() ([]byte, []int) {
-	return file_proto_blob_v1_blob_proto_rawDescGZIP(), []int{0}
+	return file_proto_blob_v2_blob_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *BlobProto) GetNamespaceId() []byte {
@@ -117,7 +117,7 @@ type BlobTx struct {
 
 func (x *BlobTx) Reset() {
 	*x = BlobTx{}
-	mi := &file_proto_blob_v1_blob_proto_msgTypes[1]
+	mi := &file_proto_blob_v2_blob_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -129,7 +129,7 @@ func (x *BlobTx) String() string {
 func (*BlobTx) ProtoMessage() {}
 
 func (x *BlobTx) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_blob_v1_blob_proto_msgTypes[1]
+	mi := &file_proto_blob_v2_blob_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -142,7 +142,7 @@ func (x *BlobTx) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BlobTx.ProtoReflect.Descriptor instead.
 func (*BlobTx) Descriptor() ([]byte, []int) {
-	return file_proto_blob_v1_blob_proto_rawDescGZIP(), []int{1}
+	return file_proto_blob_v2_blob_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *BlobTx) GetTx() []byte {
@@ -179,7 +179,7 @@ type IndexWrapper struct {
 
 func (x *IndexWrapper) Reset() {
 	*x = IndexWrapper{}
-	mi := &file_proto_blob_v1_blob_proto_msgTypes[2]
+	mi := &file_proto_blob_v2_blob_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -191,7 +191,7 @@ func (x *IndexWrapper) String() string {
 func (*IndexWrapper) ProtoMessage() {}
 
 func (x *IndexWrapper) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_blob_v1_blob_proto_msgTypes[2]
+	mi := &file_proto_blob_v2_blob_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -204,7 +204,7 @@ func (x *IndexWrapper) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IndexWrapper.ProtoReflect.Descriptor instead.
 func (*IndexWrapper) Descriptor() ([]byte, []int) {
-	return file_proto_blob_v1_blob_proto_rawDescGZIP(), []int{2}
+	return file_proto_blob_v2_blob_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *IndexWrapper) GetTx() []byte {
@@ -228,46 +228,46 @@ func (x *IndexWrapper) GetTypeId() string {
 	return ""
 }
 
-var File_proto_blob_v1_blob_proto protoreflect.FileDescriptor
+var File_proto_blob_v2_blob_proto protoreflect.FileDescriptor
 
-const file_proto_blob_v1_blob_proto_rawDesc = "" +
+const file_proto_blob_v2_blob_proto_rawDesc = "" +
 	"\n" +
-	"\x18proto/blob/v1/blob.proto\x12\x11square.v3.blob.v1\"\xac\x01\n" +
+	"\x18proto/blob/v2/blob.proto\x12\rproto.blob.v2\"\xac\x01\n" +
 	"\tBlobProto\x12!\n" +
 	"\fnamespace_id\x18\x01 \x01(\fR\vnamespaceId\x12\x12\n" +
 	"\x04data\x18\x02 \x01(\fR\x04data\x12#\n" +
 	"\rshare_version\x18\x03 \x01(\rR\fshareVersion\x12+\n" +
 	"\x11namespace_version\x18\x04 \x01(\rR\x10namespaceVersion\x12\x16\n" +
-	"\x06signer\x18\x05 \x01(\fR\x06signer\"e\n" +
+	"\x06signer\x18\x05 \x01(\fR\x06signer\"a\n" +
 	"\x06BlobTx\x12\x0e\n" +
-	"\x02tx\x18\x01 \x01(\fR\x02tx\x122\n" +
-	"\x05blobs\x18\x02 \x03(\v2\x1c.square.v3.blob.v1.BlobProtoR\x05blobs\x12\x17\n" +
+	"\x02tx\x18\x01 \x01(\fR\x02tx\x12.\n" +
+	"\x05blobs\x18\x02 \x03(\v2\x18.proto.blob.v2.BlobProtoR\x05blobs\x12\x17\n" +
 	"\atype_id\x18\x03 \x01(\tR\x06typeId\"\\\n" +
 	"\fIndexWrapper\x12\x0e\n" +
 	"\x02tx\x18\x01 \x01(\fR\x02tx\x12#\n" +
 	"\rshare_indexes\x18\x02 \x03(\rR\fshareIndexes\x12\x17\n" +
-	"\atype_id\x18\x03 \x01(\tR\x06typeIdB3Z1github.com/celestiaorg/go-square/v3/proto/blob/v1b\x06proto3"
+	"\atype_id\x18\x03 \x01(\tR\x06typeIdB3Z1github.com/celestiaorg/go-square/v3/proto/blob/v2b\x06proto3"
 
 var (
-	file_proto_blob_v1_blob_proto_rawDescOnce sync.Once
-	file_proto_blob_v1_blob_proto_rawDescData []byte
+	file_proto_blob_v2_blob_proto_rawDescOnce sync.Once
+	file_proto_blob_v2_blob_proto_rawDescData []byte
 )
 
-func file_proto_blob_v1_blob_proto_rawDescGZIP() []byte {
-	file_proto_blob_v1_blob_proto_rawDescOnce.Do(func() {
-		file_proto_blob_v1_blob_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_proto_blob_v1_blob_proto_rawDesc), len(file_proto_blob_v1_blob_proto_rawDesc)))
+func file_proto_blob_v2_blob_proto_rawDescGZIP() []byte {
+	file_proto_blob_v2_blob_proto_rawDescOnce.Do(func() {
+		file_proto_blob_v2_blob_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_proto_blob_v2_blob_proto_rawDesc), len(file_proto_blob_v2_blob_proto_rawDesc)))
 	})
-	return file_proto_blob_v1_blob_proto_rawDescData
+	return file_proto_blob_v2_blob_proto_rawDescData
 }
 
-var file_proto_blob_v1_blob_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
-var file_proto_blob_v1_blob_proto_goTypes = []any{
-	(*BlobProto)(nil),    // 0: square.v3.blob.v1.BlobProto
-	(*BlobTx)(nil),       // 1: square.v3.blob.v1.BlobTx
-	(*IndexWrapper)(nil), // 2: square.v3.blob.v1.IndexWrapper
+var file_proto_blob_v2_blob_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_proto_blob_v2_blob_proto_goTypes = []any{
+	(*BlobProto)(nil),    // 0: proto.blob.v2.BlobProto
+	(*BlobTx)(nil),       // 1: proto.blob.v2.BlobTx
+	(*IndexWrapper)(nil), // 2: proto.blob.v2.IndexWrapper
 }
-var file_proto_blob_v1_blob_proto_depIdxs = []int32{
-	0, // 0: square.v3.blob.v1.BlobTx.blobs:type_name -> square.v3.blob.v1.BlobProto
+var file_proto_blob_v2_blob_proto_depIdxs = []int32{
+	0, // 0: proto.blob.v2.BlobTx.blobs:type_name -> proto.blob.v2.BlobProto
 	1, // [1:1] is the sub-list for method output_type
 	1, // [1:1] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name
@@ -275,26 +275,26 @@ var file_proto_blob_v1_blob_proto_depIdxs = []int32{
 	0, // [0:1] is the sub-list for field type_name
 }
 
-func init() { file_proto_blob_v1_blob_proto_init() }
-func file_proto_blob_v1_blob_proto_init() {
-	if File_proto_blob_v1_blob_proto != nil {
+func init() { file_proto_blob_v2_blob_proto_init() }
+func file_proto_blob_v2_blob_proto_init() {
+	if File_proto_blob_v2_blob_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_blob_v1_blob_proto_rawDesc), len(file_proto_blob_v1_blob_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_blob_v2_blob_proto_rawDesc), len(file_proto_blob_v2_blob_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_proto_blob_v1_blob_proto_goTypes,
-		DependencyIndexes: file_proto_blob_v1_blob_proto_depIdxs,
-		MessageInfos:      file_proto_blob_v1_blob_proto_msgTypes,
+		GoTypes:           file_proto_blob_v2_blob_proto_goTypes,
+		DependencyIndexes: file_proto_blob_v2_blob_proto_depIdxs,
+		MessageInfos:      file_proto_blob_v2_blob_proto_msgTypes,
 	}.Build()
-	File_proto_blob_v1_blob_proto = out.File
-	file_proto_blob_v1_blob_proto_goTypes = nil
-	file_proto_blob_v1_blob_proto_depIdxs = nil
+	File_proto_blob_v2_blob_proto = out.File
+	file_proto_blob_v2_blob_proto_goTypes = nil
+	file_proto_blob_v2_blob_proto_depIdxs = nil
 }
