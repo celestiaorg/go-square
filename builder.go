@@ -7,7 +7,7 @@ import (
 	"sort"
 
 	"github.com/celestiaorg/go-square/v3/inclusion"
-	v1 "github.com/celestiaorg/go-square/v3/proto/blob/v1"
+	v2 "github.com/celestiaorg/go-square/v3/proto/blob/v2"
 	"github.com/celestiaorg/go-square/v3/share"
 	"github.com/celestiaorg/go-square/v3/tx"
 	"golang.org/x/exp/constraints"
@@ -28,7 +28,7 @@ type Builder struct {
 
 	// here we keep track of the pending data to go in a square
 	Txs   [][]byte
-	Pfbs  []*v1.IndexWrapper
+	Pfbs  []*v2.IndexWrapper
 	Blobs []*Element
 
 	// for compact shares we use a counter to track the amount of shares needed
@@ -60,7 +60,7 @@ func NewBuilder(maxSquareSize int, subtreeRootThreshold int, txs ...[]byte) (*Bu
 		maxSquareSize:        maxSquareSize,
 		subtreeRootThreshold: subtreeRootThreshold,
 		Blobs:                make([]*Element, 0),
-		Pfbs:                 make([]*v1.IndexWrapper, 0),
+		Pfbs:                 make([]*v2.IndexWrapper, 0),
 		Txs:                  make([][]byte, 0),
 		TxCounter:            share.NewCompactShareCounter(),
 		PfbCounter:           share.NewCompactShareCounter(),
@@ -391,7 +391,7 @@ func (b *Builder) FindTxShareRange(txIndex int) (share.Range, error) {
 	return share.NewRange(start, end), nil
 }
 
-func (b *Builder) GetWrappedPFB(txIndex int) (*v1.IndexWrapper, error) {
+func (b *Builder) GetWrappedPFB(txIndex int) (*v2.IndexWrapper, error) {
 	if txIndex < 0 {
 		return nil, fmt.Errorf("txIndex %d must not be negative", txIndex)
 	}
