@@ -1,5 +1,5 @@
 DOCKER := $(shell which docker)
-DOCKER_BUF := $(DOCKER) run --rm -v $(CURDIR):/workspace --workdir /workspace bufbuild/buf:1.28.1
+DOCKER_BUF := $(DOCKER) run --rm -v $(CURDIR):/workspace --workdir /workspace bufbuild/buf:latest
 PROJECTNAME=$(shell basename "$(PWD)")
 
 ## help: Get more info on make commands.

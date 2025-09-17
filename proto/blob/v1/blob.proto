@@ -1,5 +1,5 @@
 syntax = "proto3";
-package proto.blob.v1;
+package square.v3.blob.v1;
 
 option go_package = "github.com/celestiaorg/go-square/v3/proto/blob/v1";
 
