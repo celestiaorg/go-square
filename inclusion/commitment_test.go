@@ -366,12 +366,12 @@ func TestCreateCommitmentsEquivalence(t *testing.T) {
 			blobs := test.GenerateBlobs(tc.blobSizes...)
 
 			// Sequential version
-			sequential, err := inclusion.CreateCommitmentsSequential(blobs, simpleMerkleRoot, defaultSubtreeRootThreshold)
+			sequential, err := inclusion.CreateCommitments(blobs, simpleMerkleRoot, defaultSubtreeRootThreshold)
 			require.NoError(t, err)
 
 			// Parallel version with different worker counts
 			for _, workers := range []int{1, 2, 4, 8} {
-				parallel, err := inclusion.CreateCommitments(blobs, simpleMerkleRoot, defaultSubtreeRootThreshold, workers)
+				parallel, err := inclusion.CreateParallelCommitments(blobs, simpleMerkleRoot, defaultSubtreeRootThreshold, workers)
 				require.NoError(t, err)
 
 				assert.Equal(t, sequential, parallel,
@@ -383,12 +383,12 @@ func TestCreateCommitmentsEquivalence(t *testing.T) {
 
 func TestCreateCommitmentsEmpty(t *testing.T) {
 	// Test with empty blob slice
-	result, err := inclusion.CreateCommitments([]*share.Blob{}, simpleMerkleRoot, defaultSubtreeRootThreshold, 4)
+	result, err := inclusion.CreateParallelCommitments([]*share.Blob{}, simpleMerkleRoot, defaultSubtreeRootThreshold, 4)
 	require.NoError(t, err)
 	assert.Empty(t, result)
 }
 
-// BenchmarkCommitmentsComparison directly compares CreateCommitment vs CreateCommitments
+// BenchmarkCommitmentsComparison directly compares CreateCommitment vs CreateParallelCommitments
 func BenchmarkCommitmentsComparison(b *testing.B) {
 	// Test scenarios with different blob configurations
 	scenarios := []struct {
@@ -429,11 +429,11 @@ func BenchmarkCommitmentsComparison(b *testing.B) {
 			//b.ReportMetric(totalMB*1000/b.Elapsed().Seconds(), "MB/s")
 		})
 
-		// Parallel: CreateCommitments with 8 workers
+		// Parallel: CreateParallelCommitments with 8 workers
 		b.Run(fmt.Sprintf("%s_Parallel8", scenario.description), func(b *testing.B) {
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				_, err := inclusion.CreateCommitments(blobs, simpleMerkleRoot, defaultSubtreeRootThreshold, 8)
+				_, err := inclusion.CreateParallelCommitments(blobs, simpleMerkleRoot, defaultSubtreeRootThreshold, 8)
 				if err != nil {
 					b.Fatal(err)
 				}
@@ -447,7 +447,7 @@ func BenchmarkCommitmentsComparison(b *testing.B) {
 				b.Run(fmt.Sprintf("%s_Parallel%d", scenario.description, workers), func(b *testing.B) {
 					b.ResetTimer()
 					for i := 0; i < b.N; i++ {
-						_, err := inclusion.CreateCommitments(blobs, simpleMerkleRoot, defaultSubtreeRootThreshold, workers)
+						_, err := inclusion.CreateParallelCommitments(blobs, simpleMerkleRoot, defaultSubtreeRootThreshold, workers)
 						if err != nil {
 							b.Fatal(err)
 						}

@@ -303,13 +303,13 @@ func GenerateSubtreeRootsParallelWithWorkers(blob *sh.Blob, subtreeRootThreshold
 	return subTreeRoots, nil
 }
 
-// CreateCommitments generates commitments for multiple blobs in parallel using a pool of NMT instances.
+// CreateParallelCommitments generates commitments for multiple blobs in parallel using a pool of NMT instances.
 // This implementation:
 // 1. Splits blobs into shares in parallel using X goroutines
 // 2. Uses a pool of buffered NMT wrappers for efficient memory reuse
 // 3. Processes all subtree roots across all blobs concurrently
 // 4. Returns commitments in the same order as input blobs
-func CreateCommitments(blobs []*sh.Blob, merkleRootFn MerkleRootFn, subtreeRootThreshold int, numWorkers int) ([][]byte, error) {
+func CreateParallelCommitments(blobs []*sh.Blob, merkleRootFn MerkleRootFn, subtreeRootThreshold int, numWorkers int) ([][]byte, error) {
 	if len(blobs) == 0 {
 		return [][]byte{}, nil
 	}
@@ -455,8 +455,8 @@ func CreateCommitments(blobs []*sh.Blob, merkleRootFn MerkleRootFn, subtreeRootT
 	return commitments, nil
 }
 
-// CreateCommitmentsSequential is the original sequential implementation for comparison.
-func CreateCommitmentsSequential(blobs []*sh.Blob, merkleRootFn MerkleRootFn, subtreeRootThreshold int) ([][]byte, error) {
+// CreateCommitments is the original sequential implementation for comparison.
+func CreateCommitments(blobs []*sh.Blob, merkleRootFn MerkleRootFn, subtreeRootThreshold int) ([][]byte, error) {
 	commitments := make([][]byte, len(blobs))
 	for i, blob := range blobs {
 		commitment, err := CreateCommitment(blob, merkleRootFn, subtreeRootThreshold)
