@@ -22,7 +22,7 @@ func newNMTPool(poolSize int, maxSubtreeSize int) *nmtPool {
 		opts: []nmt.Option{
 			nmt.NamespaceIDSize(sh.NamespaceSize),
 			nmt.IgnoreMaxNamespace(true),
-			nmt.ReuseBuffer(true),
+			nmt.ReuseBuffers(true),
 		},
 	}
 

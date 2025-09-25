@@ -113,7 +113,7 @@ func GenerateSubtreeRootsReusedNMT(blob *sh.Blob, subtreeRootThreshold int) ([][
 	tree := nmt.New(sha256.New(),
 		nmt.NamespaceIDSize(sh.NamespaceSize),
 		nmt.IgnoreMaxNamespace(true),
-		nmt.ReuseBuffer(true))
+		nmt.ReuseBuffers(true))
 
 	// Pre-allocate a single large buffer for all shares with namespace prepended
 	// This allows NMT to use the buffer directly without copying
@@ -257,7 +257,7 @@ func GenerateSubtreeRootsParallelWithWorkers(blob *sh.Blob, subtreeRootThreshold
 			tree := nmt.New(sha256.New(),
 				nmt.NamespaceIDSize(sh.NamespaceSize),
 				nmt.IgnoreMaxNamespace(true),
-				nmt.ReuseBuffer(true))
+				nmt.ReuseBuffers(true))
 
 			// Process work items from the queue
 			for leafSetIdx := range workChan {
