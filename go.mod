@@ -5,7 +5,7 @@ go 1.24.0
 require (
 	github.com/celestiaorg/nmt v0.24.2
 	github.com/stretchr/testify v1.11.1
-	golang.org/x/exp v0.0.0-20231206192017-f3f8817b8deb
+	golang.org/x/exp v0.0.0-20250911091902-df9299821621
 	golang.org/x/sync v0.17.0
 	google.golang.org/protobuf v1.36.9
 )
