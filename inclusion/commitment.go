@@ -162,7 +162,6 @@ func CreateParallelCommitments(blobs []*sh.Blob, merkleRootFn MerkleRootFn, subt
 		blobIdx int
 		treeIdx int
 		root    []byte
-		err     error
 	}
 	totalSubtrees := 0
 	for _, info := range blobInfos {
@@ -183,7 +182,6 @@ func CreateParallelCommitments(blobs []*sh.Blob, merkleRootFn MerkleRootFn, subt
 					blobIdx: blobIdx,
 					treeIdx: treeIdx,
 					root:    root,
-					err:     err,
 				}
 				return err
 			})
@@ -203,9 +201,6 @@ func CreateParallelCommitments(blobs []*sh.Blob, merkleRootFn MerkleRootFn, subt
 	}
 
 	for result := range resultChan {
-		if result.err != nil {
-			return nil, result.err
-		}
 		subtreeRootsByBlob[result.blobIdx][result.treeIdx] = result.root
 	}
 
