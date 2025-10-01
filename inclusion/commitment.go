@@ -95,11 +95,7 @@ func CreateParallelCommitments(blobs []*sh.Blob, merkleRootFn MerkleRootFn, subt
 	}
 
 	// split all blobs into shares in parallel
-	type blobShares struct {
-		shares []sh.Share
-		err    error
-	}
-	blobSharesResults := make([]blobShares, len(blobs))
+	blobSharesResults := make([][]sh.Share, len(blobs))
 	g := new(errgroup.Group)
 	g.SetLimit(numWorkers)
 
@@ -107,8 +103,11 @@ func CreateParallelCommitments(blobs []*sh.Blob, merkleRootFn MerkleRootFn, subt
 		idx := i
 		g.Go(func() error {
 			shares, err := splitBlobs(blobs[idx])
-			blobSharesResults[idx] = blobShares{shares: shares, err: err}
-			return err
+			if err != nil {
+				return err
+			}
+			blobSharesResults[idx] = shares
+			return nil
 		})
 	}
 	if err := g.Wait(); err != nil {
@@ -126,7 +125,7 @@ func CreateParallelCommitments(blobs []*sh.Blob, merkleRootFn MerkleRootFn, subt
 	// calculate the maximum subtree size across all blobs and prepare
 	// subtree for parallel calculation using pooled nmts
 	for i, blob := range blobs {
-		shares := blobSharesResults[i].shares
+		shares := blobSharesResults[i]
 		subTreeWidth := SubTreeWidth(len(shares), subtreeRootThreshold)
 		treeSizes, err := MerkleMountainRangeSizes(uint64(len(shares)), uint64(subTreeWidth))
 		if err != nil {
