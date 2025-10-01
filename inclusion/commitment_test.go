@@ -3,9 +3,14 @@ package inclusion_test
 import (
 	"bytes"
 	"crypto/sha256"
+	"fmt"
+	"math/rand"
+	"runtime"
 	"testing"
+	"time"
 
 	"github.com/celestiaorg/go-square/v3/inclusion"
+	"github.com/celestiaorg/go-square/v3/internal/test"
 	"github.com/celestiaorg/go-square/v3/share"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -112,4 +117,157 @@ func twoLeafMerkleRoot(data [][]byte) []byte {
 	h2 := sha256.Sum256(data[1])
 	sum := sha256.Sum256(append(h1[:], h2[:]...))
 	return sum[:]
+}
+
+func hashConcatenatedData(data [][]byte) []byte {
+	var total []byte
+	for _, d := range data {
+		total = append(total, d...)
+	}
+	finalHash := sha256.Sum256(total)
+	return finalHash[:]
+}
+
+// TestCreateParallelCommitments compares results of
+// parallel and non-parallel versions of the algorithm with different configurations.
+func TestCreateParallelCommitments(t *testing.T) {
+	t.Run("empty blob", func(t *testing.T) {
+		result, err := inclusion.CreateParallelCommitments([]*share.Blob{}, hashConcatenatedData, defaultSubtreeRootThreshold, 4)
+		require.NoError(t, err)
+		assert.Empty(t, result)
+	})
+
+	t.Run("equivalence with sequential commitments (random)", func(t *testing.T) {
+		var (
+			workers     = runtime.NumCPU()
+			rng         = rand.New(rand.NewSource(time.Now().UnixNano()))
+			minBlobSize = 512
+			maxBlobSize = 1024 * 1024
+			maxBlobNum  = 10
+			minBlobNum  = 2
+			testCount   = 100
+		)
+
+		for i := 0; i < testCount; i++ {
+			numBlobs := rng.Intn(maxBlobNum-minBlobNum) + minBlobNum
+			blobSizes := make([]int, numBlobs)
+			maxSize := 0
+			for j := range blobSizes {
+				blobSizes[j] = rng.Intn(maxBlobSize-minBlobSize) + minBlobSize
+				if blobSizes[j] > maxSize {
+					maxSize = blobSizes[j]
+				}
+			}
+			t.Run(fmt.Sprintf("test_%d_blobs_%d_max_size_%d", numBlobs, i, maxSize), func(t *testing.T) {
+				blobs := test.GenerateBlobs(blobSizes...)
+
+				sequential, err := inclusion.CreateCommitments(blobs, hashConcatenatedData, defaultSubtreeRootThreshold)
+				require.NoError(t, err)
+
+				parallel, err := inclusion.CreateParallelCommitments(blobs, hashConcatenatedData, defaultSubtreeRootThreshold, workers)
+				require.NoError(t, err)
+
+				assert.Equal(t, sequential, parallel,
+					"Parallel results with %d workers should match sequential for %d blobs",
+					workers, numBlobs)
+			})
+		}
+	})
+
+	t.Run("equivalence with sequential commitments (fixed)", func(t *testing.T) {
+		genBlobSizes := func(size, count int) []int {
+			blobSizes := make([]int, count)
+			for i := range blobSizes {
+				blobSizes[i] = size
+			}
+			return blobSizes
+		}
+		testCases := []struct {
+			name      string
+			blobSizes []int
+		}{
+			{
+				name:      "16*512bytes",
+				blobSizes: genBlobSizes(512, 16),
+			},
+			{
+				name:      "16x8MB",
+				blobSizes: genBlobSizes(8*1024*1024, 16),
+			},
+			{
+				name:      "mixed_sizes",
+				blobSizes: []int{512, 8192, 32768, 131072},
+			},
+		}
+		workers := runtime.NumCPU()
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				blobs := test.GenerateBlobs(tc.blobSizes...)
+
+				sequential, err := inclusion.CreateCommitments(blobs, hashConcatenatedData, defaultSubtreeRootThreshold)
+				require.NoError(t, err)
+
+				parallel, err := inclusion.CreateParallelCommitments(blobs, hashConcatenatedData, defaultSubtreeRootThreshold, workers)
+				require.NoError(t, err)
+
+				assert.Equal(t, sequential, parallel,
+					"Parallel results should match sequential for %s", tc.name)
+			})
+		}
+	})
+
+	t.Run("invalid worker count", func(t *testing.T) {
+		blobs := test.GenerateBlobs(1024)
+
+		_, err := inclusion.CreateParallelCommitments(blobs, hashConcatenatedData, defaultSubtreeRootThreshold, 0)
+		require.Error(t, err)
+
+		_, err = inclusion.CreateParallelCommitments(blobs, hashConcatenatedData, defaultSubtreeRootThreshold, -1)
+		require.Error(t, err)
+	})
+}
+
+// BenchmarkCommitmentsComparison directly compares CreateCommitment vs CreateParallelCommitments.
+func BenchmarkCommitmentsComparison(b *testing.B) {
+	scenarios := []struct {
+		numBlobs     int
+		bytesPerBlob int
+		description  string
+	}{
+		{1, 1048576, "1x1MB"},    // 1 blob of 1MB
+		{10, 104858, "10x100KB"}, // 10 blobs of ~100KB each
+		{100, 10486, "100x10KB"}, // 100 blobs of ~10KB each
+		{4, 1048576, "4x1MB"},    // 4 blobs of 1MB each
+		{16, 262144, "16x256KB"}, // 16 blobs of 256KB each
+		{64, 65536, "64x64KB"},   // 64 blobs of 64KB each
+		{16, 8388608, "16x8MB"},  // 16 blobs of 8MB each (128MB total)
+	}
+	emptyHash := func([][]byte) []byte {
+		return nil
+	}
+	for _, scenario := range scenarios {
+		blobSizes := make([]int, scenario.numBlobs)
+		for i := range blobSizes {
+			blobSizes[i] = scenario.bytesPerBlob
+		}
+		blobs := test.GenerateBlobs(blobSizes...)
+		b.Run(fmt.Sprintf("%s_Sequential", scenario.description), func(b *testing.B) {
+			b.ResetTimer()
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				for _, blob := range blobs {
+					_, err := inclusion.CreateCommitment(blob, emptyHash, defaultSubtreeRootThreshold)
+					require.NoError(b, err)
+				}
+			}
+		})
+		b.Run(fmt.Sprintf("%s_Parallel", scenario.description), func(b *testing.B) {
+			b.ResetTimer()
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				_, err := inclusion.CreateParallelCommitments(blobs, emptyHash, defaultSubtreeRootThreshold, runtime.NumCPU())
+				require.NoError(b, err)
+			}
+		})
+	}
 }

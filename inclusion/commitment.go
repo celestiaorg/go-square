@@ -2,9 +2,12 @@ package inclusion
 
 import (
 	"crypto/sha256"
+	"errors"
+	"fmt"
 
 	sh "github.com/celestiaorg/go-square/v3/share"
 	"github.com/celestiaorg/nmt"
+	"golang.org/x/sync/errgroup"
 )
 
 type MerkleRootFn func([][]byte) []byte
@@ -81,6 +84,135 @@ func GenerateSubtreeRoots(blob *sh.Blob, subtreeRootThreshold int) ([][]byte, er
 	return subTreeRoots, nil
 }
 
+// CreateParallelCommitments generates commitments for multiple blobs in parallel using a pool of NMT instances.
+// See docs for CreateCommitment for more details.
+func CreateParallelCommitments(blobs []*sh.Blob, merkleRootFn MerkleRootFn, subtreeRootThreshold int, numWorkers int) ([][]byte, error) {
+	if len(blobs) == 0 {
+		return [][]byte{}, nil
+	}
+	if numWorkers <= 0 {
+		return nil, errors.New("number of workers must be positive")
+	}
+
+	// split all blobs into shares in parallel
+	blobSharesResults := make([][]sh.Share, len(blobs))
+	g := new(errgroup.Group)
+	g.SetLimit(numWorkers)
+
+	for i := range blobs {
+		idx := i
+		g.Go(func() error {
+			shares, err := splitBlobs(blobs[idx])
+			if err != nil {
+				return err
+			}
+			blobSharesResults[idx] = shares
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return nil, fmt.Errorf("failed to split blob shares: %w", err)
+	}
+
+	maxSubtreeSize := 0
+	type blobInfo struct {
+		shares    []sh.Share
+		namespace sh.Namespace
+		leafSets  [][][]byte
+	}
+	blobInfos := make([]blobInfo, len(blobs))
+
+	// calculate the maximum subtree size across all blobs and prepare
+	// subtree for parallel calculation using pooled nmts
+	for i, blob := range blobs {
+		shares := blobSharesResults[i]
+		subTreeWidth := SubTreeWidth(len(shares), subtreeRootThreshold)
+		treeSizes, err := MerkleMountainRangeSizes(uint64(len(shares)), uint64(subTreeWidth))
+		if err != nil {
+			return nil, err
+		}
+		for _, size := range treeSizes {
+			if int(size) > maxSubtreeSize {
+				maxSubtreeSize = int(size)
+			}
+		}
+
+		// prepare leaf sets for this blob
+		leafSets := make([][][]byte, len(treeSizes))
+		cursor := uint64(0)
+		for j, treeSize := range treeSizes {
+			leafSets[j] = sh.ToBytes(shares[cursor : cursor+treeSize])
+			cursor += treeSize
+		}
+		blobInfos[i] = blobInfo{
+			shares:    shares,
+			namespace: blob.Namespace(),
+			leafSets:  leafSets,
+		}
+	}
+
+	pool, err := newNMTPool(numWorkers, maxSubtreeSize)
+	if err != nil {
+		return nil, err
+	}
+
+	// process all subtree roots in parallel
+	type subtreeResult struct {
+		blobIdx int
+		treeIdx int
+		root    []byte
+	}
+	totalSubtrees := 0
+	for _, info := range blobInfos {
+		totalSubtrees += len(info.leafSets)
+	}
+	resultChan := make(chan subtreeResult, totalSubtrees)
+	g = new(errgroup.Group)
+	g.SetLimit(numWorkers)
+
+	// queue all subtree computations
+	// since go 1.22 there is no need to copy the variables used in loop
+	for blobIdx, info := range blobInfos {
+		for treeIdx, leafSet := range info.leafSets {
+			g.Go(func() error {
+				tree := pool.acquire()
+				root, err := tree.computeRoot(info.namespace.Bytes(), leafSet)
+				resultChan <- subtreeResult{
+					blobIdx: blobIdx,
+					treeIdx: treeIdx,
+					root:    root,
+				}
+				return err
+			})
+		}
+	}
+
+	if err := g.Wait(); err != nil {
+		close(resultChan)
+		return nil, err
+	}
+	close(resultChan)
+
+	// collect results and organize by blob
+	subtreeRootsByBlob := make([][][]byte, len(blobs))
+	for i, info := range blobInfos {
+		subtreeRootsByBlob[i] = make([][]byte, len(info.leafSets))
+	}
+
+	for result := range resultChan {
+		subtreeRootsByBlob[result.blobIdx][result.treeIdx] = result.root
+	}
+
+	// compute final commitments using the merkle root function
+	commitments := make([][]byte, len(blobs))
+	for i, subtreeRoots := range subtreeRootsByBlob {
+		commitments[i] = merkleRootFn(subtreeRoots)
+	}
+
+	return commitments, nil
+}
+
+// CreateCommitments generates commitments sequentially for given blobs.
 func CreateCommitments(blobs []*sh.Blob, merkleRootFn MerkleRootFn, subtreeRootThreshold int) ([][]byte, error) {
 	commitments := make([][]byte, len(blobs))
 	for i, blob := range blobs {
