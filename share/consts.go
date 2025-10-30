@@ -117,6 +117,9 @@ var (
 	// PayForBlobNamespace is the namespace reserved for PayForBlobs transactions.
 	PayForBlobNamespace = primaryReservedNamespace(0x04)
 
+	// PayForFibreNamespace is the namespace reserved for PayForFibre transactions.
+	PayForFibreNamespace = primaryReservedNamespace(0x05)
+
 	// PrimaryReservedPaddingNamespace is the namespace used for padding after all
 	// primary reserved namespaces.
 	PrimaryReservedPaddingNamespace = primaryReservedNamespace(0xFF)

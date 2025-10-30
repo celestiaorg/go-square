@@ -131,6 +131,12 @@ func TestRawData(t *testing.T) {
 }
 
 func TestIsCompactShare(t *testing.T) {
+	// First, test that PayForFibreNamespace is recognized as compact share
+	fibreShare := append(PayForFibreNamespace.Bytes(), []byte{1, 0, 0, 0, 10}...)
+	fibreShare = append(fibreShare, bytes.Repeat([]byte{0}, ShareSize-len(fibreShare))...)
+	assert.True(t, Share{data: fibreShare}.IsCompactShare(), "PayForFibreNamespace should be a compact share")
+
+	// Continue with existing test cases
 	type testCase struct {
 		name  string
 		share Share
@@ -140,6 +146,7 @@ func TestIsCompactShare(t *testing.T) {
 	ns1 := MustNewV0Namespace(bytes.Repeat([]byte{1}, NamespaceVersionZeroIDSize))
 	txShare, _ := zeroPadIfNecessary(TxNamespace.Bytes(), ShareSize)
 	pfbTxShare, _ := zeroPadIfNecessary(PayForBlobNamespace.Bytes(), ShareSize)
+	pffTxShare, _ := zeroPadIfNecessary(PayForFibreNamespace.Bytes(), ShareSize)
 	blobShare, _ := zeroPadIfNecessary(ns1.Bytes(), ShareSize)
 
 	testCases := []testCase{
@@ -151,6 +158,11 @@ func TestIsCompactShare(t *testing.T) {
 		{
 			name:  "pfb tx share",
 			share: Share{data: pfbTxShare},
+			want:  true,
+		},
+		{
+			name:  "pff tx share",
+			share: Share{data: pffTxShare},
 			want:  true,
 		},
 		{

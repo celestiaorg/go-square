@@ -238,6 +238,10 @@ func TestIsReserved(t *testing.T) {
 			want: true,
 		},
 		{
+			ns:   PayForFibreNamespace,
+			want: true,
+		},
+		{
 			ns:   PrimaryReservedPaddingNamespace,
 			want: true,
 		},
