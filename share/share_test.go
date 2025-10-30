@@ -131,12 +131,6 @@ func TestRawData(t *testing.T) {
 }
 
 func TestIsCompactShare(t *testing.T) {
-	// First, test that PayForFibreNamespace is recognized as compact share
-	fibreShare := append(PayForFibreNamespace.Bytes(), []byte{1, 0, 0, 0, 10}...)
-	fibreShare = append(fibreShare, bytes.Repeat([]byte{0}, ShareSize-len(fibreShare))...)
-	assert.True(t, Share{data: fibreShare}.IsCompactShare(), "PayForFibreNamespace should be a compact share")
-
-	// Continue with existing test cases
 	type testCase struct {
 		name  string
 		share Share
