@@ -229,5 +229,5 @@ func (b *builder) prepareSparseShare() error {
 }
 
 func isCompactShare(ns Namespace) bool {
-	return ns.IsTx() || ns.IsPayForBlob()
+	return ns.IsTx() || ns.IsPayForBlob() || ns.IsPayForFibre()
 }

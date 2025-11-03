@@ -85,7 +85,7 @@ func (s *Share) IsSequenceStart() bool {
 // IsCompactShare returns true if this is a compact share.
 func (s Share) IsCompactShare() bool {
 	ns := s.Namespace()
-	isCompact := ns.IsTx() || ns.IsPayForBlob()
+	isCompact := ns.IsTx() || ns.IsPayForBlob() || ns.IsPayForFibre()
 	return isCompact
 }
 

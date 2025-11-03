@@ -140,6 +140,7 @@ func TestIsCompactShare(t *testing.T) {
 	ns1 := MustNewV0Namespace(bytes.Repeat([]byte{1}, NamespaceVersionZeroIDSize))
 	txShare, _ := zeroPadIfNecessary(TxNamespace.Bytes(), ShareSize)
 	pfbTxShare, _ := zeroPadIfNecessary(PayForBlobNamespace.Bytes(), ShareSize)
+	pffTxShare, _ := zeroPadIfNecessary(PayForFibreNamespace.Bytes(), ShareSize)
 	blobShare, _ := zeroPadIfNecessary(ns1.Bytes(), ShareSize)
 
 	testCases := []testCase{
@@ -151,6 +152,11 @@ func TestIsCompactShare(t *testing.T) {
 		{
 			name:  "pfb tx share",
 			share: Share{data: pfbTxShare},
+			want:  true,
+		},
+		{
+			name:  "pff tx share",
+			share: Share{data: pffTxShare},
 			want:  true,
 		},
 		{
