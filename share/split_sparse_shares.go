@@ -38,7 +38,7 @@ func (sss *SparseShareSplitter) Write(blob *Blob) error {
 	// For other versions, sequence length is the total data length
 	var sequenceLen uint32
 	if blob.ShareVersion() == ShareVersionTwo {
-		sequenceLen = FibreBlobVersionSize + CommitmentSize
+		sequenceLen = FibreBlobVersionSize + FibreCommitmentSize
 	} else {
 		sequenceLen = uint32(len(rawData))
 	}
@@ -54,8 +54,8 @@ func (sss *SparseShareSplitter) Write(blob *Blob) error {
 
 	// For share version 2, write fibre_blob_version and commitment separately
 	if blob.ShareVersion() == ShareVersionTwo {
-		if len(rawData) != FibreBlobVersionSize+CommitmentSize {
-			return fmt.Errorf("share version 2 requires data of size %d bytes (fibre_blob_version + commitment), got %d", FibreBlobVersionSize+CommitmentSize, len(rawData))
+		if len(rawData) != FibreBlobVersionSize+FibreCommitmentSize {
+			return fmt.Errorf("share version 2 requires data of size %d bytes (fibre_blob_version + commitment), got %d", FibreBlobVersionSize+FibreCommitmentSize, len(rawData))
 		}
 		// Extract fibre_blob_version (first 4 bytes) and commitment (last 32 bytes)
 		fibreBlobVersion := binary.BigEndian.Uint32(rawData[0:FibreBlobVersionSize])

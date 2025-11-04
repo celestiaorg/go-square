@@ -106,7 +106,7 @@ func CompactSharesNeeded(sequenceLen uint32) (sharesNeeded int) {
 // SparseSharesNeeded returns the number of shares needed to store a sequence
 // of length sequenceLen. This function can be used by all existing share
 // versions (v0, v1, and v2).
-// For share version 2, sequenceLen should be CommitmentSize (32 bytes) and
+// For share version 2, sequenceLen should be FibreCommitmentSize (32 bytes) and
 // containsSigner should be true.
 func SparseSharesNeeded(sequenceLen uint32, containsSigner bool) (sharesNeeded int) {
 	if sequenceLen == 0 {

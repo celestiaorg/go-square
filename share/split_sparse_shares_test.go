@@ -65,7 +65,7 @@ func TestSparseShareSplitterV2Blob(t *testing.T) {
 	ns1 := MustNewV0Namespace(bytes.Repeat([]byte{1}, NamespaceVersionZeroIDSize))
 	ns2 := MustNewV0Namespace(bytes.Repeat([]byte{2}, NamespaceVersionZeroIDSize))
 	signer := bytes.Repeat([]byte{0xAA}, SignerSize)
-	commitment := bytes.Repeat([]byte{0xBB}, CommitmentSize)
+	commitment := bytes.Repeat([]byte{0xBB}, FibreCommitmentSize)
 	fibreBlobVersion := uint32(123)
 
 	blob1, err := NewV0Blob(ns1, []byte("data1"))
@@ -116,7 +116,7 @@ func TestSparseShareSplitterV2Blob(t *testing.T) {
 func TestSparseShareSplitterV2BlobSingleShare(t *testing.T) {
 	ns := MustNewV0Namespace(bytes.Repeat([]byte{3}, NamespaceVersionZeroIDSize))
 	signer := bytes.Repeat([]byte{0xCC}, SignerSize)
-	commitment := bytes.Repeat([]byte{0xDD}, CommitmentSize)
+	commitment := bytes.Repeat([]byte{0xDD}, FibreCommitmentSize)
 	fibreBlobVersion := uint32(456)
 
 	blob, err := NewV2Blob(ns, fibreBlobVersion, commitment, signer)
@@ -132,9 +132,9 @@ func TestSparseShareSplitterV2BlobSingleShare(t *testing.T) {
 	// Verify share version
 	assert.Equal(t, ShareVersionTwo, got[0].Version())
 
-	// Verify sequence length is FibreBlobVersionSize + CommitmentSize (36 bytes)
+	// Verify sequence length is FibreBlobVersionSize + FibreCommitmentSize (36 bytes)
 	sequenceLen := got[0].SequenceLen()
-	assert.Equal(t, uint32(FibreBlobVersionSize+CommitmentSize), sequenceLen)
+	assert.Equal(t, uint32(FibreBlobVersionSize+FibreCommitmentSize), sequenceLen)
 
 	// Verify signer is present
 	assert.Equal(t, signer, GetSigner(got[0]))
@@ -171,9 +171,9 @@ func TestSparseShareSplitterV2BlobInvalidData(t *testing.T) {
 
 	// Test with correct data size but try to write through splitter
 	// (This should be caught by NewBlob validation, but test the splitter too)
-	validData := make([]byte, FibreBlobVersionSize+CommitmentSize)
+	validData := make([]byte, FibreBlobVersionSize+FibreCommitmentSize)
 	binary.BigEndian.PutUint32(validData[0:FibreBlobVersionSize], uint32(789))
-	copy(validData[FibreBlobVersionSize:], bytes.Repeat([]byte{0xFF}, CommitmentSize))
+	copy(validData[FibreBlobVersionSize:], bytes.Repeat([]byte{0xFF}, FibreCommitmentSize))
 
 	validBlob, err := NewBlob(ns, validData, ShareVersionTwo, signer)
 	require.NoError(t, err)

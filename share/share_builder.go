@@ -194,7 +194,7 @@ func (b *builder) WriteCommitment(commitment []byte) {
 	if b == nil || !b.isFirstShare || b.shareVersion != ShareVersionTwo {
 		return
 	}
-	if len(commitment) != CommitmentSize {
+	if len(commitment) != FibreCommitmentSize {
 		return
 	}
 	b.rawShareData = append(b.rawShareData, commitment...)
