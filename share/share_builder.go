@@ -188,9 +188,9 @@ func (b *builder) WriteFibreBlobVersion(fibreBlobVersion uint32) {
 	b.rawShareData = append(b.rawShareData, fibreBlobVersionBuf...)
 }
 
-// WriteCommitment writes the commitment to the share.
+// WriteFibreCommitment writes the commitment to the share.
 // This is only used for share version 2.
-func (b *builder) WriteCommitment(commitment []byte) {
+func (b *builder) WriteFibreCommitment(commitment []byte) {
 	if b == nil || !b.isFirstShare || b.shareVersion != ShareVersionTwo {
 		return
 	}

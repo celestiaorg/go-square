@@ -61,7 +61,7 @@ func (sss *SparseShareSplitter) Write(blob *Blob) error {
 		fibreBlobVersion := binary.BigEndian.Uint32(rawData[0:FibreBlobVersionSize])
 		commitment := rawData[FibreBlobVersionSize:]
 		b.WriteFibreBlobVersion(fibreBlobVersion)
-		b.WriteCommitment(commitment)
+		b.WriteFibreCommitment(commitment)
 		// Zero pad the share since all data fits in one share
 		b.ZeroPadIfNecessary()
 		share, err := b.Build()
