@@ -33,8 +33,8 @@ const (
 	// unsure of which version to use.
 	DefaultShareVersion = ShareVersionZero
 
-	// RowVersionSize is the size of the row version in bytes (uint32).
-	RowVersionSize = 4
+	// FibreBlobVersionSize is the size of the Fibre blob version in bytes (uint32).
+	FibreBlobVersionSize = 4
 
 	// CommitmentSize is the size of the Fibre commitment in bytes.
 	CommitmentSize = 32
@@ -64,10 +64,10 @@ const (
 	// first sparse share of a sequence if it contains a signer (a.k.a authored blob).
 	FirstSparseShareContentSizeWithSigner = ShareSize - NamespaceSize - ShareInfoBytes - SequenceLenBytes - SignerSize
 
-	// FirstSparseShareContentSizeWithSignerAndRowVersion is the number of bytes usable for data in the
-	// first sparse share of a sequence if it contains a signer, row version, and commitment (share version 2).
+	// FirstSparseShareContentSizeWithSignerAndFibreBlobVersion is the number of bytes usable for data in the
+	// first sparse share of a sequence if it contains a signer, fibre blob version, and commitment (share version 2).
 	// This is used for Fibre system-level blobs.
-	FirstSparseShareContentSizeWithSignerAndRowVersion = ShareSize - NamespaceSize - ShareInfoBytes - SequenceLenBytes - SignerSize - RowVersionSize - CommitmentSize
+	FirstSparseShareContentSizeWithSignerAndFibreBlobVersion = ShareSize - NamespaceSize - ShareInfoBytes - SequenceLenBytes - SignerSize - FibreBlobVersionSize - CommitmentSize
 
 	// ContinuationSparseShareContentSize is the number of bytes usable for data
 	// in a continuation sparse share of a sequence.

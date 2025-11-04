@@ -66,11 +66,11 @@ func TestSparseShareSplitterV2Blob(t *testing.T) {
 	ns2 := MustNewV0Namespace(bytes.Repeat([]byte{2}, NamespaceVersionZeroIDSize))
 	signer := bytes.Repeat([]byte{0xAA}, SignerSize)
 	commitment := bytes.Repeat([]byte{0xBB}, CommitmentSize)
-	rowVersion := uint32(123)
+	fibreBlobVersion := uint32(123)
 
 	blob1, err := NewV0Blob(ns1, []byte("data1"))
 	require.NoError(t, err)
-	blob2, err := NewV2Blob(ns2, rowVersion, commitment, signer)
+	blob2, err := NewV2Blob(ns2, fibreBlobVersion, commitment, signer)
 	require.NoError(t, err)
 
 	sss := NewSparseShareSplitter()
@@ -103,10 +103,10 @@ func TestSparseShareSplitterV2Blob(t *testing.T) {
 	require.Equal(t, ns2, v2Blob.Namespace())
 	require.Equal(t, signer, v2Blob.Signer())
 
-	// Verify row version and commitment extraction
-	rv, err := v2Blob.RowVersion()
+	// Verify fibre blob version and commitment extraction
+	rv, err := v2Blob.FibreBlobVersion()
 	require.NoError(t, err)
-	require.Equal(t, rowVersion, rv)
+	require.Equal(t, fibreBlobVersion, rv)
 
 	comm, err := v2Blob.Commitment()
 	require.NoError(t, err)
@@ -117,9 +117,9 @@ func TestSparseShareSplitterV2BlobSingleShare(t *testing.T) {
 	ns := MustNewV0Namespace(bytes.Repeat([]byte{3}, NamespaceVersionZeroIDSize))
 	signer := bytes.Repeat([]byte{0xCC}, SignerSize)
 	commitment := bytes.Repeat([]byte{0xDD}, CommitmentSize)
-	rowVersion := uint32(456)
+	fibreBlobVersion := uint32(456)
 
-	blob, err := NewV2Blob(ns, rowVersion, commitment, signer)
+	blob, err := NewV2Blob(ns, fibreBlobVersion, commitment, signer)
 	require.NoError(t, err)
 
 	sss := NewSparseShareSplitter()
@@ -132,9 +132,9 @@ func TestSparseShareSplitterV2BlobSingleShare(t *testing.T) {
 	// Verify share version
 	assert.Equal(t, ShareVersionTwo, got[0].Version())
 
-	// Verify sequence length is RowVersionSize + CommitmentSize (36 bytes)
+	// Verify sequence length is FibreBlobVersionSize + CommitmentSize (36 bytes)
 	sequenceLen := got[0].SequenceLen()
-	assert.Equal(t, uint32(RowVersionSize+CommitmentSize), sequenceLen)
+	assert.Equal(t, uint32(FibreBlobVersionSize+CommitmentSize), sequenceLen)
 
 	// Verify signer is present
 	assert.Equal(t, signer, GetSigner(got[0]))
@@ -149,10 +149,10 @@ func TestSparseShareSplitterV2BlobSingleShare(t *testing.T) {
 	require.Equal(t, blob.Namespace(), parsedBlob.Namespace())
 	require.Equal(t, blob.Signer(), parsedBlob.Signer())
 
-	// Verify row version and commitment
-	rv, err := parsedBlob.RowVersion()
+	// Verify fibre blob version and commitment
+	rv, err := parsedBlob.FibreBlobVersion()
 	require.NoError(t, err)
-	require.Equal(t, rowVersion, rv)
+	require.Equal(t, fibreBlobVersion, rv)
 
 	comm, err := parsedBlob.Commitment()
 	require.NoError(t, err)
@@ -171,9 +171,9 @@ func TestSparseShareSplitterV2BlobInvalidData(t *testing.T) {
 
 	// Test with correct data size but try to write through splitter
 	// (This should be caught by NewBlob validation, but test the splitter too)
-	validData := make([]byte, RowVersionSize+CommitmentSize)
-	binary.BigEndian.PutUint32(validData[0:RowVersionSize], uint32(789))
-	copy(validData[RowVersionSize:], bytes.Repeat([]byte{0xFF}, CommitmentSize))
+	validData := make([]byte, FibreBlobVersionSize+CommitmentSize)
+	binary.BigEndian.PutUint32(validData[0:FibreBlobVersionSize], uint32(789))
+	copy(validData[FibreBlobVersionSize:], bytes.Repeat([]byte{0xFF}, CommitmentSize))
 
 	validBlob, err := NewBlob(ns, validData, ShareVersionTwo, signer)
 	require.NoError(t, err)

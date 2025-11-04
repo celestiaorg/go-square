@@ -38,7 +38,7 @@ func (sss *SparseShareSplitter) Write(blob *Blob) error {
 	// For other versions, sequence length is the total data length
 	var sequenceLen uint32
 	if blob.ShareVersion() == ShareVersionTwo {
-		sequenceLen = RowVersionSize + CommitmentSize
+		sequenceLen = FibreBlobVersionSize + CommitmentSize
 	} else {
 		sequenceLen = uint32(len(rawData))
 	}
@@ -52,15 +52,15 @@ func (sss *SparseShareSplitter) Write(blob *Blob) error {
 		b.WriteSigner(blob.Signer())
 	}
 
-	// For share version 2, write row_version and commitment separately
+	// For share version 2, write fibre_blob_version and commitment separately
 	if blob.ShareVersion() == ShareVersionTwo {
-		if len(rawData) != RowVersionSize+CommitmentSize {
-			return fmt.Errorf("share version 2 requires data of size %d bytes (row_version + commitment), got %d", RowVersionSize+CommitmentSize, len(rawData))
+		if len(rawData) != FibreBlobVersionSize+CommitmentSize {
+			return fmt.Errorf("share version 2 requires data of size %d bytes (fibre_blob_version + commitment), got %d", FibreBlobVersionSize+CommitmentSize, len(rawData))
 		}
-		// Extract row_version (first 4 bytes) and commitment (last 32 bytes)
-		rowVersion := binary.BigEndian.Uint32(rawData[0:RowVersionSize])
-		commitment := rawData[RowVersionSize:]
-		b.WriteRowVersion(rowVersion)
+		// Extract fibre_blob_version (first 4 bytes) and commitment (last 32 bytes)
+		fibreBlobVersion := binary.BigEndian.Uint32(rawData[0:FibreBlobVersionSize])
+		commitment := rawData[FibreBlobVersionSize:]
+		b.WriteFibreBlobVersion(fibreBlobVersion)
 		b.WriteCommitment(commitment)
 		// Zero pad the share since all data fits in one share
 		b.ZeroPadIfNecessary()

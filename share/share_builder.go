@@ -177,15 +177,15 @@ func (b *builder) WriteSigner(signer []byte) {
 	b.rawShareData = append(b.rawShareData, signer...)
 }
 
-// WriteRowVersion writes the row version (uint32) to the share.
+// WriteFibreBlobVersion writes the Fibre blob version (uint32) to the share.
 // This is only used for share version 2.
-func (b *builder) WriteRowVersion(rowVersion uint32) {
+func (b *builder) WriteFibreBlobVersion(fibreBlobVersion uint32) {
 	if b == nil || !b.isFirstShare || b.shareVersion != ShareVersionTwo {
 		return
 	}
-	rowVersionBuf := make([]byte, RowVersionSize)
-	binary.BigEndian.PutUint32(rowVersionBuf, rowVersion)
-	b.rawShareData = append(b.rawShareData, rowVersionBuf...)
+	fibreBlobVersionBuf := make([]byte, FibreBlobVersionSize)
+	binary.BigEndian.PutUint32(fibreBlobVersionBuf, fibreBlobVersion)
+	b.rawShareData = append(b.rawShareData, fibreBlobVersionBuf...)
 }
 
 // WriteCommitment writes the commitment to the share.

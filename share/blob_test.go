@@ -187,21 +187,21 @@ func TestNewV2Blob(t *testing.T) {
 	ns := RandomNamespace()
 	signer := bytes.Repeat([]byte{1}, SignerSize)
 	commitment := bytes.Repeat([]byte{0xFF}, CommitmentSize)
-	rowVersion := uint32(42)
+	fibreBlobVersion := uint32(42)
 
 	t.Run("valid V2 blob", func(t *testing.T) {
-		blob, err := NewV2Blob(ns, rowVersion, commitment, signer)
+		blob, err := NewV2Blob(ns, fibreBlobVersion, commitment, signer)
 		require.NoError(t, err)
 		require.NotNil(t, blob)
 		require.Equal(t, ShareVersionTwo, blob.ShareVersion())
 		require.Equal(t, ns, blob.Namespace())
 		require.Equal(t, signer, blob.Signer())
-		require.Len(t, blob.Data(), RowVersionSize+CommitmentSize)
+		require.Len(t, blob.Data(), FibreBlobVersionSize+CommitmentSize)
 
-		// Verify row version extraction
-		rv, err := blob.RowVersion()
+		// Verify fibre blob version extraction
+		rv, err := blob.FibreBlobVersion()
 		require.NoError(t, err)
-		require.Equal(t, rowVersion, rv)
+		require.Equal(t, fibreBlobVersion, rv)
 
 		// Verify commitment extraction
 		comm, err := blob.Commitment()
@@ -211,56 +211,56 @@ func TestNewV2Blob(t *testing.T) {
 
 	t.Run("invalid commitment size", func(t *testing.T) {
 		invalidCommitment := bytes.Repeat([]byte{0xFF}, 31) // wrong size
-		_, err := NewV2Blob(ns, rowVersion, invalidCommitment, signer)
+		_, err := NewV2Blob(ns, fibreBlobVersion, invalidCommitment, signer)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "commitment must be 32 bytes")
 	})
 
 	t.Run("invalid signer size", func(t *testing.T) {
 		invalidSigner := bytes.Repeat([]byte{1}, 19) // wrong size
-		_, err := NewV2Blob(ns, rowVersion, commitment, invalidSigner)
+		_, err := NewV2Blob(ns, fibreBlobVersion, commitment, invalidSigner)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "signer must be 20 bytes")
 	})
 
 	t.Run("empty namespace", func(t *testing.T) {
-		_, err := NewV2Blob(Namespace{}, rowVersion, commitment, signer)
+		_, err := NewV2Blob(Namespace{}, fibreBlobVersion, commitment, signer)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "namespace can not be empty")
 	})
 }
 
-func TestBlobRowVersion(t *testing.T) {
+func TestBlobFibreBlobVersion(t *testing.T) {
 	ns := RandomNamespace()
 	signer := bytes.Repeat([]byte{1}, SignerSize)
 	commitment := bytes.Repeat([]byte{0xFF}, CommitmentSize)
-	rowVersion := uint32(12345)
+	fibreBlobVersion := uint32(12345)
 
-	blob, err := NewV2Blob(ns, rowVersion, commitment, signer)
+	blob, err := NewV2Blob(ns, fibreBlobVersion, commitment, signer)
 	require.NoError(t, err)
 
-	t.Run("extract row version from V2 blob", func(t *testing.T) {
-		rv, err := blob.RowVersion()
+	t.Run("extract fibre blob version from V2 blob", func(t *testing.T) {
+		rv, err := blob.FibreBlobVersion()
 		require.NoError(t, err)
-		require.Equal(t, rowVersion, rv)
+		require.Equal(t, fibreBlobVersion, rv)
 	})
 
-	t.Run("row version from non-V2 blob fails", func(t *testing.T) {
+	t.Run("fibre blob version from non-V2 blob fails", func(t *testing.T) {
 		v0Blob, err := NewV0Blob(ns, []byte{1, 2, 3})
 		require.NoError(t, err)
 
-		_, err = v0Blob.RowVersion()
+		_, err = v0Blob.FibreBlobVersion()
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "row version is only available for share version 2")
+		require.Contains(t, err.Error(), "fibre blob version is only available for share version 2")
 	})
 
-	t.Run("row version from V1 blob fails", func(t *testing.T) {
+	t.Run("fibre blob version from V1 blob fails", func(t *testing.T) {
 		v1Blob, err := NewV1Blob(ns, []byte{1, 2, 3}, signer)
 		require.NoError(t, err)
 
-		_, err = v1Blob.RowVersion()
+		_, err = v1Blob.FibreBlobVersion()
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "row version is only available for share version 2")
+		require.Contains(t, err.Error(), "fibre blob version is only available for share version 2")
 	})
 }
 
@@ -268,9 +268,9 @@ func TestBlobCommitment(t *testing.T) {
 	ns := RandomNamespace()
 	signer := bytes.Repeat([]byte{1}, SignerSize)
 	commitment := bytes.Repeat([]byte{0xAA}, CommitmentSize)
-	rowVersion := uint32(1)
+	fibreBlobVersion := uint32(1)
 
-	blob, err := NewV2Blob(ns, rowVersion, commitment, signer)
+	blob, err := NewV2Blob(ns, fibreBlobVersion, commitment, signer)
 	require.NoError(t, err)
 
 	t.Run("extract commitment from V2 blob", func(t *testing.T) {
@@ -303,13 +303,13 @@ func TestV2BlobShareVersion2(t *testing.T) {
 	ns := RandomNamespace()
 	signer := bytes.Repeat([]byte{0x42}, SignerSize)
 	commitment := bytes.Repeat([]byte{0xAB}, CommitmentSize)
-	rowVersion := uint32(999)
+	fibreBlobVersion := uint32(999)
 
 	t.Run("share version 2 blob validation", func(t *testing.T) {
 		// Test with correct data size
-		data := make([]byte, RowVersionSize+CommitmentSize)
-		binary.BigEndian.PutUint32(data[0:RowVersionSize], rowVersion)
-		copy(data[RowVersionSize:], commitment)
+		data := make([]byte, FibreBlobVersionSize+CommitmentSize)
+		binary.BigEndian.PutUint32(data[0:FibreBlobVersionSize], fibreBlobVersion)
+		copy(data[FibreBlobVersionSize:], commitment)
 
 		blob, err := NewBlob(ns, data, ShareVersionTwo, signer)
 		require.NoError(t, err)
@@ -325,7 +325,7 @@ func TestV2BlobShareVersion2(t *testing.T) {
 
 	t.Run("share version 2 with wrong signer size", func(t *testing.T) {
 		wrongSigner := []byte{1, 2, 3} // too small
-		data := make([]byte, RowVersionSize+CommitmentSize)
+		data := make([]byte, FibreBlobVersionSize+CommitmentSize)
 		_, err := NewBlob(ns, data, ShareVersionTwo, wrongSigner)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "share version 2 requires signer of size 20 bytes")
@@ -336,9 +336,9 @@ func TestV2BlobProtoEncoding(t *testing.T) {
 	ns := RandomNamespace()
 	signer := bytes.Repeat([]byte{0x77}, SignerSize)
 	commitment := bytes.Repeat([]byte{0x88}, CommitmentSize)
-	rowVersion := uint32(54321)
+	fibreBlobVersion := uint32(54321)
 
-	blob, err := NewV2Blob(ns, rowVersion, commitment, signer)
+	blob, err := NewV2Blob(ns, fibreBlobVersion, commitment, signer)
 	require.NoError(t, err)
 
 	t.Run("marshal and unmarshal V2 blob", func(t *testing.T) {
@@ -353,10 +353,10 @@ func TestV2BlobProtoEncoding(t *testing.T) {
 		require.Equal(t, blob.Signer(), unmarshaledBlob.Signer())
 		require.Equal(t, blob.Data(), unmarshaledBlob.Data())
 
-		// Verify round-trip of row version and commitment
-		rv, err := unmarshaledBlob.RowVersion()
+		// Verify round-trip of fibre blob version and commitment
+		rv, err := unmarshaledBlob.FibreBlobVersion()
 		require.NoError(t, err)
-		require.Equal(t, rowVersion, rv)
+		require.Equal(t, fibreBlobVersion, rv)
 
 		comm, err := unmarshaledBlob.Commitment()
 		require.NoError(t, err)
@@ -376,9 +376,9 @@ func TestV2BlobProtoEncoding(t *testing.T) {
 		require.Equal(t, blob.Namespace(), b.Namespace())
 		require.Equal(t, blob.Signer(), b.Signer())
 
-		rv, err := b.RowVersion()
+		rv, err := b.FibreBlobVersion()
 		require.NoError(t, err)
-		require.Equal(t, rowVersion, rv)
+		require.Equal(t, fibreBlobVersion, rv)
 
 		comm, err := b.Commitment()
 		require.NoError(t, err)
@@ -390,9 +390,9 @@ func TestV2BlobToShares(t *testing.T) {
 	ns := RandomNamespace()
 	signer := bytes.Repeat([]byte{0x99}, SignerSize)
 	commitment := bytes.Repeat([]byte{0xAA}, CommitmentSize)
-	rowVersion := uint32(100)
+	fibreBlobVersion := uint32(100)
 
-	blob, err := NewV2Blob(ns, rowVersion, commitment, signer)
+	blob, err := NewV2Blob(ns, fibreBlobVersion, commitment, signer)
 	require.NoError(t, err)
 
 	t.Run("convert V2 blob to shares and back", func(t *testing.T) {
@@ -413,10 +413,10 @@ func TestV2BlobToShares(t *testing.T) {
 		require.Equal(t, blob.Namespace(), parsedBlob.Namespace())
 		require.Equal(t, blob.Signer(), parsedBlob.Signer())
 
-		// Verify row version and commitment extraction
-		rv, err := parsedBlob.RowVersion()
+		// Verify fibre blob version and commitment extraction
+		rv, err := parsedBlob.FibreBlobVersion()
 		require.NoError(t, err)
-		require.Equal(t, rowVersion, rv)
+		require.Equal(t, fibreBlobVersion, rv)
 
 		comm, err := parsedBlob.Commitment()
 		require.NoError(t, err)
@@ -428,12 +428,12 @@ func TestNewBlobFromProtoV2(t *testing.T) {
 	namespace := RandomNamespace()
 	signer := bytes.Repeat([]byte{1}, SignerSize)
 	commitment := bytes.Repeat([]byte{0xFF}, CommitmentSize)
-	rowVersion := uint32(42)
+	fibreBlobVersion := uint32(42)
 
-	// Create data: row_version (4 bytes) + commitment (32 bytes)
-	data := make([]byte, RowVersionSize+CommitmentSize)
-	binary.BigEndian.PutUint32(data[0:RowVersionSize], rowVersion)
-	copy(data[RowVersionSize:], commitment)
+	// Create data: fibre_blob_version (4 bytes) + commitment (32 bytes)
+	data := make([]byte, FibreBlobVersionSize+CommitmentSize)
+	binary.BigEndian.PutUint32(data[0:FibreBlobVersionSize], fibreBlobVersion)
+	copy(data[FibreBlobVersionSize:], commitment)
 
 	testCases := []struct {
 		name        string

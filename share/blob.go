@@ -46,10 +46,10 @@ func NewBlob(ns Namespace, data []byte, shareVersion uint8, signer []byte) (*Blo
 		if len(signer) != SignerSize {
 			return nil, fmt.Errorf("share version 2 requires signer of size %d bytes", SignerSize)
 		}
-		// Share version 2 data must contain row_version (4 bytes) + commitment (32 bytes)
-		expectedDataSize := RowVersionSize + CommitmentSize
+		// Share version 2 data must contain fibre_blob_version (4 bytes) + commitment (32 bytes)
+		expectedDataSize := FibreBlobVersionSize + CommitmentSize
 		if len(data) != expectedDataSize {
-			return nil, fmt.Errorf("share version 2 requires data of size %d bytes (row_version + commitment), got %d", expectedDataSize, len(data))
+			return nil, fmt.Errorf("share version 2 requires data of size %d bytes (fibre_blob_version + commitment), got %d", expectedDataSize, len(data))
 		}
 	// Note that we don't specifically check that shareVersion is less than 128 as this is caught
 	// by the default case
@@ -75,19 +75,19 @@ func NewV1Blob(ns Namespace, data []byte, signer []byte) (*Blob, error) {
 }
 
 // NewV2Blob creates a new blob with share version 2 (for Fibre system-level blobs).
-// The data must contain row_version (4 bytes) + commitment (32 bytes).
+// The data must contain fibre_blob_version (4 bytes) + commitment (32 bytes).
 // The signer must be 20 bytes (the signer address from MsgPayForFibre).
-func NewV2Blob(ns Namespace, rowVersion uint32, commitment []byte, signer []byte) (*Blob, error) {
+func NewV2Blob(ns Namespace, fibreBlobVersion uint32, commitment []byte, signer []byte) (*Blob, error) {
 	if len(commitment) != CommitmentSize {
 		return nil, fmt.Errorf("commitment must be %d bytes, got %d", CommitmentSize, len(commitment))
 	}
 	if len(signer) != SignerSize {
 		return nil, fmt.Errorf("signer must be %d bytes, got %d", SignerSize, len(signer))
 	}
-	// Encode row_version as big-endian uint32
-	data := make([]byte, RowVersionSize+CommitmentSize)
-	binary.BigEndian.PutUint32(data[0:RowVersionSize], rowVersion)
-	copy(data[RowVersionSize:], commitment)
+	// Encode fibre_blob_version as big-endian uint32
+	data := make([]byte, FibreBlobVersionSize+CommitmentSize)
+	binary.BigEndian.PutUint32(data[0:FibreBlobVersionSize], fibreBlobVersion)
+	copy(data[FibreBlobVersionSize:], commitment)
 	return NewBlob(ns, data, ShareVersionTwo, signer)
 }
 
@@ -222,16 +222,16 @@ func (b *Blob) ToShares() ([]Share, error) {
 	return splitter.Export(), nil
 }
 
-// RowVersion returns the row version for share version 2 blobs.
+// FibreBlobVersion returns the Fibre blob version for share version 2 blobs.
 // Returns 0 and an error if the blob is not share version 2 or if the data is invalid.
-func (b *Blob) RowVersion() (uint32, error) {
+func (b *Blob) FibreBlobVersion() (uint32, error) {
 	if b.shareVersion != ShareVersionTwo {
-		return 0, fmt.Errorf("row version is only available for share version 2, got version %d", b.shareVersion)
+		return 0, fmt.Errorf("fibre blob version is only available for share version 2, got version %d", b.shareVersion)
 	}
-	if len(b.data) < RowVersionSize {
-		return 0, fmt.Errorf("blob data too short to contain row version: %d bytes", len(b.data))
+	if len(b.data) < FibreBlobVersionSize {
+		return 0, fmt.Errorf("blob data too short to contain fibre blob version: %d bytes", len(b.data))
 	}
-	return binary.BigEndian.Uint32(b.data[0:RowVersionSize]), nil
+	return binary.BigEndian.Uint32(b.data[0:FibreBlobVersionSize]), nil
 }
 
 // Commitment returns the commitment for share version 2 blobs.
@@ -240,10 +240,10 @@ func (b *Blob) Commitment() ([]byte, error) {
 	if b.shareVersion != ShareVersionTwo {
 		return nil, fmt.Errorf("commitment is only available for share version 2, got version %d", b.shareVersion)
 	}
-	if len(b.data) != RowVersionSize+CommitmentSize {
-		return nil, fmt.Errorf("blob data has invalid size for share version 2: expected %d bytes, got %d", RowVersionSize+CommitmentSize, len(b.data))
+	if len(b.data) != FibreBlobVersionSize+CommitmentSize {
+		return nil, fmt.Errorf("blob data has invalid size for share version 2: expected %d bytes, got %d", FibreBlobVersionSize+CommitmentSize, len(b.data))
 	}
 	commitment := make([]byte, CommitmentSize)
-	copy(commitment, b.data[RowVersionSize:])
+	copy(commitment, b.data[FibreBlobVersionSize:])
 	return commitment, nil
 }
