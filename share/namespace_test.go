@@ -471,6 +471,14 @@ func TestValidateForBlob(t *testing.T) {
 			wantErr:   fmt.Errorf("invalid data namespace(0000000000000000000000000000000000000000000000000000000001): reserved data is forbidden"),
 		},
 		{
+			namespace: PayForBlobNamespace, // reserved namespace
+			wantErr:   fmt.Errorf("invalid data namespace(0000000000000000000000000000000000000000000000000000000004): reserved data is forbidden"),
+		},
+		{
+			namespace: PayForFibreNamespace, // reserved namespace
+			wantErr:   fmt.Errorf("invalid data namespace(0000000000000000000000000000000000000000000000000000000005): reserved data is forbidden"),
+		},
+		{
 			namespace: invalidVersion,
 			wantErr:   fmt.Errorf("unsupported namespace version 1"),
 		},
@@ -493,26 +501,5 @@ func TestPayForFibreNamespace(t *testing.T) {
 		assert.False(t, PayForBlobNamespace.IsPayForFibre())
 		assert.False(t, TxNamespace.IsPayForFibre())
 		assert.False(t, MustNewV0Namespace(bytes.Repeat([]byte{1}, NamespaceVersionZeroIDSize)).IsPayForFibre())
-	})
-	t.Run("PayForFibre namespace cannot be used for user blobs", func(t *testing.T) {
-		// Verify ValidateForBlob rejects PayForFibre namespace
-		err := PayForFibreNamespace.ValidateForBlob()
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "reserved data is forbidden")
-
-		// Verify other reserved namespaces are also rejected
-		err = TxNamespace.ValidateForBlob()
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "reserved data is forbidden")
-
-		err = PayForBlobNamespace.ValidateForBlob()
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "reserved data is forbidden")
-	})
-	t.Run("PayForFibre namespace ordering", func(t *testing.T) {
-		// Verify ordering: TxNamespace < PayForBlobNamespace < PayForFibreNamespace < PrimaryReservedPaddingNamespace
-		assert.True(t, TxNamespace.IsLessThan(PayForBlobNamespace))
-		assert.True(t, PayForBlobNamespace.IsLessThan(PayForFibreNamespace))
-		assert.True(t, PayForFibreNamespace.IsLessThan(PrimaryReservedPaddingNamespace))
 	})
 }
