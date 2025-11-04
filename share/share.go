@@ -90,11 +90,12 @@ func (s Share) IsCompactShare() bool {
 }
 
 // GetSigner returns the signer of the share, if the
-// share is not of type v1 and is not the first share in a sequence
+// share is not of type v1 or v2 and is not the first share in a sequence
 // it returns nil
 func GetSigner(share Share) []byte {
 	infoByte := share.InfoByte()
-	if infoByte.Version() != ShareVersionOne {
+	version := infoByte.Version()
+	if version != ShareVersionOne && version != ShareVersionTwo {
 		return nil
 	}
 	if !infoByte.IsSequenceStart() {
@@ -232,5 +233,6 @@ func FromBytes(bytes [][]byte) (shares []Share, err error) {
 
 func (s *Share) ContainsSigner() bool {
 	infoByte := s.InfoByte()
-	return infoByte.Version() == ShareVersionOne && infoByte.IsSequenceStart()
+	version := infoByte.Version()
+	return (version == ShareVersionOne || version == ShareVersionTwo) && infoByte.IsSequenceStart()
 }

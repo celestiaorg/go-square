@@ -1,6 +1,7 @@
 package share
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 
@@ -32,14 +33,46 @@ func (sss *SparseShareSplitter) Write(blob *Blob) error {
 	if err != nil {
 		return err
 	}
-	if err := b.WriteSequenceLen(uint32(len(rawData))); err != nil {
+
+	// For share version 2, sequence length is the length of the commitment (32 bytes)
+	// For other versions, sequence length is the total data length
+	var sequenceLen uint32
+	if blob.ShareVersion() == ShareVersionTwo {
+		sequenceLen = CommitmentSize
+	} else {
+		sequenceLen = uint32(len(rawData))
+	}
+
+	if err := b.WriteSequenceLen(sequenceLen); err != nil {
 		return err
 	}
-	// add the signer to the first share for v1 share versions only
-	if blob.ShareVersion() == ShareVersionOne {
+
+	// add the signer to the first share for v1 and v2 share versions
+	if blob.ShareVersion() == ShareVersionOne || blob.ShareVersion() == ShareVersionTwo {
 		b.WriteSigner(blob.Signer())
 	}
 
+	// For share version 2, write row_version and commitment separately
+	if blob.ShareVersion() == ShareVersionTwo {
+		if len(rawData) != RowVersionSize+CommitmentSize {
+			return fmt.Errorf("share version 2 requires data of size %d bytes (row_version + commitment), got %d", RowVersionSize+CommitmentSize, len(rawData))
+		}
+		// Extract row_version (first 4 bytes) and commitment (last 32 bytes)
+		rowVersion := binary.BigEndian.Uint32(rawData[0:RowVersionSize])
+		commitment := rawData[RowVersionSize:]
+		b.WriteRowVersion(rowVersion)
+		b.WriteCommitment(commitment)
+		// Zero pad the share since all data fits in one share
+		b.ZeroPadIfNecessary()
+		share, err := b.Build()
+		if err != nil {
+			return err
+		}
+		sss.shares = append(sss.shares, *share)
+		return nil
+	}
+
+	// For share versions 0 and 1, write data normally
 	for rawData != nil {
 		rawDataLeftOver := b.AddData(rawData)
 		if rawDataLeftOver == nil {

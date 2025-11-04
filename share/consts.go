@@ -24,9 +24,20 @@ const (
 	// It requires that a signer is included in the first share in the sequence.
 	ShareVersionOne = uint8(1)
 
+	// ShareVersionTwo is the third share version format.
+	// It requires that a signer, row version, and commitment are included in the first share.
+	// This is used for Fibre system-level blobs.
+	ShareVersionTwo = uint8(2)
+
 	// DefaultShareVersion is the defacto share version. Use this if you are
 	// unsure of which version to use.
 	DefaultShareVersion = ShareVersionZero
+
+	// RowVersionSize is the size of the row version in bytes (uint32).
+	RowVersionSize = 4
+
+	// CommitmentSize is the size of the Fibre commitment in bytes.
+	CommitmentSize = 32
 
 	// CompactShareReservedBytes is the number of bytes reserved for the location of
 	// the first unit (transaction, ISR) in a compact share.
@@ -53,6 +64,11 @@ const (
 	// first sparse share of a sequence if it contains a signer (a.k.a authored blob).
 	FirstSparseShareContentSizeWithSigner = ShareSize - NamespaceSize - ShareInfoBytes - SequenceLenBytes - SignerSize
 
+	// FirstSparseShareContentSizeWithSignerAndRowVersion is the number of bytes usable for data in the
+	// first sparse share of a sequence if it contains a signer, row version, and commitment (share version 2).
+	// This is used for Fibre system-level blobs.
+	FirstSparseShareContentSizeWithSignerAndRowVersion = ShareSize - NamespaceSize - ShareInfoBytes - SequenceLenBytes - SignerSize - RowVersionSize - CommitmentSize
+
 	// ContinuationSparseShareContentSize is the number of bytes usable for data
 	// in a continuation sparse share of a sequence.
 	ContinuationSparseShareContentSize = ShareSize - NamespaceSize - ShareInfoBytes
@@ -72,7 +88,7 @@ const (
 )
 
 // SupportedShareVersions is a list of supported share versions.
-var SupportedShareVersions = []uint8{ShareVersionZero, ShareVersionOne}
+var SupportedShareVersions = []uint8{ShareVersionZero, ShareVersionOne, ShareVersionTwo}
 
 const (
 	// NamespaceVersionSize is the size of a namespace version in bytes.

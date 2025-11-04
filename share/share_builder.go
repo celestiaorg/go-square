@@ -168,13 +168,36 @@ func (b *builder) WriteSequenceLen(sequenceLen uint32) error {
 
 // WriteSigner writes the signer's information to the share.
 func (b *builder) WriteSigner(signer []byte) {
-	// only write the signer if it is the first share and the share version is 1
-	if b == nil || !b.isFirstShare || b.shareVersion != ShareVersionOne {
+	// write the signer if it is the first share and the share version is 1 or 2
+	if b == nil || !b.isFirstShare || (b.shareVersion != ShareVersionOne && b.shareVersion != ShareVersionTwo) {
 		return
 	}
 	// NOTE: we don't check whether previous data has already been expected
 	// like the sequence length (we just assume it has)
 	b.rawShareData = append(b.rawShareData, signer...)
+}
+
+// WriteRowVersion writes the row version (uint32) to the share.
+// This is only used for share version 2.
+func (b *builder) WriteRowVersion(rowVersion uint32) {
+	if b == nil || !b.isFirstShare || b.shareVersion != ShareVersionTwo {
+		return
+	}
+	rowVersionBuf := make([]byte, RowVersionSize)
+	binary.BigEndian.PutUint32(rowVersionBuf, rowVersion)
+	b.rawShareData = append(b.rawShareData, rowVersionBuf...)
+}
+
+// WriteCommitment writes the commitment to the share.
+// This is only used for share version 2.
+func (b *builder) WriteCommitment(commitment []byte) {
+	if b == nil || !b.isFirstShare || b.shareVersion != ShareVersionTwo {
+		return
+	}
+	if len(commitment) != CommitmentSize {
+		return
+	}
+	b.rawShareData = append(b.rawShareData, commitment...)
 }
 
 // FlipSequenceStart flips the sequence start indicator of the share provided
