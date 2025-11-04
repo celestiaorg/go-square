@@ -64,11 +64,6 @@ const (
 	// first sparse share of a sequence if it contains a signer (a.k.a authored blob).
 	FirstSparseShareContentSizeWithSigner = ShareSize - NamespaceSize - ShareInfoBytes - SequenceLenBytes - SignerSize
 
-	// FirstSparseShareContentSizeWithSignerAndFibreBlobVersion is the number of bytes usable for data in the
-	// first sparse share of a sequence if it contains a signer, fibre blob version, and commitment (share version 2).
-	// This is used for Fibre system-level blobs.
-	FirstSparseShareContentSizeWithSignerAndFibreBlobVersion = ShareSize - NamespaceSize - ShareInfoBytes - SequenceLenBytes - SignerSize - FibreBlobVersionSize - FibreCommitmentSize
-
 	// ContinuationSparseShareContentSize is the number of bytes usable for data
 	// in a continuation sparse share of a sequence.
 	ContinuationSparseShareContentSize = ShareSize - NamespaceSize - ShareInfoBytes
