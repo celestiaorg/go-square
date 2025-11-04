@@ -3,6 +3,7 @@ package share
 import (
 	"bytes"
 	"crypto/rand"
+	"encoding/binary"
 	"encoding/json"
 	"testing"
 
@@ -70,7 +71,7 @@ func TestBlobConstructor(t *testing.T) {
 
 	_, err = NewBlob(ns, data, 2, nil)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "share version 2 not supported")
+	require.Contains(t, err.Error(), "share version 2 requires signer of size")
 
 	_, err = NewBlob(Namespace{}, data, 1, signer)
 	require.Error(t, err)
@@ -175,6 +176,317 @@ func TestNewBlobFromProto(t *testing.T) {
 				require.Equal(t, tc.proto.NamespaceId, blob.Namespace().ID())
 				require.Equal(t, uint8(tc.proto.NamespaceVersion), blob.Namespace().Version())
 				require.Equal(t, uint8(tc.proto.ShareVersion), blob.ShareVersion())
+				require.Equal(t, tc.proto.Data, blob.Data())
+				require.Equal(t, tc.proto.Signer, blob.Signer())
+			}
+		})
+	}
+}
+
+func TestNewV2Blob(t *testing.T) {
+	ns := RandomNamespace()
+	signer := bytes.Repeat([]byte{1}, SignerSize)
+	commitment := bytes.Repeat([]byte{0xFF}, CommitmentSize)
+	rowVersion := uint32(42)
+
+	t.Run("valid V2 blob", func(t *testing.T) {
+		blob, err := NewV2Blob(ns, rowVersion, commitment, signer)
+		require.NoError(t, err)
+		require.NotNil(t, blob)
+		require.Equal(t, ShareVersionTwo, blob.ShareVersion())
+		require.Equal(t, ns, blob.Namespace())
+		require.Equal(t, signer, blob.Signer())
+		require.Len(t, blob.Data(), RowVersionSize+CommitmentSize)
+
+		// Verify row version extraction
+		rv, err := blob.RowVersion()
+		require.NoError(t, err)
+		require.Equal(t, rowVersion, rv)
+
+		// Verify commitment extraction
+		comm, err := blob.Commitment()
+		require.NoError(t, err)
+		require.Equal(t, commitment, comm)
+	})
+
+	t.Run("invalid commitment size", func(t *testing.T) {
+		invalidCommitment := bytes.Repeat([]byte{0xFF}, 31) // wrong size
+		_, err := NewV2Blob(ns, rowVersion, invalidCommitment, signer)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "commitment must be 32 bytes")
+	})
+
+	t.Run("invalid signer size", func(t *testing.T) {
+		invalidSigner := bytes.Repeat([]byte{1}, 19) // wrong size
+		_, err := NewV2Blob(ns, rowVersion, commitment, invalidSigner)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "signer must be 20 bytes")
+	})
+
+	t.Run("empty namespace", func(t *testing.T) {
+		_, err := NewV2Blob(Namespace{}, rowVersion, commitment, signer)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "namespace can not be empty")
+	})
+}
+
+func TestBlobRowVersion(t *testing.T) {
+	ns := RandomNamespace()
+	signer := bytes.Repeat([]byte{1}, SignerSize)
+	commitment := bytes.Repeat([]byte{0xFF}, CommitmentSize)
+	rowVersion := uint32(12345)
+
+	blob, err := NewV2Blob(ns, rowVersion, commitment, signer)
+	require.NoError(t, err)
+
+	t.Run("extract row version from V2 blob", func(t *testing.T) {
+		rv, err := blob.RowVersion()
+		require.NoError(t, err)
+		require.Equal(t, rowVersion, rv)
+	})
+
+	t.Run("row version from non-V2 blob fails", func(t *testing.T) {
+		v0Blob, err := NewV0Blob(ns, []byte{1, 2, 3})
+		require.NoError(t, err)
+
+		_, err = v0Blob.RowVersion()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "row version is only available for share version 2")
+	})
+
+	t.Run("row version from V1 blob fails", func(t *testing.T) {
+		v1Blob, err := NewV1Blob(ns, []byte{1, 2, 3}, signer)
+		require.NoError(t, err)
+
+		_, err = v1Blob.RowVersion()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "row version is only available for share version 2")
+	})
+}
+
+func TestBlobCommitment(t *testing.T) {
+	ns := RandomNamespace()
+	signer := bytes.Repeat([]byte{1}, SignerSize)
+	commitment := bytes.Repeat([]byte{0xAA}, CommitmentSize)
+	rowVersion := uint32(1)
+
+	blob, err := NewV2Blob(ns, rowVersion, commitment, signer)
+	require.NoError(t, err)
+
+	t.Run("extract commitment from V2 blob", func(t *testing.T) {
+		comm, err := blob.Commitment()
+		require.NoError(t, err)
+		require.Equal(t, commitment, comm)
+		require.Len(t, comm, CommitmentSize)
+	})
+
+	t.Run("commitment from non-V2 blob fails", func(t *testing.T) {
+		v0Blob, err := NewV0Blob(ns, []byte{1, 2, 3})
+		require.NoError(t, err)
+
+		_, err = v0Blob.Commitment()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "commitment is only available for share version 2")
+	})
+
+	t.Run("commitment from V1 blob fails", func(t *testing.T) {
+		v1Blob, err := NewV1Blob(ns, []byte{1, 2, 3}, signer)
+		require.NoError(t, err)
+
+		_, err = v1Blob.Commitment()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "commitment is only available for share version 2")
+	})
+}
+
+func TestV2BlobShareVersion2(t *testing.T) {
+	ns := RandomNamespace()
+	signer := bytes.Repeat([]byte{0x42}, SignerSize)
+	commitment := bytes.Repeat([]byte{0xAB}, CommitmentSize)
+	rowVersion := uint32(999)
+
+	t.Run("share version 2 blob validation", func(t *testing.T) {
+		// Test with correct data size
+		data := make([]byte, RowVersionSize+CommitmentSize)
+		binary.BigEndian.PutUint32(data[0:RowVersionSize], rowVersion)
+		copy(data[RowVersionSize:], commitment)
+
+		blob, err := NewBlob(ns, data, ShareVersionTwo, signer)
+		require.NoError(t, err)
+		require.Equal(t, ShareVersionTwo, blob.ShareVersion())
+	})
+
+	t.Run("share version 2 with wrong data size", func(t *testing.T) {
+		wrongData := []byte{1, 2, 3} // too small
+		_, err := NewBlob(ns, wrongData, ShareVersionTwo, signer)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "share version 2 requires data of size 36 bytes")
+	})
+
+	t.Run("share version 2 with wrong signer size", func(t *testing.T) {
+		wrongSigner := []byte{1, 2, 3} // too small
+		data := make([]byte, RowVersionSize+CommitmentSize)
+		_, err := NewBlob(ns, data, ShareVersionTwo, wrongSigner)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "share version 2 requires signer of size 20 bytes")
+	})
+}
+
+func TestV2BlobProtoEncoding(t *testing.T) {
+	ns := RandomNamespace()
+	signer := bytes.Repeat([]byte{0x77}, SignerSize)
+	commitment := bytes.Repeat([]byte{0x88}, CommitmentSize)
+	rowVersion := uint32(54321)
+
+	blob, err := NewV2Blob(ns, rowVersion, commitment, signer)
+	require.NoError(t, err)
+
+	t.Run("marshal and unmarshal V2 blob", func(t *testing.T) {
+		blobBytes, err := blob.Marshal()
+		require.NoError(t, err)
+
+		unmarshaledBlob, err := UnmarshalBlob(blobBytes)
+		require.NoError(t, err)
+
+		require.Equal(t, blob.ShareVersion(), unmarshaledBlob.ShareVersion())
+		require.Equal(t, blob.Namespace(), unmarshaledBlob.Namespace())
+		require.Equal(t, blob.Signer(), unmarshaledBlob.Signer())
+		require.Equal(t, blob.Data(), unmarshaledBlob.Data())
+
+		// Verify round-trip of row version and commitment
+		rv, err := unmarshaledBlob.RowVersion()
+		require.NoError(t, err)
+		require.Equal(t, rowVersion, rv)
+
+		comm, err := unmarshaledBlob.Commitment()
+		require.NoError(t, err)
+		require.Equal(t, commitment, comm)
+	})
+
+	t.Run("JSON encoding V2 blob", func(t *testing.T) {
+		data, err := json.Marshal(blob)
+		require.NoError(t, err)
+		require.NotNil(t, data)
+
+		b := &Blob{}
+		err = json.Unmarshal(data, b)
+		require.NoError(t, err)
+
+		require.Equal(t, blob.ShareVersion(), b.ShareVersion())
+		require.Equal(t, blob.Namespace(), b.Namespace())
+		require.Equal(t, blob.Signer(), b.Signer())
+
+		rv, err := b.RowVersion()
+		require.NoError(t, err)
+		require.Equal(t, rowVersion, rv)
+
+		comm, err := b.Commitment()
+		require.NoError(t, err)
+		require.Equal(t, commitment, comm)
+	})
+}
+
+func TestV2BlobToShares(t *testing.T) {
+	ns := RandomNamespace()
+	signer := bytes.Repeat([]byte{0x99}, SignerSize)
+	commitment := bytes.Repeat([]byte{0xAA}, CommitmentSize)
+	rowVersion := uint32(100)
+
+	blob, err := NewV2Blob(ns, rowVersion, commitment, signer)
+	require.NoError(t, err)
+
+	t.Run("convert V2 blob to shares and back", func(t *testing.T) {
+		shares, err := blob.ToShares()
+		require.NoError(t, err)
+		require.Len(t, shares, 1) // V2 blob should fit in a single share
+
+		// Verify share version
+		require.Equal(t, ShareVersionTwo, shares[0].Version())
+
+		// Parse shares back to blob
+		blobList, err := parseSparseShares(shares)
+		require.NoError(t, err)
+		require.Len(t, blobList, 1)
+
+		parsedBlob := blobList[0]
+		require.Equal(t, blob.ShareVersion(), parsedBlob.ShareVersion())
+		require.Equal(t, blob.Namespace(), parsedBlob.Namespace())
+		require.Equal(t, blob.Signer(), parsedBlob.Signer())
+
+		// Verify row version and commitment extraction
+		rv, err := parsedBlob.RowVersion()
+		require.NoError(t, err)
+		require.Equal(t, rowVersion, rv)
+
+		comm, err := parsedBlob.Commitment()
+		require.NoError(t, err)
+		require.Equal(t, commitment, comm)
+	})
+}
+
+func TestNewBlobFromProtoV2(t *testing.T) {
+	namespace := RandomNamespace()
+	signer := bytes.Repeat([]byte{1}, SignerSize)
+	commitment := bytes.Repeat([]byte{0xFF}, CommitmentSize)
+	rowVersion := uint32(42)
+
+	// Create data: row_version (4 bytes) + commitment (32 bytes)
+	data := make([]byte, RowVersionSize+CommitmentSize)
+	binary.BigEndian.PutUint32(data[0:RowVersionSize], rowVersion)
+	copy(data[RowVersionSize:], commitment)
+
+	testCases := []struct {
+		name        string
+		proto       *v2.BlobProto
+		expectedErr string
+	}{
+		{
+			name: "valid V2 blob",
+			proto: &v2.BlobProto{
+				NamespaceId:      namespace.ID(),
+				NamespaceVersion: uint32(namespace.Version()),
+				ShareVersion:     2,
+				Data:             data,
+				Signer:           signer,
+			},
+			expectedErr: "",
+		},
+		{
+			name: "V2 blob with invalid signer length",
+			proto: &v2.BlobProto{
+				NamespaceId:      namespace.ID(),
+				NamespaceVersion: 0,
+				ShareVersion:     2,
+				Data:             data,
+				Signer:           []byte{1, 2, 3}, // wrong size
+			},
+			expectedErr: "share version 2 requires signer of size",
+		},
+		{
+			name: "V2 blob with invalid data size",
+			proto: &v2.BlobProto{
+				NamespaceId:      namespace.ID(),
+				NamespaceVersion: 0,
+				ShareVersion:     2,
+				Data:             []byte{1, 2, 3}, // wrong size
+				Signer:           signer,
+			},
+			expectedErr: "share version 2 requires data of size 36 bytes",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			blob, err := NewBlobFromProto(tc.proto)
+			if tc.expectedErr != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.expectedErr)
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, blob)
+				require.Equal(t, uint8(2), blob.ShareVersion())
+				require.Equal(t, tc.proto.NamespaceId, blob.Namespace().ID())
+				require.Equal(t, uint8(tc.proto.NamespaceVersion), blob.Namespace().Version())
 				require.Equal(t, tc.proto.Data, blob.Data())
 				require.Equal(t, tc.proto.Signer, blob.Signer())
 			}
