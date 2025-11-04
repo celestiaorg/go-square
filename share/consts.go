@@ -24,9 +24,9 @@ const (
 	// It requires that a signer is included in the first share in the sequence.
 	ShareVersionOne = uint8(1)
 
-	// ShareVersionTwo is the third share version format.
-	// It requires that a signer, row version, and commitment are included in the first share.
-	// This is used for Fibre system-level blobs.
+	// ShareVersionTwo is the third share version format. It requires that a
+	// signer, Fibre blob version, and Fibre commitment are included in the
+	// first share. This is used for Fibre system-level blobs.
 	ShareVersionTwo = uint8(2)
 
 	// DefaultShareVersion is the defacto share version. Use this if you are
