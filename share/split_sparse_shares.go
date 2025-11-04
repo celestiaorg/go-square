@@ -34,11 +34,11 @@ func (sss *SparseShareSplitter) Write(blob *Blob) error {
 		return err
 	}
 
-	// For share version 2, sequence length is the length of the commitment (32 bytes)
+	// For share version 2, sequence length is the length of fibre_blob_version (4 bytes) + commitment (32 bytes) = 36 bytes
 	// For other versions, sequence length is the total data length
 	var sequenceLen uint32
 	if blob.ShareVersion() == ShareVersionTwo {
-		sequenceLen = CommitmentSize
+		sequenceLen = RowVersionSize + CommitmentSize
 	} else {
 		sequenceLen = uint32(len(rawData))
 	}

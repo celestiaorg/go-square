@@ -132,9 +132,9 @@ func TestSparseShareSplitterV2BlobSingleShare(t *testing.T) {
 	// Verify share version
 	assert.Equal(t, ShareVersionTwo, got[0].Version())
 
-	// Verify sequence length is CommitmentSize (32 bytes)
+	// Verify sequence length is RowVersionSize + CommitmentSize (36 bytes)
 	sequenceLen := got[0].SequenceLen()
-	assert.Equal(t, uint32(CommitmentSize), sequenceLen)
+	assert.Equal(t, uint32(RowVersionSize+CommitmentSize), sequenceLen)
 
 	// Verify signer is present
 	assert.Equal(t, signer, GetSigner(got[0]))

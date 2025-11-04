@@ -163,8 +163,8 @@ func (s *Share) rawDataStartIndex() int {
 	if isCompact {
 		index += ShareReservedBytes
 	}
-	if s.Version() == ShareVersionOne && s.IsSequenceStart() {
-		// the first share in v1 has the signer
+	if (s.Version() == ShareVersionOne || s.Version() == ShareVersionTwo) && s.IsSequenceStart() {
+		// the first share in v1 and v2 has the signer
 		index += SignerSize
 	}
 	return index
