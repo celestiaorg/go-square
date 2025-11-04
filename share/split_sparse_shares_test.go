@@ -108,7 +108,7 @@ func TestSparseShareSplitterV2Blob(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, fibreBlobVersion, rv)
 
-	comm, err := v2Blob.Commitment()
+	comm, err := v2Blob.FibreCommitment()
 	require.NoError(t, err)
 	require.Equal(t, commitment, comm)
 }
@@ -154,7 +154,7 @@ func TestSparseShareSplitterV2BlobSingleShare(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, fibreBlobVersion, rv)
 
-	comm, err := parsedBlob.Commitment()
+	comm, err := parsedBlob.FibreCommitment()
 	require.NoError(t, err)
 	require.Equal(t, commitment, comm)
 }

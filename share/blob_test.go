@@ -199,14 +199,14 @@ func TestNewV2Blob(t *testing.T) {
 		require.Len(t, blob.Data(), FibreBlobVersionSize+FibreCommitmentSize)
 
 		// Verify fibre blob version extraction
-		rv, err := blob.FibreBlobVersion()
+		gotFibreBlobVersion, err := blob.FibreBlobVersion()
 		require.NoError(t, err)
-		require.Equal(t, fibreBlobVersion, rv)
+		require.Equal(t, fibreBlobVersion, gotFibreBlobVersion)
 
 		// Verify commitment extraction
-		comm, err := blob.Commitment()
+		gotCommitment, err := blob.FibreCommitment()
 		require.NoError(t, err)
-		require.Equal(t, commitment, comm)
+		require.Equal(t, commitment, gotCommitment)
 	})
 
 	t.Run("invalid commitment size", func(t *testing.T) {
@@ -230,7 +230,7 @@ func TestNewV2Blob(t *testing.T) {
 	})
 }
 
-func TestBlobFibreBlobVersion(t *testing.T) {
+func TestFibreBlobVersion(t *testing.T) {
 	ns := RandomNamespace()
 	signer := bytes.Repeat([]byte{1}, SignerSize)
 	commitment := bytes.Repeat([]byte{0xFF}, FibreCommitmentSize)
@@ -240,12 +240,12 @@ func TestBlobFibreBlobVersion(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("extract fibre blob version from V2 blob", func(t *testing.T) {
-		rv, err := blob.FibreBlobVersion()
+		got, err := blob.FibreBlobVersion()
 		require.NoError(t, err)
-		require.Equal(t, fibreBlobVersion, rv)
+		require.Equal(t, fibreBlobVersion, got)
 	})
 
-	t.Run("fibre blob version from non-V2 blob fails", func(t *testing.T) {
+	t.Run("fibre blob version from V0 blob fails", func(t *testing.T) {
 		v0Blob, err := NewV0Blob(ns, []byte{1, 2, 3})
 		require.NoError(t, err)
 
@@ -274,17 +274,17 @@ func TestBlobCommitment(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("extract commitment from V2 blob", func(t *testing.T) {
-		comm, err := blob.Commitment()
+		comm, err := blob.FibreCommitment()
 		require.NoError(t, err)
 		require.Equal(t, commitment, comm)
 		require.Len(t, comm, FibreCommitmentSize)
 	})
 
-	t.Run("commitment from non-V2 blob fails", func(t *testing.T) {
+	t.Run("commitment from V0 blob fails", func(t *testing.T) {
 		v0Blob, err := NewV0Blob(ns, []byte{1, 2, 3})
 		require.NoError(t, err)
 
-		_, err = v0Blob.Commitment()
+		_, err = v0Blob.FibreCommitment()
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "commitment is only available for share version 2")
 	})
@@ -293,13 +293,13 @@ func TestBlobCommitment(t *testing.T) {
 		v1Blob, err := NewV1Blob(ns, []byte{1, 2, 3}, signer)
 		require.NoError(t, err)
 
-		_, err = v1Blob.Commitment()
+		_, err = v1Blob.FibreCommitment()
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "commitment is only available for share version 2")
 	})
 }
 
-func TestV2BlobShareVersion2(t *testing.T) {
+func TestNewBlob(t *testing.T) {
 	ns := RandomNamespace()
 	signer := bytes.Repeat([]byte{0x42}, SignerSize)
 	commitment := bytes.Repeat([]byte{0xAB}, FibreCommitmentSize)
@@ -358,7 +358,7 @@ func TestV2BlobProtoEncoding(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, fibreBlobVersion, rv)
 
-		comm, err := unmarshaledBlob.Commitment()
+		comm, err := unmarshaledBlob.FibreCommitment()
 		require.NoError(t, err)
 		require.Equal(t, commitment, comm)
 	})
@@ -380,7 +380,7 @@ func TestV2BlobProtoEncoding(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, fibreBlobVersion, rv)
 
-		comm, err := b.Commitment()
+		comm, err := b.FibreCommitment()
 		require.NoError(t, err)
 		require.Equal(t, commitment, comm)
 	})
@@ -413,12 +413,11 @@ func TestV2BlobToShares(t *testing.T) {
 		require.Equal(t, blob.Namespace(), parsedBlob.Namespace())
 		require.Equal(t, blob.Signer(), parsedBlob.Signer())
 
-		// Verify fibre blob version and commitment extraction
 		rv, err := parsedBlob.FibreBlobVersion()
 		require.NoError(t, err)
 		require.Equal(t, fibreBlobVersion, rv)
 
-		comm, err := parsedBlob.Commitment()
+		comm, err := parsedBlob.FibreCommitment()
 		require.NoError(t, err)
 		require.Equal(t, commitment, comm)
 	})
