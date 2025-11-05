@@ -471,6 +471,14 @@ func TestValidateForBlob(t *testing.T) {
 			wantErr:   fmt.Errorf("invalid data namespace(0000000000000000000000000000000000000000000000000000000001): reserved data is forbidden"),
 		},
 		{
+			namespace: PayForBlobNamespace, // reserved namespace
+			wantErr:   fmt.Errorf("invalid data namespace(0000000000000000000000000000000000000000000000000000000004): reserved data is forbidden"),
+		},
+		{
+			namespace: PayForFibreNamespace, // reserved namespace
+			wantErr:   fmt.Errorf("invalid data namespace(0000000000000000000000000000000000000000000000000000000005): reserved data is forbidden"),
+		},
+		{
 			namespace: invalidVersion,
 			wantErr:   fmt.Errorf("unsupported namespace version 1"),
 		},

@@ -168,13 +168,36 @@ func (b *builder) WriteSequenceLen(sequenceLen uint32) error {
 
 // WriteSigner writes the signer's information to the share.
 func (b *builder) WriteSigner(signer []byte) {
-	// only write the signer if it is the first share and the share version is 1
-	if b == nil || !b.isFirstShare || b.shareVersion != ShareVersionOne {
+	// write the signer if it is the first share and the share version is 1 or 2
+	if b == nil || !b.isFirstShare || (b.shareVersion != ShareVersionOne && b.shareVersion != ShareVersionTwo) {
 		return
 	}
 	// NOTE: we don't check whether previous data has already been expected
 	// like the sequence length (we just assume it has)
 	b.rawShareData = append(b.rawShareData, signer...)
+}
+
+// WriteFibreBlobVersion writes the Fibre blob version (uint32) to the share.
+// This is only used for share version 2.
+func (b *builder) WriteFibreBlobVersion(fibreBlobVersion uint32) {
+	if b == nil || !b.isFirstShare || b.shareVersion != ShareVersionTwo {
+		return
+	}
+	fibreBlobVersionBuf := make([]byte, FibreBlobVersionSize)
+	binary.BigEndian.PutUint32(fibreBlobVersionBuf, fibreBlobVersion)
+	b.rawShareData = append(b.rawShareData, fibreBlobVersionBuf...)
+}
+
+// WriteFibreCommitment writes the commitment to the share.
+// This is only used for share version 2.
+func (b *builder) WriteFibreCommitment(commitment []byte) {
+	if b == nil || !b.isFirstShare || b.shareVersion != ShareVersionTwo {
+		return
+	}
+	if len(commitment) != FibreCommitmentSize {
+		return
+	}
+	b.rawShareData = append(b.rawShareData, commitment...)
 }
 
 // FlipSequenceStart flips the sequence start indicator of the share provided

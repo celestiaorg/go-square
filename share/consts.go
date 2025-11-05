@@ -24,9 +24,20 @@ const (
 	// It requires that a signer is included in the first share in the sequence.
 	ShareVersionOne = uint8(1)
 
+	// ShareVersionTwo is the third share version format. It requires that a
+	// signer, Fibre blob version, and Fibre commitment are included in the
+	// first share. This is used for Fibre system-level blobs.
+	ShareVersionTwo = uint8(2)
+
 	// DefaultShareVersion is the defacto share version. Use this if you are
 	// unsure of which version to use.
 	DefaultShareVersion = ShareVersionZero
+
+	// FibreBlobVersionSize is the size of the Fibre blob version in bytes (uint32).
+	FibreBlobVersionSize = 4
+
+	// FibreCommitmentSize is the size of the Fibre commitment in bytes.
+	FibreCommitmentSize = 32
 
 	// CompactShareReservedBytes is the number of bytes reserved for the location of
 	// the first unit (transaction, ISR) in a compact share.
@@ -72,7 +83,7 @@ const (
 )
 
 // SupportedShareVersions is a list of supported share versions.
-var SupportedShareVersions = []uint8{ShareVersionZero, ShareVersionOne}
+var SupportedShareVersions = []uint8{ShareVersionZero, ShareVersionOne, ShareVersionTwo}
 
 const (
 	// NamespaceVersionSize is the size of a namespace version in bytes.
