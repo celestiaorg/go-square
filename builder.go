@@ -17,7 +17,7 @@ import (
 const (
 	// TODO: de-duplicate this constant with celestia-app SquareSizeUpperBound constant.
 	// https://github.com/celestiaorg/celestia-app/blob/31cf18b8b3711965bab622e2c4dbc2f306c2a49d/pkg/appconsts/app_consts.go#L12-L13
-	squareSizeUpperBound = 512
+	squareSizeUpperBound = 1024
 )
 
 type Builder struct {
