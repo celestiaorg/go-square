@@ -27,20 +27,24 @@ type Builder struct {
 	currentSize int
 
 	// here we keep track of the pending data to go in a square
-	Txs   [][]byte
-	Pfbs  []*v2.IndexWrapper
-	Blobs []*Element
+	Txs            [][]byte
+	Pfbs           []*v2.IndexWrapper
+	PayForFibreTxs [][]byte
+	Blobs          []*Element
 
 	// for compact shares we use a counter to track the amount of shares needed
-	TxCounter  *share.CompactShareCounter
-	PfbCounter *share.CompactShareCounter
+	TxCounter          *share.CompactShareCounter
+	PfbCounter         *share.CompactShareCounter
+	PayForFibreCounter *share.CompactShareCounter
 
 	// for reverting the last addition
-	lastTxSizeChange     int
-	lastBlobTxSizeChange int
+	lastTxSizeChange            int
+	lastBlobTxSizeChange        int
+	lastPayForFibreTxSizeChange int
 	// track if a revert has already occurred to prevent multiple reverts
-	txReverted     bool
-	blobTxReverted bool
+	txReverted            bool
+	blobTxReverted        bool
+	payForFibreTxReverted bool
 
 	done                 bool
 	subtreeRootThreshold int
@@ -62,8 +66,10 @@ func NewBuilder(maxSquareSize int, subtreeRootThreshold int, txs ...[]byte) (*Bu
 		Blobs:                make([]*Element, 0),
 		Pfbs:                 make([]*v2.IndexWrapper, 0),
 		Txs:                  make([][]byte, 0),
+		PayForFibreTxs:       make([][]byte, 0),
 		TxCounter:            share.NewCompactShareCounter(),
 		PfbCounter:           share.NewCompactShareCounter(),
+		PayForFibreCounter:   share.NewCompactShareCounter(),
 	}
 	seenFirstBlobTx := false
 	for idx, txBytes := range txs {
@@ -183,6 +189,42 @@ func (b *Builder) RevertLastBlobTx() error {
 	return nil
 }
 
+// AppendPayForFibreTx attempts to allocate the pay-for-fibre transaction to the square.
+// It returns false if there is not enough space in the square to fit the transaction.
+func (b *Builder) AppendPayForFibreTx(tx []byte) bool {
+	lenChange := b.PayForFibreCounter.Add(len(tx))
+	if b.canFit(lenChange) {
+		b.PayForFibreTxs = append(b.PayForFibreTxs, tx)
+		b.currentSize += lenChange
+		b.lastPayForFibreTxSizeChange = lenChange
+		b.payForFibreTxReverted = false // reset revert flag
+		b.done = false
+		return true
+	}
+	b.PayForFibreCounter.Revert()
+	return false
+}
+
+// RevertLastPayForFibreTx reverts the last pay-for-fibre transaction that was appended to the builder.
+// It returns an error if there are no pay-for-fibre transactions to revert or if this method
+// has been called consecutively without adding a tx in between calls.
+func (b *Builder) RevertLastPayForFibreTx() error {
+	if len(b.PayForFibreTxs) == 0 {
+		return errors.New("no pay-for-fibre transactions to revert")
+	}
+	if b.payForFibreTxReverted {
+		return errors.New("cannot revert: last pay-for-fibre transaction has already been reverted")
+	}
+
+	b.PayForFibreTxs = b.PayForFibreTxs[:len(b.PayForFibreTxs)-1]
+	b.PayForFibreCounter.Revert()
+	b.currentSize -= b.lastPayForFibreTxSizeChange
+	b.payForFibreTxReverted = true
+	b.done = false
+
+	return nil
+}
+
 // Export constructs the square.
 func (b *Builder) Export() (Square, error) {
 	// if there are no transactions, return an empty square
@@ -193,7 +235,7 @@ func (b *Builder) Export() (Square, error) {
 	// calculate the square size.
 	// NOTE: A future optimization could be to recalculate the currentSize based on the actual
 	// interblob padding used when the blobs are correctly ordered instead of using worst case padding.
-	ss := inclusion.BlobMinSquareSize(b.currentSize)
+	squareSize := inclusion.BlobMinSquareSize(b.currentSize)
 
 	// Sort the blobs by shares. This uses SliceStable to preserve the order
 	// of blobs within a namespace because b.Blobs are already ordered by tx
@@ -212,8 +254,16 @@ func (b *Builder) Export() (Square, error) {
 		}
 	}
 
+	// write all the pay-for-fibre transactions into compact shares
+	payForFibreWriter := share.NewCompactShareSplitter(share.PayForFibreNamespace, share.ShareVersionZero)
+	for _, tx := range b.PayForFibreTxs {
+		if err := payForFibreWriter.WriteTx(tx); err != nil {
+			return nil, fmt.Errorf("writing pay-for-fibre tx into compact shares: %w", err)
+		}
+	}
+
 	// begin to iteratively add blobs to the sparse share splitter calculating the actual padding
-	nonReservedStart := b.TxCounter.Size() + b.PfbCounter.Size()
+	nonReservedStart := b.TxCounter.Size() + b.PayForFibreCounter.Size() + b.PfbCounter.Size()
 	cursor := nonReservedStart
 	endOfLastBlob := nonReservedStart
 	blobWriter := share.NewSparseShareSplitter()
@@ -272,7 +322,7 @@ func (b *Builder) Export() (Square, error) {
 	}
 
 	// Write out the square
-	square, err := WriteSquare(txWriter, pfbWriter, blobWriter, nonReservedStart, ss)
+	square, err := WriteSquare(txWriter, pfbWriter, payForFibreWriter, blobWriter, nonReservedStart, squareSize)
 	if err != nil {
 		return nil, fmt.Errorf("writing square: %w", err)
 	}
@@ -427,7 +477,7 @@ func (b *Builder) NumPFBs() int {
 }
 
 func (b *Builder) NumTxs() int {
-	return len(b.Txs) + len(b.Pfbs)
+	return len(b.Txs) + len(b.PayForFibreTxs) + len(b.Pfbs)
 }
 
 func (b *Builder) canFit(shareNum int) bool {
@@ -435,7 +485,7 @@ func (b *Builder) canFit(shareNum int) bool {
 }
 
 func (b *Builder) IsEmpty() bool {
-	return b.TxCounter.Size() == 0 && b.PfbCounter.Size() == 0
+	return b.TxCounter.Size() == 0 && b.PfbCounter.Size() == 0 && b.PayForFibreCounter.Size() == 0
 }
 
 type Element struct {

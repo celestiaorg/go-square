@@ -163,15 +163,19 @@ func EmptySquare() Square {
 }
 
 func WriteSquare(
-	txWriter, pfbWriter *share.CompactShareSplitter,
+	txWriter *share.CompactShareSplitter,
+	pfbWriter *share.CompactShareSplitter,
+	payForFibreWriter *share.CompactShareSplitter,
 	blobWriter *share.SparseShareSplitter,
-	nonReservedStart, squareSize int,
+	nonReservedStart int,
+	squareSize int,
 ) (Square, error) {
 	totalShares := squareSize * squareSize
 	pfbStartIndex := txWriter.Count()
-	paddingStartIndex := pfbStartIndex + pfbWriter.Count()
+	payForFibreStartIndex := pfbStartIndex + pfbWriter.Count()
+	paddingStartIndex := payForFibreStartIndex + payForFibreWriter.Count()
 	if nonReservedStart < paddingStartIndex {
-		return nil, fmt.Errorf("nonReservedStart %d is too small to fit all PFBs and txs", nonReservedStart)
+		return nil, fmt.Errorf("nonReservedStart %d is too small to fit all txs, PayForBlob txs, and PayForFibre txs", nonReservedStart)
 	}
 	padding := share.ReservedPaddingShares(nonReservedStart - paddingStartIndex)
 	endOfLastBlob := nonReservedStart + blobWriter.Count()
@@ -189,9 +193,15 @@ func WriteSquare(
 		return nil, fmt.Errorf("failed to export pfb shares: %w", err)
 	}
 
+	payForFibreShares, err := payForFibreWriter.Export()
+	if err != nil {
+		return nil, fmt.Errorf("failed to export pay-for-fibre shares: %w", err)
+	}
+
 	square := make([]share.Share, totalShares)
 	copy(square, txShares)
 	copy(square[pfbStartIndex:], pfbShares)
+	copy(square[payForFibreStartIndex:], payForFibreShares)
 	if blobWriter.Count() > 0 {
 		copy(square[paddingStartIndex:], padding)
 		copy(square[nonReservedStart:], blobWriter.Export())
