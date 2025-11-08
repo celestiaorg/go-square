@@ -169,3 +169,213 @@ func TestSize(t *testing.T) {
 		assert.True(t, square.IsPowerOfTwo(res))
 	}
 }
+
+func TestWriteSquare(t *testing.T) {
+	t.Run("writes transactions in correct order", func(t *testing.T) {
+		// Create writers for each transaction type
+		txWriter := share.NewCompactShareSplitter(share.TxNamespace, share.ShareVersionZero)
+		pfbWriter := share.NewCompactShareSplitter(share.PayForBlobNamespace, share.ShareVersionZero)
+		payForFibreWriter := share.NewCompactShareSplitter(share.PayForFibreNamespace, share.ShareVersionZero)
+		blobWriter := share.NewSparseShareSplitter()
+
+		// Add some transactions
+		tx1 := newTx(100)
+		tx2 := newTx(100)
+		pfbTx := newTx(100)
+		payForFibreTx := newTx(100)
+
+		require.NoError(t, txWriter.WriteTx(tx1))
+		require.NoError(t, txWriter.WriteTx(tx2))
+		require.NoError(t, pfbWriter.WriteTx(pfbTx))
+		require.NoError(t, payForFibreWriter.WriteTx(payForFibreTx))
+
+		// Calculate nonReservedStart (after all compact shares)
+		nonReservedStart := txWriter.Count() + pfbWriter.Count() + payForFibreWriter.Count()
+		squareSize := 8 // 8x8 square
+
+		// Write the square
+		s, err := square.WriteSquare(txWriter, pfbWriter, payForFibreWriter, blobWriter, nonReservedStart, squareSize)
+		require.NoError(t, err)
+		require.NotNil(t, s)
+
+		// Verify the order: TxNamespace → PayForBlobNamespace → PayForFibreNamespace
+		txShareRange := share.GetShareRangeForNamespace(s, share.TxNamespace)
+		pfbShareRange := share.GetShareRangeForNamespace(s, share.PayForBlobNamespace)
+		payForFibreShareRange := share.GetShareRangeForNamespace(s, share.PayForFibreNamespace)
+
+		require.False(t, txShareRange.IsEmpty())
+		require.False(t, pfbShareRange.IsEmpty())
+		require.False(t, payForFibreShareRange.IsEmpty())
+
+		// Verify ordering
+		require.LessOrEqual(t, txShareRange.End, pfbShareRange.Start, "TxNamespace should come before PayForBlobNamespace")
+		require.LessOrEqual(t, pfbShareRange.End, payForFibreShareRange.Start, "PayForBlobNamespace should come before PayForFibreNamespace")
+
+		// Verify transactions can be parsed from their respective namespaces
+		txShares := s[txShareRange.Start:txShareRange.End]
+		txTxs, err := share.ParseTxs(txShares)
+		require.NoError(t, err)
+		require.Len(t, txTxs, 2)
+
+		pfbShares := s[pfbShareRange.Start:pfbShareRange.End]
+		pfbTxs, err := share.ParseTxs(pfbShares)
+		require.NoError(t, err)
+		require.Len(t, pfbTxs, 1)
+
+		payForFibreShares := s[payForFibreShareRange.Start:payForFibreShareRange.End]
+		payForFibreTxs, err := share.ParseTxs(payForFibreShares)
+		require.NoError(t, err)
+		require.Len(t, payForFibreTxs, 1)
+	})
+
+	t.Run("handles empty pay-for-fibre writer", func(t *testing.T) {
+		txWriter := share.NewCompactShareSplitter(share.TxNamespace, share.ShareVersionZero)
+		pfbWriter := share.NewCompactShareSplitter(share.PayForBlobNamespace, share.ShareVersionZero)
+		payForFibreWriter := share.NewCompactShareSplitter(share.PayForFibreNamespace, share.ShareVersionZero)
+		blobWriter := share.NewSparseShareSplitter()
+
+		tx1 := newTx(100)
+		require.NoError(t, txWriter.WriteTx(tx1))
+
+		nonReservedStart := txWriter.Count() + pfbWriter.Count() + payForFibreWriter.Count()
+		squareSize := 8
+
+		s, err := square.WriteSquare(txWriter, pfbWriter, payForFibreWriter, blobWriter, nonReservedStart, squareSize)
+		require.NoError(t, err)
+		require.NotNil(t, s)
+
+		// PayForFibreNamespace should be empty
+		payForFibreShareRange := share.GetShareRangeForNamespace(s, share.PayForFibreNamespace)
+		require.True(t, payForFibreShareRange.IsEmpty(), "PayForFibreNamespace should be empty when no pay-for-fibre transactions")
+	})
+
+	t.Run("handles empty pfb writer", func(t *testing.T) {
+		txWriter := share.NewCompactShareSplitter(share.TxNamespace, share.ShareVersionZero)
+		pfbWriter := share.NewCompactShareSplitter(share.PayForBlobNamespace, share.ShareVersionZero)
+		payForFibreWriter := share.NewCompactShareSplitter(share.PayForFibreNamespace, share.ShareVersionZero)
+		blobWriter := share.NewSparseShareSplitter()
+
+		tx1 := newTx(100)
+		payForFibreTx := newTx(100)
+
+		require.NoError(t, txWriter.WriteTx(tx1))
+		require.NoError(t, payForFibreWriter.WriteTx(payForFibreTx))
+
+		nonReservedStart := txWriter.Count() + pfbWriter.Count() + payForFibreWriter.Count()
+		squareSize := 8
+
+		s, err := square.WriteSquare(txWriter, pfbWriter, payForFibreWriter, blobWriter, nonReservedStart, squareSize)
+		require.NoError(t, err)
+		require.NotNil(t, s)
+
+		// PayForBlobNamespace should be empty
+		pfbShareRange := share.GetShareRangeForNamespace(s, share.PayForBlobNamespace)
+		require.True(t, pfbShareRange.IsEmpty(), "PayForBlobNamespace should be empty when no PFB transactions")
+	})
+
+	t.Run("handles blobs", func(t *testing.T) {
+		txWriter := share.NewCompactShareSplitter(share.TxNamespace, share.ShareVersionZero)
+		pfbWriter := share.NewCompactShareSplitter(share.PayForBlobNamespace, share.ShareVersionZero)
+		payForFibreWriter := share.NewCompactShareSplitter(share.PayForFibreNamespace, share.ShareVersionZero)
+		blobWriter := share.NewSparseShareSplitter()
+
+		tx1 := newTx(100)
+		require.NoError(t, txWriter.WriteTx(tx1))
+
+		// Add a blob
+		ns1 := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
+		blob, err := share.NewBlob(ns1, []byte("test blob data"), share.ShareVersionZero, nil)
+		require.NoError(t, err)
+		require.NoError(t, blobWriter.Write(blob))
+
+		nonReservedStart := txWriter.Count() + pfbWriter.Count() + payForFibreWriter.Count()
+		squareSize := 8
+
+		s, err := square.WriteSquare(txWriter, pfbWriter, payForFibreWriter, blobWriter, nonReservedStart, squareSize)
+		require.NoError(t, err)
+		require.NotNil(t, s)
+
+		// Verify blob is present
+		blobShareRange := share.GetShareRangeForNamespace(s, ns1)
+		require.False(t, blobShareRange.IsEmpty(), "Blob should be present in the square")
+	})
+
+	t.Run("returns error when nonReservedStart is too small", func(t *testing.T) {
+		txWriter := share.NewCompactShareSplitter(share.TxNamespace, share.ShareVersionZero)
+		pfbWriter := share.NewCompactShareSplitter(share.PayForBlobNamespace, share.ShareVersionZero)
+		payForFibreWriter := share.NewCompactShareSplitter(share.PayForFibreNamespace, share.ShareVersionZero)
+		blobWriter := share.NewSparseShareSplitter()
+
+		tx1 := newTx(100)
+		pfbTx := newTx(100)
+		payForFibreTx := newTx(100)
+
+		require.NoError(t, txWriter.WriteTx(tx1))
+		require.NoError(t, pfbWriter.WriteTx(pfbTx))
+		require.NoError(t, payForFibreWriter.WriteTx(payForFibreTx))
+
+		// Set nonReservedStart too small (before all compact shares end)
+		nonReservedStart := txWriter.Count() + pfbWriter.Count() // Missing payForFibreWriter.Count()
+		squareSize := 8
+
+		_, err := square.WriteSquare(txWriter, pfbWriter, payForFibreWriter, blobWriter, nonReservedStart, squareSize)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "nonReservedStart")
+		require.Contains(t, err.Error(), "PayForFibre")
+	})
+
+	t.Run("returns error when square size is too small for blobs", func(t *testing.T) {
+		txWriter := share.NewCompactShareSplitter(share.TxNamespace, share.ShareVersionZero)
+		pfbWriter := share.NewCompactShareSplitter(share.PayForBlobNamespace, share.ShareVersionZero)
+		payForFibreWriter := share.NewCompactShareSplitter(share.PayForFibreNamespace, share.ShareVersionZero)
+		blobWriter := share.NewSparseShareSplitter()
+
+		tx1 := newTx(100)
+		require.NoError(t, txWriter.WriteTx(tx1))
+
+		// Add a blob that's too large for the square
+		ns1 := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
+		largeBlobData := bytes.Repeat([]byte{1}, 10000) // Large blob
+		blob, err := share.NewBlob(ns1, largeBlobData, share.ShareVersionZero, nil)
+		require.NoError(t, err)
+		require.NoError(t, blobWriter.Write(blob))
+
+		nonReservedStart := txWriter.Count() + pfbWriter.Count() + payForFibreWriter.Count()
+		squareSize := 2 // 2x2 square, too small
+
+		_, err = square.WriteSquare(txWriter, pfbWriter, payForFibreWriter, blobWriter, nonReservedStart, squareSize)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "square size")
+		require.Contains(t, err.Error(), "too small")
+	})
+
+	t.Run("correctly calculates start indices", func(t *testing.T) {
+		txWriter := share.NewCompactShareSplitter(share.TxNamespace, share.ShareVersionZero)
+		pfbWriter := share.NewCompactShareSplitter(share.PayForBlobNamespace, share.ShareVersionZero)
+		payForFibreWriter := share.NewCompactShareSplitter(share.PayForFibreNamespace, share.ShareVersionZero)
+		blobWriter := share.NewSparseShareSplitter()
+
+		tx1 := newTx(100)
+		pfbTx := newTx(100)
+		payForFibreTx := newTx(100)
+
+		require.NoError(t, txWriter.WriteTx(tx1))
+		require.NoError(t, pfbWriter.WriteTx(pfbTx))
+		require.NoError(t, payForFibreWriter.WriteTx(payForFibreTx))
+
+		nonReservedStart := txWriter.Count() + pfbWriter.Count() + payForFibreWriter.Count()
+		squareSize := 8
+
+		s, err := square.WriteSquare(txWriter, pfbWriter, payForFibreWriter, blobWriter, nonReservedStart, squareSize)
+		require.NoError(t, err)
+
+		// Verify start indices match expectations
+		txShareRange := share.GetShareRangeForNamespace(s, share.TxNamespace)
+		pfbShareRange := share.GetShareRangeForNamespace(s, share.PayForBlobNamespace)
+		payForFibreShareRange := share.GetShareRangeForNamespace(s, share.PayForFibreNamespace)
+
+		require.Equal(t, 0, txShareRange.Start, "TxNamespace should start at 0")
+		require.Equal(t, txWriter.Count(), pfbShareRange.Start, "PayForBlobNamespace should start after TxNamespace")
+		require.Equal(t, txWriter.Count()+pfbWriter.Count(), payForFibreShareRange.Start, "PayForFibreNamespace should start after PayForBlobNamespace")
+	})
+}
