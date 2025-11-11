@@ -225,6 +225,27 @@ func (b *Builder) RevertLastPayForFibreTx() error {
 	return nil
 }
 
+// AppendSystemBlob attempts to allocate a system blob to the square. System blobs are blobs
+// that are not associated with a PFB transaction (e.g., Fibre system-level blobs).
+// It returns false if there is not enough space in the square to fit the blob.
+// System blobs use PfbIndex = -1 to indicate they are not associated with a PFB.
+func (b *Builder) AppendSystemBlob(blob *share.Blob) bool {
+	// Create element with PfbIndex = -1 to mark it as a system blob
+	pfbIndex := -1
+	// Create elemtnt with blob index = -1 to mark it as a system blob
+	blobIndex := -1
+	element := newElement(blob, blobIndex, pfbIndex, b.subtreeRootThreshold)
+	maxBlobShareCount := element.maxShareOffset()
+
+	if b.canFit(maxBlobShareCount) {
+		b.Blobs = append(b.Blobs, element)
+		b.currentSize += maxBlobShareCount
+		b.done = false
+		return true
+	}
+	return false
+}
+
 // Export constructs the square.
 func (b *Builder) Export() (Square, error) {
 	// if there are no transactions, return an empty square
@@ -286,7 +307,10 @@ func (b *Builder) Export() (Square, error) {
 		}
 
 		// record the starting share index of the blob in the PFB that paid for it
-		b.Pfbs[element.PfbIndex].ShareIndexes[element.BlobIndex] = uint32(cursor)
+		// Skip this step for system blobs (PfbIndex == -1) as they are not associated with a PFB
+		if element.PfbIndex >= 0 {
+			b.Pfbs[element.PfbIndex].ShareIndexes[element.BlobIndex] = uint32(cursor)
+		}
 		// If this is not the first blob, we add padding by writing padded shares to the previous blob
 		// (which could be of a different namespace)
 		if i > 0 {
