@@ -1055,3 +1055,171 @@ func TestBuilderRevertMixedWithPayForFibreTx(t *testing.T) {
 	require.Len(t, builder.Txs, 0)
 	require.True(t, builder.IsEmpty())
 }
+
+func TestBuilderAppendSystemBlob(t *testing.T) {
+	builder, err := square.NewBuilder(8, 64)
+	require.NoError(t, err)
+
+	// Create a V2 blob (system blob)
+	ns1 := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
+	fibreBlobVersion := uint32(1)
+	commitment := bytes.Repeat([]byte{0xFF}, share.FibreCommitmentSize)
+	signer := bytes.Repeat([]byte{0xAA}, share.SignerSize)
+	systemBlob, err := share.NewV2Blob(ns1, fibreBlobVersion, commitment, signer)
+	require.NoError(t, err)
+
+	// Append system blob
+	require.True(t, builder.AppendSystemBlob(systemBlob))
+	require.Len(t, builder.Blobs, 1)
+
+	// Verify the blob element has PfbIndex = -1 (system blob marker)
+	element := builder.Blobs[0]
+	require.Equal(t, -1, element.PfbIndex, "System blob should have PfbIndex = -1")
+	require.Equal(t, -1, element.BlobIndex, "System blob should have BlobIndex = -1")
+	require.Equal(t, systemBlob, element.Blob)
+}
+
+func TestBuilderAppendSystemBlobRejectsWhenFull(t *testing.T) {
+	builder, err := square.NewBuilder(2, 64) // Small square: 2x2 = 4 shares
+	require.NoError(t, err)
+
+	// Fill the square with transactions until it's nearly full
+	// Keep adding transactions until one is rejected
+	var lastTx []byte
+	for i := 0; i < 100; i++ {
+		tx := newTx(100)
+		if !builder.AppendTx(tx) {
+			break
+		}
+		lastTx = tx
+	}
+
+	// Verify we've filled the square
+	require.NotNil(t, lastTx, "Should have added at least one transaction")
+
+	// Create a system blob - should reject because square is full
+	ns1 := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
+	fibreBlobVersion := uint32(1)
+	commitment := bytes.Repeat([]byte{0xFF}, share.FibreCommitmentSize)
+	signer := bytes.Repeat([]byte{0xAA}, share.SignerSize)
+	systemBlob, err := share.NewV2Blob(ns1, fibreBlobVersion, commitment, signer)
+	require.NoError(t, err)
+
+	// Should reject because square is full
+	initialBlobCount := len(builder.Blobs)
+	require.False(t, builder.AppendSystemBlob(systemBlob))
+	require.Equal(t, initialBlobCount, len(builder.Blobs), "Blob count should not change")
+}
+
+func TestBuilderExportWithSystemBlobs(t *testing.T) {
+	builder, err := square.NewBuilder(16, 64)
+	require.NoError(t, err)
+
+	// Add a normal transaction
+	tx1 := newTx(100)
+	require.True(t, builder.AppendTx(tx1))
+
+	// Add a system blob
+	ns1 := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
+	fibreBlobVersion := uint32(1)
+	commitment := bytes.Repeat([]byte{0xFF}, share.FibreCommitmentSize)
+	signer := bytes.Repeat([]byte{0xAA}, share.SignerSize)
+	systemBlob1, err := share.NewV2Blob(ns1, fibreBlobVersion, commitment, signer)
+	require.NoError(t, err)
+	require.True(t, builder.AppendSystemBlob(systemBlob1))
+
+	// Add another system blob with different namespace
+	ns2 := share.MustNewV0Namespace(bytes.Repeat([]byte{2}, share.NamespaceVersionZeroIDSize))
+	systemBlob2, err := share.NewV2Blob(ns2, fibreBlobVersion, commitment, signer)
+	require.NoError(t, err)
+	require.True(t, builder.AppendSystemBlob(systemBlob2))
+
+	// Export the square
+	square, err := builder.Export()
+	require.NoError(t, err)
+	require.NotNil(t, square)
+
+	// Verify system blobs are included in the sparse shares
+	// System blobs should be sorted by namespace
+	ns1Range := share.GetShareRangeForNamespace(square, ns1)
+	ns2Range := share.GetShareRangeForNamespace(square, ns2)
+	require.False(t, ns1Range.IsEmpty(), "System blob with ns1 should be in square")
+	require.False(t, ns2Range.IsEmpty(), "System blob with ns2 should be in square")
+
+	// Verify namespace ordering (ns1 < ns2, so ns1 should come first)
+	require.Less(t, ns1Range.Start, ns2Range.Start, "System blobs should be sorted by namespace")
+}
+
+func TestBuilderExportSystemBlobsNoPFBIndexRecording(t *testing.T) {
+	builder, err := square.NewBuilder(16, 64)
+	require.NoError(t, err)
+
+	// Add a normal transaction first to ensure square has content
+	tx1 := newTx(100)
+	require.True(t, builder.AppendTx(tx1))
+
+	// Add a system blob
+	ns1 := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
+	fibreBlobVersion := uint32(1)
+	commitment := bytes.Repeat([]byte{0xFF}, share.FibreCommitmentSize)
+	signer := bytes.Repeat([]byte{0xAA}, share.SignerSize)
+	systemBlob, err := share.NewV2Blob(ns1, fibreBlobVersion, commitment, signer)
+	require.NoError(t, err)
+	require.True(t, builder.AppendSystemBlob(systemBlob))
+
+	// Verify no PFBs exist (system blobs don't create PFBs)
+	require.Len(t, builder.Pfbs, 0)
+
+	// Export should succeed without trying to record PFB indexes for system blobs
+	square, err := builder.Export()
+	require.NoError(t, err)
+	require.NotNil(t, square)
+	require.Greater(t, square.Size(), 0, "Square should not be empty")
+
+	// Verify the system blob is in the square
+	ns1Range := share.GetShareRangeForNamespace(square, ns1)
+	require.False(t, ns1Range.IsEmpty(), "System blob should be in square")
+}
+
+func TestBuilderSystemBlobsWithRegularBlobs(t *testing.T) {
+	builder, err := square.NewBuilder(16, 64)
+	require.NoError(t, err)
+
+	// Add a normal transaction
+	tx1 := newTx(100)
+	require.True(t, builder.AppendTx(tx1))
+
+	// Add a system blob
+	ns1 := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
+	fibreBlobVersion := uint32(1)
+	commitment := bytes.Repeat([]byte{0xFF}, share.FibreCommitmentSize)
+	signer := bytes.Repeat([]byte{0xAA}, share.SignerSize)
+	systemBlob, err := share.NewV2Blob(ns1, fibreBlobVersion, commitment, signer)
+	require.NoError(t, err)
+	require.True(t, builder.AppendSystemBlob(systemBlob))
+
+	// Add a regular blob transaction
+	ns2 := share.MustNewV0Namespace(bytes.Repeat([]byte{2}, share.NamespaceVersionZeroIDSize))
+	blobTxs := generateBlobTxsWithNamespaces([]share.Namespace{ns2}, [][]int{{100}})
+	blobTx, isBlobTx, err := tx.UnmarshalBlobTx(blobTxs[0])
+	require.NoError(t, err)
+	require.True(t, isBlobTx)
+	require.True(t, builder.AppendBlobTx(blobTx))
+
+	// Verify we have both system blob and regular blob
+	require.Len(t, builder.Blobs, 2)
+	require.Len(t, builder.Pfbs, 1) // Only regular blob has PFB
+
+	// System blob should have PfbIndex = -1
+	for _, element := range builder.Blobs {
+		if element.Blob.Namespace().Equals(ns1) {
+			require.Equal(t, -1, element.PfbIndex)
+			break
+		}
+	}
+
+	// Export should succeed
+	square, err := builder.Export()
+	require.NoError(t, err)
+	require.NotNil(t, square)
+}

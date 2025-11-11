@@ -232,9 +232,9 @@ func (b *Builder) RevertLastPayForFibreTx() error {
 func (b *Builder) AppendSystemBlob(blob *share.Blob) bool {
 	// Create element with PfbIndex = -1 to mark it as a system blob
 	pfbIndex := -1
-	// Create elemtnt with blob index = -1 to mark it as a system blob
+	// Create element with blob index = -1 to mark it as a system blob
 	blobIndex := -1
-	element := newElement(blob, blobIndex, pfbIndex, b.subtreeRootThreshold)
+	element := newElement(blob, pfbIndex, blobIndex, b.subtreeRootThreshold)
 	maxBlobShareCount := element.maxShareOffset()
 
 	if b.canFit(maxBlobShareCount) {
