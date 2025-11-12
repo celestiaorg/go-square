@@ -741,3 +741,317 @@ func loadArabicaTxs(t *testing.T) [][]byte {
 
 	return txs
 }
+
+func TestBuilderAppendPayForFibreTx(t *testing.T) {
+	builder, err := square.NewBuilder(8, 64)
+	require.NoError(t, err)
+
+	// Test appending a pay-for-fibre transaction
+	tx1 := newTx(100)
+	require.True(t, builder.AppendPayForFibreTx(tx1))
+	require.Len(t, builder.PayForFibreTxs, 1)
+	require.Equal(t, tx1, builder.PayForFibreTxs[0])
+	require.Greater(t, builder.CurrentSize(), 0)
+
+	// Test appending another pay-for-fibre transaction
+	tx2 := newTx(200)
+	require.True(t, builder.AppendPayForFibreTx(tx2))
+	require.Len(t, builder.PayForFibreTxs, 2)
+	require.Equal(t, tx2, builder.PayForFibreTxs[1])
+
+	// Test rejecting transaction that's too large
+	builder2, err := square.NewBuilder(2, 64) // 2 x 2 square
+	require.NoError(t, err)
+	require.False(t, builder2.AppendPayForFibreTx(newTx(share.AvailableBytesFromCompactShares(4)+1)))
+	require.True(t, builder2.AppendPayForFibreTx(newTx(share.AvailableBytesFromCompactShares(4))))
+	require.False(t, builder2.AppendPayForFibreTx(newTx(1)))
+}
+
+func TestBuilderRevertLastPayForFibreTx(t *testing.T) {
+	builder, err := square.NewBuilder(8, 64)
+	require.NoError(t, err)
+
+	// Test reverting when there are no pay-for-fibre transactions
+	err = builder.RevertLastPayForFibreTx()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no pay-for-fibre transactions to revert")
+
+	// Add a pay-for-fibre transaction and verify it was added
+	tx1 := newTx(100)
+	require.True(t, builder.AppendPayForFibreTx(tx1))
+	require.Len(t, builder.PayForFibreTxs, 1)
+	require.Equal(t, tx1, builder.PayForFibreTxs[0])
+	initialSize := builder.CurrentSize()
+	require.Greater(t, initialSize, 0)
+
+	// Revert the transaction
+	err = builder.RevertLastPayForFibreTx()
+	require.NoError(t, err)
+	require.Len(t, builder.PayForFibreTxs, 0)
+	require.Equal(t, 0, builder.CurrentSize())
+
+	// Test reverting when there are no pay-for-fibre transactions left
+	err = builder.RevertLastPayForFibreTx()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no pay-for-fibre transactions to revert")
+
+	// Add multiple transactions and revert only the last one
+	tx2 := newTx(50)
+	tx3 := newTx(75)
+	require.True(t, builder.AppendPayForFibreTx(tx2))
+	sizeAfterOneTx := builder.CurrentSize()
+	require.True(t, builder.AppendPayForFibreTx(tx3))
+	require.Len(t, builder.PayForFibreTxs, 2)
+
+	err = builder.RevertLastPayForFibreTx()
+	require.NoError(t, err)
+	require.Len(t, builder.PayForFibreTxs, 1)
+	require.Equal(t, tx2, builder.PayForFibreTxs[0])
+	require.Equal(t, sizeAfterOneTx, builder.CurrentSize())
+	require.Greater(t, builder.CurrentSize(), 0)
+}
+
+func TestBuilderRevertPayForFibreTxConsecutive(t *testing.T) {
+	builder, err := square.NewBuilder(64, 64)
+	require.NoError(t, err)
+
+	// Add two pay-for-fibre transactions
+	tx1 := newTx(50)
+	tx2 := newTx(50)
+
+	require.True(t, builder.AppendPayForFibreTx(tx1))
+	require.True(t, builder.AppendPayForFibreTx(tx2))
+	require.Len(t, builder.PayForFibreTxs, 2)
+
+	sizeAfterTwoTxs := builder.CurrentSize()
+	require.Greater(t, sizeAfterTwoTxs, 0)
+
+	// First revert should work
+	err = builder.RevertLastPayForFibreTx()
+	require.NoError(t, err)
+	require.Len(t, builder.PayForFibreTxs, 1)
+
+	sizeAfterFirstRevert := builder.CurrentSize()
+
+	// Second revert should now return error due to counter limitation prevention
+	err = builder.RevertLastPayForFibreTx()
+	require.Error(t, err, "Second revert should return error due to counter limitation")
+	require.Contains(t, err.Error(), "already been reverted")
+	require.Len(t, builder.PayForFibreTxs, 1) // Should remain at 1
+
+	// Size should remain consistent
+	sizeAfterSecondRevert := builder.CurrentSize()
+	require.Equal(t, sizeAfterFirstRevert, sizeAfterSecondRevert)
+}
+
+func TestBuilderRevertPayForFibreTxAfterNewAdd(t *testing.T) {
+	builder, err := square.NewBuilder(64, 64)
+	require.NoError(t, err)
+
+	// Add and revert a pay-for-fibre transaction
+	tx1 := newTx(50)
+	require.True(t, builder.AppendPayForFibreTx(tx1))
+	err = builder.RevertLastPayForFibreTx()
+	require.NoError(t, err)
+
+	// Try to revert again - should return error
+	err = builder.RevertLastPayForFibreTx()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no pay-for-fibre transactions to revert")
+
+	// Add a new transaction
+	tx2 := newTx(50)
+	require.True(t, builder.AppendPayForFibreTx(tx2))
+
+	// Now revert should work again
+	err = builder.RevertLastPayForFibreTx()
+	require.NoError(t, err)
+	require.Len(t, builder.PayForFibreTxs, 0)
+}
+
+func TestBuilderIsEmptyWithPayForFibreTx(t *testing.T) {
+	builder, err := square.NewBuilder(8, 64)
+	require.NoError(t, err)
+
+	// Initially empty
+	require.True(t, builder.IsEmpty())
+
+	// Add a pay-for-fibre transaction
+	tx1 := newTx(100)
+	require.True(t, builder.AppendPayForFibreTx(tx1))
+	require.False(t, builder.IsEmpty())
+
+	// Revert it
+	err = builder.RevertLastPayForFibreTx()
+	require.NoError(t, err)
+	require.True(t, builder.IsEmpty())
+}
+
+func TestBuilderNumTxsWithPayForFibreTx(t *testing.T) {
+	builder, err := square.NewBuilder(64, 64)
+	require.NoError(t, err)
+
+	// Initially zero
+	require.Equal(t, 0, builder.NumTxs())
+
+	// Add a normal transaction
+	tx1 := newTx(100)
+	require.True(t, builder.AppendTx(tx1))
+	require.Equal(t, 1, builder.NumTxs())
+
+	// Add a pay-for-fibre transaction
+	tx2 := newTx(100)
+	require.True(t, builder.AppendPayForFibreTx(tx2))
+	require.Equal(t, 2, builder.NumTxs())
+
+	// Add a blob transaction
+	ns1 := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
+	blobTxs := generateBlobTxsWithNamespaces([]share.Namespace{ns1}, [][]int{{100}})
+	blobTx, isBlobTx, err := tx.UnmarshalBlobTx(blobTxs[0])
+	require.NoError(t, err)
+	require.True(t, isBlobTx)
+	require.True(t, builder.AppendBlobTx(blobTx))
+	require.Equal(t, 3, builder.NumTxs())
+
+	// Revert pay-for-fibre transaction
+	err = builder.RevertLastPayForFibreTx()
+	require.NoError(t, err)
+	require.Equal(t, 2, builder.NumTxs())
+}
+
+func TestBuilderExportWithPayForFibreTx(t *testing.T) {
+	builder, err := square.NewBuilder(8, 64)
+	require.NoError(t, err)
+
+	// Add a normal transaction
+	tx1 := newTx(100)
+	require.True(t, builder.AppendTx(tx1))
+
+	// Add a pay-for-fibre transaction
+	tx2 := newTx(100)
+	require.True(t, builder.AppendPayForFibreTx(tx2))
+
+	// Export the square
+	square, err := builder.Export()
+	require.NoError(t, err)
+	require.NotNil(t, square)
+
+	// Verify that pay-for-fibre transactions are written to PayForFibreNamespace
+	payForFibreShareRange := share.GetShareRangeForNamespace(square, share.PayForFibreNamespace)
+	require.False(t, payForFibreShareRange.IsEmpty(), "PayForFibre namespace should have shares")
+
+	// Parse transactions from the pay-for-fibre namespace
+	payForFibreShares := square[payForFibreShareRange.Start : payForFibreShareRange.End+1]
+	parsedTxs, err := share.ParseTxs(payForFibreShares)
+	require.NoError(t, err)
+	require.Len(t, parsedTxs, 1)
+	require.True(t, bytes.Contains(parsedTxs[0], tx2))
+}
+
+func TestBuilderExportWithMixedTransactions(t *testing.T) {
+	builder, err := square.NewBuilder(16, 64)
+	require.NoError(t, err)
+
+	// Add transactions in different order
+	normalTx1 := newTx(100)
+	payForFibreTx1 := newTx(100)
+	normalTx2 := newTx(100)
+	payForFibreTx2 := newTx(100)
+
+	require.True(t, builder.AppendTx(normalTx1))
+	require.True(t, builder.AppendPayForFibreTx(payForFibreTx1))
+	require.True(t, builder.AppendTx(normalTx2))
+	require.True(t, builder.AppendPayForFibreTx(payForFibreTx2))
+
+	// Add a blob transaction
+	ns1 := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
+	blobTxs := generateBlobTxsWithNamespaces([]share.Namespace{ns1}, [][]int{{100}})
+	blobTx, isBlobTx, err := tx.UnmarshalBlobTx(blobTxs[0])
+	require.NoError(t, err)
+	require.True(t, isBlobTx)
+	require.True(t, builder.AppendBlobTx(blobTx))
+
+	// Export the square
+	square, err := builder.Export()
+	require.NoError(t, err)
+
+	// Verify normal transactions are in TxNamespace
+	txShareRange := share.GetShareRangeForNamespace(square, share.TxNamespace)
+	require.False(t, txShareRange.IsEmpty())
+	txShares := square[txShareRange.Start : txShareRange.End+1]
+	txTxs, err := share.ParseTxs(txShares)
+	require.NoError(t, err)
+	require.Len(t, txTxs, 2)
+
+	// Verify pay-for-fibre transactions are in PayForFibreNamespace
+	payForFibreShareRange := share.GetShareRangeForNamespace(square, share.PayForFibreNamespace)
+	require.False(t, payForFibreShareRange.IsEmpty())
+	payForFibreShares := square[payForFibreShareRange.Start : payForFibreShareRange.End+1]
+	payForFibreTxs, err := share.ParseTxs(payForFibreShares)
+	require.NoError(t, err)
+	require.Len(t, payForFibreTxs, 2)
+
+	// Verify blob transactions (PFBs) are in PayForBlobNamespace
+	pfbShareRange := share.GetShareRangeForNamespace(square, share.PayForBlobNamespace)
+	require.False(t, pfbShareRange.IsEmpty())
+	pfbShares := square[pfbShareRange.Start : pfbShareRange.End+1]
+	pfbTxs, err := share.ParseTxs(pfbShares)
+	require.NoError(t, err)
+	require.Len(t, pfbTxs, 1)
+
+	// Verify order: Normal txs (TxNamespace) come before blob txs (PayForBlobNamespace)
+	// and blob txs come before pay-for-fibre txs (PayForFibreNamespace)
+	require.LessOrEqual(t, txShareRange.End, pfbShareRange.Start, "Normal txs should come before blob txs")
+	require.LessOrEqual(t, pfbShareRange.End, payForFibreShareRange.Start, "Blob txs should come before pay-for-fibre txs")
+}
+
+func TestBuilderRevertMixedWithPayForFibreTx(t *testing.T) {
+	builder, err := square.NewBuilder(64, 64)
+	require.NoError(t, err)
+
+	// Add a normal transaction
+	tx1 := newTx(100)
+	require.True(t, builder.AppendTx(tx1))
+
+	// Add a pay-for-fibre transaction
+	tx2 := newTx(100)
+	require.True(t, builder.AppendPayForFibreTx(tx2))
+
+	// Add a blob transaction
+	ns1 := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
+	blobTxs := generateBlobTxsWithNamespaces([]share.Namespace{ns1}, [][]int{{100}})
+	blobTx, isBlobTx, err := tx.UnmarshalBlobTx(blobTxs[0])
+	require.NoError(t, err)
+	require.True(t, isBlobTx)
+	require.True(t, builder.AppendBlobTx(blobTx))
+
+	// Verify state
+	require.Len(t, builder.Txs, 1)
+	require.Len(t, builder.PayForFibreTxs, 1)
+	require.Len(t, builder.Pfbs, 1)
+	require.Len(t, builder.Blobs, 1)
+
+	// Revert pay-for-fibre transaction - should not affect other transactions
+	err = builder.RevertLastPayForFibreTx()
+	require.NoError(t, err)
+	require.Len(t, builder.Txs, 1)
+	require.Len(t, builder.PayForFibreTxs, 0)
+	require.Len(t, builder.Pfbs, 1)
+	require.Len(t, builder.Blobs, 1)
+
+	// Normal transaction should still be there
+	require.Equal(t, tx1, builder.Txs[0])
+
+	// Revert blob transaction
+	err = builder.RevertLastBlobTx()
+	require.NoError(t, err)
+	require.Len(t, builder.Txs, 1)
+	require.Len(t, builder.Pfbs, 0)
+	require.Len(t, builder.Blobs, 0)
+
+	// Revert normal transaction
+	err = builder.RevertLastTx()
+	require.NoError(t, err)
+	require.Len(t, builder.Txs, 0)
+	require.True(t, builder.IsEmpty())
+}
