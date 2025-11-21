@@ -15,7 +15,7 @@ func BenchmarkSquareConstruct(b *testing.B) {
 			txs := generateOrderedTxs(txCount/2, txCount/2, 1, 1024)
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				_, err := square.Construct(txs, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+				_, err := square.Construct(txs, defaultMaxSquareSize, defaultSubtreeRootThreshold, square.NoOpPayForFibreHandler())
 				require.NoError(b, err)
 			}
 		})
