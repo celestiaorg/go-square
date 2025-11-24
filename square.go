@@ -46,8 +46,8 @@ func Build(txs [][]byte, maxSquareSize, subtreeRootThreshold int) (Square, [][]b
 
 // validateTxOrdering validates that transactions are ordered correctly:
 //  1. Normal transactions
-//  2. Pay for blob transactions (blob txs) - optional
-//  3. Pay for fibre transactions - can exist without blob txs
+//  2. Pay for blob transactions
+//  3. Pay for fibre transactions
 //
 // Returns an error if the ordering is invalid.
 func validateTxOrdering(txs [][]byte, handler PayForFibreHandler) error {
@@ -70,9 +70,7 @@ func validateTxOrdering(txs [][]byte, handler PayForFibreHandler) error {
 		}
 
 		// Check if this is a PayForFibre transaction
-		isPayForFibre := handler.IsPayForFibreTx(txBytes)
-
-		if isPayForFibre {
+		if isPayForFibre := handler.IsPayForFibreTx(txBytes); isPayForFibre {
 			seenPayForFibreTx = true
 			// PayForFibre txs can exist without blob txs, or come after blob txs
 			// The ordering check for blob txs coming before pay-for-fibre txs
@@ -80,7 +78,6 @@ func validateTxOrdering(txs [][]byte, handler PayForFibreHandler) error {
 			continue
 		}
 
-		// Normal transaction
 		// Normal txs cannot come after blob txs or PayForFibre txs
 		if seenBlobTx {
 			return fmt.Errorf("normal tx at index %d cannot be appended after blob tx", idx)
@@ -130,9 +127,7 @@ func Construct(txs [][]byte, maxSquareSize, subtreeRootThreshold int, handler Pa
 		}
 
 		// Check if this is a PayForFibre transaction
-		isPayForFibre := handler.IsPayForFibreTx(txBytes)
-
-		if isPayForFibre {
+		if isPayForFibre := handler.IsPayForFibreTx(txBytes); isPayForFibre {
 			// Append the PayForFibre transaction
 			if !builder.AppendPayForFibreTx(txBytes) {
 				return nil, fmt.Errorf("not enough space to append pay-for-fibre tx at index %d", idx)

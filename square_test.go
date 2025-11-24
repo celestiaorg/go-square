@@ -90,7 +90,7 @@ func (m *mockPayForFibreHandler) IsPayForFibreTx(tx []byte) bool {
 	return m.payForFibreTxs[string(tx)]
 }
 
-func (m *mockPayForFibreHandler) CreateSystemBlob(tx []byte) (*share.Blob, error) {
+func (m *mockPayForFibreHandler) CreateSystemBlob(_ []byte) (*share.Blob, error) {
 	ns := share.MustNewV0Namespace([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
 	return share.NewBlob(ns, []byte("system blob"), share.ShareVersionZero, nil)
 }
