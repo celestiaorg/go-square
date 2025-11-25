@@ -44,17 +44,111 @@ func Build(txs [][]byte, maxSquareSize, subtreeRootThreshold int) (Square, [][]b
 	return square, append(normalTxs, blobTxs...), err
 }
 
+// validateTxOrdering validates that transactions are ordered correctly:
+//  1. Normal transactions
+//  2. Pay for blob transactions
+//  3. Pay for fibre transactions
+//
+// Returns an error if the ordering is invalid.
+func validateTxOrdering(txs [][]byte, handler PayForFibreHandler) error {
+	seenBlobTx := false
+	seenPayForFibreTx := false
+
+	for idx, txBytes := range txs {
+		_, isBlobTx, err := tx.UnmarshalBlobTx(txBytes)
+		if err != nil && isBlobTx {
+			return fmt.Errorf("unmarshalling blob tx at index %d: %w", idx, err)
+		}
+
+		if isBlobTx {
+			seenBlobTx = true
+			// Blob txs cannot come after PayForFibre txs
+			if seenPayForFibreTx {
+				return fmt.Errorf("blob tx at index %d cannot be appended after pay-for-fibre tx", idx)
+			}
+			continue
+		}
+
+		// Check if this is a PayForFibre transaction
+		if isPayForFibre := handler.IsPayForFibreTx(txBytes); isPayForFibre {
+			seenPayForFibreTx = true
+			// PayForFibre txs can exist without blob txs, or come after blob txs
+			// The ordering check for blob txs coming before pay-for-fibre txs
+			// is handled in the blob tx section above
+			continue
+		}
+
+		// Normal txs cannot come after blob txs or PayForFibre txs
+		if seenBlobTx {
+			return fmt.Errorf("normal tx at index %d cannot be appended after blob tx", idx)
+		}
+		if seenPayForFibreTx {
+			return fmt.Errorf("normal tx at index %d cannot be appended after pay-for-fibre tx", idx)
+		}
+	}
+
+	return nil
+}
+
 // Construct takes the exact list of ordered transactions and constructs a square, validating that
-//   - all blobTxs are ordered after non-blob transactions
+//   - transactions are ordered: normal txs, pay for blob txs, pay for fibre txs
 //   - the transactions don't collectively exceed the maxSquareSize.
+//
+// The handler parameter is required and must not be nil. Use NoOpPayForFibreHandler() if
+// PayForFibre support is not needed.
 //
 // Note that this function does not check the underlying validity of
 // the transactions.
-func Construct(txs [][]byte, maxSquareSize, subtreeRootThreshold int) (Square, error) {
-	builder, err := NewBuilder(maxSquareSize, subtreeRootThreshold, txs...)
+func Construct(txs [][]byte, maxSquareSize, subtreeRootThreshold int, handler PayForFibreHandler) (Square, error) {
+	if handler == nil {
+		return nil, fmt.Errorf("handler must not be nil, use NoOpPayForFibreHandler() if PayForFibre support is not needed")
+	}
+
+	// Validate transaction ordering
+	if err := validateTxOrdering(txs, handler); err != nil {
+		return nil, err
+	}
+
+	builder, err := NewBuilder(maxSquareSize, subtreeRootThreshold)
 	if err != nil {
 		return nil, err
 	}
+
+	for idx, txBytes := range txs {
+		blobTx, isBlobTx, err := tx.UnmarshalBlobTx(txBytes)
+		if err != nil && isBlobTx {
+			return nil, fmt.Errorf("unmarshalling blob tx at index %d: %w", idx, err)
+		}
+		if isBlobTx {
+			if !builder.AppendBlobTx(blobTx) {
+				return nil, fmt.Errorf("not enough space to append blob tx at index %d", idx)
+			}
+			continue
+		}
+
+		// Check if this is a PayForFibre transaction
+		if isPayForFibre := handler.IsPayForFibreTx(txBytes); isPayForFibre {
+			// Append the PayForFibre transaction
+			if !builder.AppendPayForFibreTx(txBytes) {
+				return nil, fmt.Errorf("not enough space to append pay-for-fibre tx at index %d", idx)
+			}
+			// Create and append the system blob
+			systemBlob, err := handler.CreateSystemBlob(txBytes)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create system blob for pay-for-fibre tx at index %d: %w", idx, err)
+			}
+			if !builder.AppendSystemBlob(systemBlob) {
+				return nil, fmt.Errorf("not enough space to append system blob for pay-for-fibre tx at index %d", idx)
+			}
+			continue
+		}
+
+		// Normal transaction
+		if !builder.AppendTx(txBytes) {
+			return nil, fmt.Errorf("not enough space to append tx at index %d", idx)
+		}
+	}
+
 	return builder.Export()
 }
 
@@ -214,3 +308,32 @@ func WriteSquare(
 }
 
 type PFBDecoder func(txBytes []byte) ([]uint32, error)
+
+// PayForFibreHandler handles PayForFibre transaction identification and system blob creation.
+// This interface allows go-square to handle PayForFibre transactions without depending on
+// application-specific types.
+type PayForFibreHandler interface {
+	// IsPayForFibreTx returns true if the given transaction bytes represent a PayForFibre transaction.
+	IsPayForFibreTx(tx []byte) bool
+	// CreateSystemBlob creates a system blob from a PayForFibre transaction.
+	// The system blob will be added to the square alongside the PayForFibre transaction.
+	CreateSystemBlob(tx []byte) (*share.Blob, error)
+}
+
+// noOpPayForFibreHandler is a no-op implementation of PayForFibreHandler that never identifies
+// PayForFibre transactions. Use this when PayForFibre support is not needed.
+type noOpPayForFibreHandler struct{}
+
+func (noOpPayForFibreHandler) IsPayForFibreTx([]byte) bool {
+	return false
+}
+
+func (noOpPayForFibreHandler) CreateSystemBlob([]byte) (*share.Blob, error) {
+	return nil, fmt.Errorf("no-op handler cannot create system blobs")
+}
+
+// NoOpPayForFibreHandler returns a no-op PayForFibreHandler that never identifies PayForFibre transactions.
+// Use this when PayForFibre support is not needed.
+func NoOpPayForFibreHandler() PayForFibreHandler {
+	return noOpPayForFibreHandler{}
+}
