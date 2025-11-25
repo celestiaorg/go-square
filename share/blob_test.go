@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	v2 "github.com/celestiaorg/go-square/v3/proto/blob/v2"
+	v2 "github.com/celestiaorg/go-square/v4/proto/blob/v2"
 	"github.com/stretchr/testify/require"
 )
 
