@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	v2 "github.com/celestiaorg/go-square/v4/proto/blob/v2"
+	v4 "github.com/celestiaorg/go-square/v4/proto/blob/v4"
 	"github.com/stretchr/testify/require"
 )
 
@@ -97,12 +97,12 @@ func TestNewBlobFromProto(t *testing.T) {
 	namespace := RandomNamespace()
 	testCases := []struct {
 		name        string
-		proto       *v2.BlobProto
+		proto       *v4.BlobProto
 		expectedErr string
 	}{
 		{
 			name: "valid blob",
-			proto: &v2.BlobProto{
+			proto: &v4.BlobProto{
 				NamespaceId:      namespace.ID(),
 				NamespaceVersion: uint32(namespace.Version()),
 				ShareVersion:     0,
@@ -112,7 +112,7 @@ func TestNewBlobFromProto(t *testing.T) {
 		},
 		{
 			name: "invalid namespace version",
-			proto: &v2.BlobProto{
+			proto: &v4.BlobProto{
 				NamespaceId:      namespace.ID(),
 				NamespaceVersion: 256,
 				ShareVersion:     0,
@@ -122,7 +122,7 @@ func TestNewBlobFromProto(t *testing.T) {
 		},
 		{
 			name: "empty data",
-			proto: &v2.BlobProto{
+			proto: &v4.BlobProto{
 				NamespaceId:      namespace.ID(),
 				NamespaceVersion: 0,
 				ShareVersion:     0,
@@ -132,7 +132,7 @@ func TestNewBlobFromProto(t *testing.T) {
 		},
 		{
 			name: "invalid namespace ID length",
-			proto: &v2.BlobProto{
+			proto: &v4.BlobProto{
 				NamespaceId:      []byte{1, 2, 3},
 				NamespaceVersion: 0,
 				ShareVersion:     0,
@@ -142,7 +142,7 @@ func TestNewBlobFromProto(t *testing.T) {
 		},
 		{
 			name: "valid blob with signer",
-			proto: &v2.BlobProto{
+			proto: &v4.BlobProto{
 				NamespaceId:      namespace.ID(),
 				NamespaceVersion: 0,
 				ShareVersion:     1,
@@ -153,7 +153,7 @@ func TestNewBlobFromProto(t *testing.T) {
 		},
 		{
 			name: "invalid signer length",
-			proto: &v2.BlobProto{
+			proto: &v4.BlobProto{
 				NamespaceId:      namespace.ID(),
 				NamespaceVersion: 0,
 				ShareVersion:     1,
@@ -436,12 +436,12 @@ func TestNewBlobFromProtoV2(t *testing.T) {
 
 	testCases := []struct {
 		name        string
-		proto       *v2.BlobProto
+		proto       *v4.BlobProto
 		expectedErr string
 	}{
 		{
 			name: "valid V2 blob",
-			proto: &v2.BlobProto{
+			proto: &v4.BlobProto{
 				NamespaceId:      namespace.ID(),
 				NamespaceVersion: uint32(namespace.Version()),
 				ShareVersion:     2,
@@ -452,7 +452,7 @@ func TestNewBlobFromProtoV2(t *testing.T) {
 		},
 		{
 			name: "V2 blob with invalid signer length",
-			proto: &v2.BlobProto{
+			proto: &v4.BlobProto{
 				NamespaceId:      namespace.ID(),
 				NamespaceVersion: 0,
 				ShareVersion:     2,
@@ -463,7 +463,7 @@ func TestNewBlobFromProtoV2(t *testing.T) {
 		},
 		{
 			name: "V2 blob with invalid data size",
-			proto: &v2.BlobProto{
+			proto: &v4.BlobProto{
 				NamespaceId:      namespace.ID(),
 				NamespaceVersion: 0,
 				ShareVersion:     2,
