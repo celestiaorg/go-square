@@ -6,8 +6,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/celestiaorg/go-square/v3/internal/test"
-	"github.com/celestiaorg/go-square/v3/share"
+	"github.com/celestiaorg/go-square/v4/internal/test"
+	"github.com/celestiaorg/go-square/v4/share"
 )
 
 func TestGetShareRangeForNamespace(t *testing.T) {

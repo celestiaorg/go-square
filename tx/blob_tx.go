@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 
-	v2 "github.com/celestiaorg/go-square/v3/proto/blob/v2"
-	"github.com/celestiaorg/go-square/v3/share"
+	v2 "github.com/celestiaorg/go-square/v4/proto/blob/v2"
+	"github.com/celestiaorg/go-square/v4/share"
 	"google.golang.org/protobuf/proto"
 )
 

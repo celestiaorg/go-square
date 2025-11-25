@@ -7,11 +7,12 @@
 package v2
 
 import (
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
+
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -246,7 +247,7 @@ const file_proto_blob_v2_blob_proto_rawDesc = "" +
 	"\fIndexWrapper\x12\x0e\n" +
 	"\x02tx\x18\x01 \x01(\fR\x02tx\x12#\n" +
 	"\rshare_indexes\x18\x02 \x03(\rR\fshareIndexes\x12\x17\n" +
-	"\atype_id\x18\x03 \x01(\tR\x06typeIdB3Z1github.com/celestiaorg/go-square/v3/proto/blob/v2b\x06proto3"
+	"\atype_id\x18\x03 \x01(\tR\x06typeIdB3Z1github.com/celestiaorg/go-square/v4/proto/blob/v2b\x06proto3"
 
 var (
 	file_proto_blob_v2_blob_proto_rawDescOnce sync.Once
