@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"sort"
 
-	v2 "github.com/celestiaorg/go-square/v4/proto/blob/v2"
+	v4 "github.com/celestiaorg/go-square/v4/proto/blob/v4"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -93,7 +93,7 @@ func NewV2Blob(ns Namespace, fibreBlobVersion uint32, commitment []byte, signer 
 
 // UnmarshalBlob unmarshals a blob from the proto encoded bytes
 func UnmarshalBlob(blob []byte) (*Blob, error) {
-	pb := &v2.BlobProto{}
+	pb := &v4.BlobProto{}
 	err := proto.Unmarshal(blob, pb)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal blob: %w", err)
@@ -103,7 +103,7 @@ func UnmarshalBlob(blob []byte) (*Blob, error) {
 
 // Marshal marshals the blob to the proto encoded bytes
 func (b *Blob) Marshal() ([]byte, error) {
-	pb := &v2.BlobProto{
+	pb := &v4.BlobProto{
 		NamespaceId:      b.namespace.ID(),
 		NamespaceVersion: uint32(b.namespace.Version()),
 		ShareVersion:     uint32(b.shareVersion),
@@ -115,7 +115,7 @@ func (b *Blob) Marshal() ([]byte, error) {
 
 // MarshalJSON converts blob's data to the json encoded bytes
 func (b *Blob) MarshalJSON() ([]byte, error) {
-	pb := &v2.BlobProto{
+	pb := &v4.BlobProto{
 		NamespaceId:      b.namespace.ID(),
 		NamespaceVersion: uint32(b.namespace.Version()),
 		ShareVersion:     uint32(b.shareVersion),
@@ -127,7 +127,7 @@ func (b *Blob) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON converts json encoded data to the blob
 func (b *Blob) UnmarshalJSON(bb []byte) error {
-	pb := &v2.BlobProto{}
+	pb := &v4.BlobProto{}
 	err := json.Unmarshal(bb, pb)
 	if err != nil {
 		return err
@@ -143,7 +143,7 @@ func (b *Blob) UnmarshalJSON(bb []byte) error {
 }
 
 // NewBlobFromProto creates a new blob from the proto generated type
-func NewBlobFromProto(pb *v2.BlobProto) (*Blob, error) {
+func NewBlobFromProto(pb *v4.BlobProto) (*Blob, error) {
 	if pb.NamespaceVersion > NamespaceVersionMax {
 		return nil, errors.New("namespace version can not be greater than MaxNamespaceVersion")
 	}

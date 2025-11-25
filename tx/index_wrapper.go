@@ -1,9 +1,8 @@
 package tx
 
 import (
+	v4 "github.com/celestiaorg/go-square/v4/proto/blob/v4"
 	"google.golang.org/protobuf/proto"
-
-	v2 "github.com/celestiaorg/go-square/v4/proto/blob/v2"
 )
 
 const (
@@ -21,8 +20,8 @@ const (
 // not a IndexWrapper, since the protobuf definition for MsgPayForBlob is
 // kept in the app, we cannot perform further checks without creating an import
 // cycle.
-func UnmarshalIndexWrapper(tx []byte) (*v2.IndexWrapper, bool) {
-	indexWrapper := v2.IndexWrapper{}
+func UnmarshalIndexWrapper(tx []byte) (*v4.IndexWrapper, bool) {
+	indexWrapper := v4.IndexWrapper{}
 	// attempt to unmarshal into an IndexWrapper transaction
 	err := proto.Unmarshal(tx, &indexWrapper)
 	if err != nil {
@@ -44,8 +43,8 @@ func MarshalIndexWrapper(tx []byte, shareIndexes ...uint32) ([]byte, error) {
 }
 
 // NewIndexWrapper creates a new IndexWrapper transaction.
-func NewIndexWrapper(tx []byte, shareIndexes ...uint32) *v2.IndexWrapper {
-	return &v2.IndexWrapper{
+func NewIndexWrapper(tx []byte, shareIndexes ...uint32) *v4.IndexWrapper {
+	return &v4.IndexWrapper{
 		Tx:           tx,
 		ShareIndexes: shareIndexes,
 		TypeId:       ProtoIndexWrapperTypeID,
