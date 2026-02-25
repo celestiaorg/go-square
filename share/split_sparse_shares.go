@@ -51,7 +51,7 @@ func (sss *SparseShareSplitter) Write(blob *Blob) error {
 		if err != nil {
 			return err
 		}
-		sss.shares = append(sss.shares, *share)
+		sss.shares = append(sss.shares, share)
 
 		b, err = newBuilder(blobNamespace, blob.ShareVersion(), false)
 		if err != nil {

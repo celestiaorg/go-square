@@ -29,7 +29,7 @@ func RandShares(total int) ([]Share, error) {
 			panic(err)
 		}
 
-		shares[i] = *sh
+		shares[i] = sh
 	}
 	sort.Slice(shares, func(i, j int) bool { return bytes.Compare(shares[i].ToBytes(), shares[j].ToBytes()) < 0 })
 	return shares, nil
@@ -63,7 +63,7 @@ func RandSharesWithNamespace(namespace Namespace, namespacedAmount, total int) (
 		if err != nil {
 			panic(err)
 		}
-		shares[i] = *sh
+		shares[i] = sh
 	}
 	sort.Slice(shares, func(i, j int) bool { return bytes.Compare(shares[i].ToBytes(), shares[j].ToBytes()) < 0 })
 	return shares, nil
