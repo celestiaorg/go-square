@@ -38,10 +38,8 @@ func Build(txs [][]byte, maxSquareSize, subtreeRootThreshold int) (Square, [][]b
 			if added {
 				blobTxs = append(blobTxs, txBytes)
 			}
-		} else {
-			if builder.AppendTx(txBytes) {
-				normalTxs = append(normalTxs, txBytes)
-			}
+		} else if builder.AppendTx(txBytes) {
+			normalTxs = append(normalTxs, txBytes)
 		}
 	}
 	square, err := builder.Export()

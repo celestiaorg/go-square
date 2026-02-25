@@ -444,8 +444,8 @@ func TestSubTreeWidth(t *testing.T) {
 
 func TestSubTreeWidthErrors(t *testing.T) {
 	testCases := []struct {
-		name                  string
-		subtreeRootThreshold  int
+		name                 string
+		subtreeRootThreshold int
 	}{
 		{"zero threshold", 0},
 		{"negative threshold", -1},
