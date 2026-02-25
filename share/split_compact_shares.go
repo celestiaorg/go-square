@@ -99,7 +99,7 @@ func (css *CompactShareSplitter) stackPending() error {
 	if err != nil {
 		return err
 	}
-	css.shares = append(css.shares, *pendingShare)
+	css.shares = append(css.shares, pendingShare)
 
 	// Now we need to create a new builder
 	css.shareBuilder, err = newBuilder(css.namespace, css.shareVersion, false)
@@ -177,7 +177,7 @@ func (css *CompactShareSplitter) writeSequenceLen(sequenceLen uint32) error {
 	}
 
 	// replace existing first share with new first share
-	css.shares[0] = *firstShare
+	css.shares[0] = firstShare
 
 	return nil
 }
