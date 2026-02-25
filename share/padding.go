@@ -25,7 +25,7 @@ func NamespacePaddingShare(ns Namespace, shareVersion uint8) (Share, error) {
 		return Share{}, err
 	}
 
-	return *share, nil
+	return share, nil
 }
 
 // NamespacePaddingShares returns n namespace padding shares.
