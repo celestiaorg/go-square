@@ -45,7 +45,9 @@ func TestBuilderSquareSizeEstimation(t *testing.T) {
 			txs := generateMixedTxs(tt.normalTxs, tt.pfbCount, 1, tt.pfbSize)
 			square, _, err := square.Build(txs, 64, defaultSubtreeRootThreshold)
 			require.NoError(t, err)
-			require.EqualValues(t, tt.expectedSquareSize, square.Size())
+			size, err := square.Size()
+			require.NoError(t, err)
+			require.EqualValues(t, tt.expectedSquareSize, size)
 		})
 	}
 }
@@ -91,7 +93,9 @@ func TestBuilderRejectsBlobTransactions(t *testing.T) {
 			blobTx, isBlobTx, err := tx.UnmarshalBlobTx(txs[0])
 			require.NoError(t, err)
 			require.True(t, isBlobTx)
-			require.Equal(t, tc.added, builder.AppendBlobTx(blobTx))
+			added, err := builder.AppendBlobTx(blobTx)
+			require.NoError(t, err)
+			require.Equal(t, tc.added, added)
 		})
 	}
 }
@@ -118,7 +122,9 @@ func TestBuilderFindTxShareRange(t *testing.T) {
 
 	dataSquare, err := builder.Export()
 	require.NoError(t, err)
-	size := dataSquare.Size() * dataSquare.Size()
+	dataSquareSize, err := dataSquare.Size()
+	require.NoError(t, err)
+	size := dataSquareSize * dataSquareSize
 
 	var lastEnd int
 	for idx, txBytes := range blockTxs {
@@ -300,7 +306,7 @@ func TestSquareBlobPostions(t *testing.T) {
 				blobTx, isBlobTx, err := tx.UnmarshalBlobTx(txBytes)
 				require.NoError(t, err)
 				require.True(t, isBlobTx)
-				_ = builder.AppendBlobTx(blobTx)
+				_, _ = builder.AppendBlobTx(blobTx)
 			}
 			square, err := builder.Export()
 			require.NoError(t, err)
@@ -461,7 +467,9 @@ func TestBuilderRevertLastBlobTx(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, isBlobTx)
 
-	require.True(t, builder.AppendBlobTx(blobTx))
+	appended, err := builder.AppendBlobTx(blobTx)
+	require.NoError(t, err)
+	require.True(t, appended)
 	require.Len(t, builder.Pfbs, 1)
 	require.Len(t, builder.Blobs, 1)
 	initialSize := builder.CurrentSize()
@@ -495,7 +503,9 @@ func TestBuilderRevertLastBlobTxWithMultipleBlobs(t *testing.T) {
 	require.True(t, isBlobTx)
 	require.Len(t, blobTx.Blobs, 2)
 
-	require.True(t, builder.AppendBlobTx(blobTx))
+	appended, err := builder.AppendBlobTx(blobTx)
+	require.NoError(t, err)
+	require.True(t, appended)
 	require.Len(t, builder.Pfbs, 1)
 	require.Len(t, builder.Blobs, 2) // Should have 2 blobs
 
@@ -505,7 +515,9 @@ func TestBuilderRevertLastBlobTxWithMultipleBlobs(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, isBlobTx2)
 
-	require.True(t, builder.AppendBlobTx(blobTx2))
+	appended, err = builder.AppendBlobTx(blobTx2)
+	require.NoError(t, err)
+	require.True(t, appended)
 	require.Len(t, builder.Pfbs, 2)
 	require.Len(t, builder.Blobs, 3) // Should have 3 blobs total
 
@@ -538,7 +550,9 @@ func TestBuilderRevertMixed(t *testing.T) {
 	blobTx, isBlobTx, err := tx.UnmarshalBlobTx(blobTxs[0])
 	require.NoError(t, err)
 	require.True(t, isBlobTx)
-	require.True(t, builder.AppendBlobTx(blobTx))
+	appended, err := builder.AppendBlobTx(blobTx)
+	require.NoError(t, err)
+	require.True(t, appended)
 
 	// Verify state
 	require.Len(t, builder.Txs, 1)
@@ -623,8 +637,12 @@ func TestMultipleRevertBlobTxs(t *testing.T) {
 	blobTx2, _, err := tx.UnmarshalBlobTx(blobTxs2[0])
 	require.NoError(t, err)
 
-	require.True(t, builder.AppendBlobTx(blobTx1))
-	require.True(t, builder.AppendBlobTx(blobTx2))
+	appended, err := builder.AppendBlobTx(blobTx1)
+	require.NoError(t, err)
+	require.True(t, appended)
+	appended, err = builder.AppendBlobTx(blobTx2)
+	require.NoError(t, err)
+	require.True(t, appended)
 	require.Len(t, builder.Pfbs, 2)
 
 	sizeAfterTwoBlobTxs := builder.CurrentSize()
@@ -686,7 +704,9 @@ func TestRevertAfterNewAdd(t *testing.T) {
 	blobTx1, _, err := tx.UnmarshalBlobTx(blobTxs1[0])
 	require.NoError(t, err)
 
-	require.True(t, builder.AppendBlobTx(blobTx1))
+	appended, err := builder.AppendBlobTx(blobTx1)
+	require.NoError(t, err)
+	require.True(t, appended)
 	err = builder.RevertLastBlobTx()
 	require.NoError(t, err)
 
@@ -701,7 +721,9 @@ func TestRevertAfterNewAdd(t *testing.T) {
 	blobTx2, _, err := tx.UnmarshalBlobTx(blobTxs2[0])
 	require.NoError(t, err)
 
-	require.True(t, builder.AppendBlobTx(blobTx2))
+	appended, err = builder.AppendBlobTx(blobTx2)
+	require.NoError(t, err)
+	require.True(t, appended)
 
 	// Now revert should work again
 	err = builder.RevertLastBlobTx()

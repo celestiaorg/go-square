@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"math"
+	"math/bits"
 
 	"github.com/celestiaorg/go-square/v3/share"
 	"github.com/celestiaorg/go-square/v3/tx"
@@ -31,13 +32,15 @@ func Build(txs [][]byte, maxSquareSize, subtreeRootThreshold int) (Square, [][]b
 			return nil, nil, fmt.Errorf("unmarshalling blob tx at index %d: %w", idx, err)
 		}
 		if isBlobTx {
-			if builder.AppendBlobTx(blobTx) {
+			appended, err := builder.AppendBlobTx(blobTx)
+			if err != nil {
+				return nil, nil, fmt.Errorf("appending blob tx at index %d: %w", idx, err)
+			}
+			if appended {
 				blobTxs = append(blobTxs, txBytes)
 			}
-		} else {
-			if builder.AppendTx(txBytes) {
-				normalTxs = append(normalTxs, txBytes)
-			}
+		} else if builder.AppendTx(txBytes) {
+			normalTxs = append(normalTxs, txBytes)
 		}
 	}
 	square, err := builder.Export()
@@ -95,7 +98,7 @@ func BlobShareRange(txs [][]byte, txIndex, blobIndex, maxSquareSize, subtreeRoot
 type Square []share.Share
 
 // Size returns the size of the sides of a square
-func (s Square) Size() int {
+func (s Square) Size() (int, error) {
 	return Size(len(s))
 }
 
@@ -103,17 +106,23 @@ func (s Square) Size() int {
 // function is currently a wrapper around the da packages equivalent function to
 // avoid breaking the api. In future versions there will not be a copy of this
 // code here.
-func Size(length int) int {
+func Size(length int) (int, error) {
 	return RoundUpPowerOfTwo(int(math.Ceil(math.Sqrt(float64(length)))))
 }
 
 // RoundUpPowerOfTwo returns the next power of two greater than or equal to input.
-func RoundUpPowerOfTwo[I constraints.Integer](input I) I {
-	var result I = 1
-	for result < input {
-		result <<= 1
+func RoundUpPowerOfTwo[I constraints.Integer](input I) (I, error) {
+	if input <= 1 {
+		return 1, nil
 	}
-	return result
+	if input&(input-1) == 0 {
+		return input, nil
+	}
+	result := I(1) << bits.Len64(uint64(input))
+	if result <= 0 {
+		return 0, fmt.Errorf("cannot round up %v: result overflows %T", input, input)
+	}
+	return result, nil
 }
 
 // Equals returns true if two squares are equal

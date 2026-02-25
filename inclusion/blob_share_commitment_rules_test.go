@@ -2,6 +2,7 @@ package inclusion_test
 
 import (
 	"fmt"
+	"math"
 	"testing"
 
 	"github.com/celestiaorg/go-square/v3/inclusion"
@@ -152,7 +153,7 @@ func TestNextShareIndex(t *testing.T) {
 			name:          "at threshold",
 			cursor:        11,
 			blobLen:       defaultSubtreeRootThreshold,
-			squareSize:    inclusion.RoundUpPowerOfTwo(defaultSubtreeRootThreshold),
+			squareSize:    defaultSubtreeRootThreshold, // defaultSubtreeRootThreshold (64) is already a power of 2
 			expectedIndex: 11,
 			expectError:   false,
 		},
@@ -324,11 +325,34 @@ func TestRoundUpPowerOfTwo(t *testing.T) {
 		{input: 8, want: 8},
 		{input: 11, want: 16},
 		{input: 511, want: 512},
+		{input: 1 << 30, want: 1 << 30},
+		{input: (1 << 30) + 1, want: 1 << 31},
+		{input: math.MaxInt32, want: 1 << 31},
+		{input: math.MaxInt32 - 1, want: 1 << 31},
+		{input: 1 << 62, want: 1 << 62},
 	}
 	for _, tc := range testCases {
-		got := inclusion.RoundUpPowerOfTwo(tc.input)
-		assert.Equal(t, tc.want, got)
+		t.Run(fmt.Sprintf("input_%d", tc.input), func(t *testing.T) {
+			got, err := inclusion.RoundUpPowerOfTwo(tc.input)
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, got)
+		})
 	}
+}
+
+func TestRoundUpPowerOfTwoOverflow(t *testing.T) {
+	t.Run("int overflow", func(t *testing.T) {
+		_, err := inclusion.RoundUpPowerOfTwo(math.MaxInt)
+		assert.Error(t, err)
+	})
+	t.Run("uint64 overflow", func(t *testing.T) {
+		_, err := inclusion.RoundUpPowerOfTwo(uint64(math.MaxUint64))
+		assert.Error(t, err)
+	})
+	t.Run("uint64 just over last power of two", func(t *testing.T) {
+		_, err := inclusion.RoundUpPowerOfTwo(uint64((1 << 63) + 1))
+		assert.Error(t, err)
+	})
 }
 
 func TestBlobMinSquareSize(t *testing.T) {
@@ -372,7 +396,8 @@ func TestBlobMinSquareSize(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(fmt.Sprintf("shareCount %d", tc.shareCount), func(t *testing.T) {
-			got := inclusion.BlobMinSquareSize(tc.shareCount)
+			got, err := inclusion.BlobMinSquareSize(tc.shareCount)
+			require.NoError(t, err)
 			assert.Equal(t, tc.want, got)
 		})
 	}
@@ -435,7 +460,8 @@ func TestSubTreeWidth(t *testing.T) {
 	}
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("shareCount %d", tc.shareCount), func(t *testing.T) {
-			got := inclusion.SubTreeWidth(tc.shareCount, defaultSubtreeRootThreshold)
+			got, err := inclusion.SubTreeWidth(tc.shareCount, defaultSubtreeRootThreshold)
+			require.NoError(t, err)
 			assert.Equal(t, tc.want, got, i)
 		})
 	}
@@ -454,10 +480,31 @@ func TestRoundDownPowerOfTwo(t *testing.T) {
 		{input: 8, want: 8},
 		{input: 11, want: 8},
 		{input: 511, want: 256},
+		{input: 1 << 30, want: 1 << 30},
+		{input: (1 << 30) + 1, want: 1 << 30},
+		{input: math.MaxInt32, want: 1 << 30},
+		{input: math.MaxInt32 - 1, want: 1 << 30},
+		{input: math.MaxInt32 + 1, want: 1 << 31},
+		{input: 1 << 62, want: 1 << 62},
+		{input: (1 << 62) + 1, want: 1 << 62},
+		{input: math.MaxInt, want: 1 << 62},
 	}
 	for _, tc := range testCases {
-		got, err := inclusion.RoundDownPowerOfTwo(tc.input)
-		require.NoError(t, err)
-		assert.Equal(t, tc.want, got)
+		t.Run(fmt.Sprintf("input_%d", tc.input), func(t *testing.T) {
+			got, err := inclusion.RoundDownPowerOfTwo(tc.input)
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, got)
+		})
 	}
+}
+
+func TestRoundDownPowerOfTwoErrors(t *testing.T) {
+	t.Run("negative input", func(t *testing.T) {
+		_, err := inclusion.RoundDownPowerOfTwo(-1)
+		assert.Error(t, err)
+	})
+	t.Run("zero input", func(t *testing.T) {
+		_, err := inclusion.RoundDownPowerOfTwo(0)
+		assert.Error(t, err)
+	})
 }

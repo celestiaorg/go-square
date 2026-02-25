@@ -2,6 +2,8 @@ package square_test
 
 import (
 	"bytes"
+	"fmt"
+	"math"
 	"testing"
 
 	"github.com/celestiaorg/go-square/v3"
@@ -149,6 +151,51 @@ func TestSquareBlobShareRange(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestRoundUpPowerOfTwo(t *testing.T) {
+	type testCase struct {
+		input int
+		want  int
+	}
+	testCases := []testCase{
+		{input: -1, want: 1},
+		{input: 0, want: 1},
+		{input: 1, want: 1},
+		{input: 2, want: 2},
+		{input: 4, want: 4},
+		{input: 5, want: 8},
+		{input: 8, want: 8},
+		{input: 11, want: 16},
+		{input: 511, want: 512},
+		{input: 1 << 30, want: 1 << 30},
+		{input: (1 << 30) + 1, want: 1 << 31},
+		{input: math.MaxInt32, want: 1 << 31},
+		{input: math.MaxInt32 - 1, want: 1 << 31},
+		{input: 1 << 62, want: 1 << 62},
+	}
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("input_%d", tc.input), func(t *testing.T) {
+			got, err := square.RoundUpPowerOfTwo(tc.input)
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
+func TestRoundUpPowerOfTwoOverflow(t *testing.T) {
+	t.Run("int overflow", func(t *testing.T) {
+		_, err := square.RoundUpPowerOfTwo(math.MaxInt)
+		assert.Error(t, err)
+	})
+	t.Run("uint64 overflow", func(t *testing.T) {
+		_, err := square.RoundUpPowerOfTwo(uint64(math.MaxUint64))
+		assert.Error(t, err)
+	})
+	t.Run("uint64 just over last power of two", func(t *testing.T) {
+		_, err := square.RoundUpPowerOfTwo(uint64((1 << 63) + 1))
+		assert.Error(t, err)
+	})
+}
+
 func TestSize(t *testing.T) {
 	type test struct {
 		input  int
@@ -164,7 +211,8 @@ func TestSize(t *testing.T) {
 		{input: defaultMaxSquareSize*defaultMaxSquareSize + 1, expect: defaultMaxSquareSize * 2},
 	}
 	for i, tt := range tests {
-		res := square.Size(tt.input)
+		res, err := square.Size(tt.input)
+		require.NoError(t, err, i)
 		assert.Equal(t, tt.expect, res, i)
 		assert.True(t, square.IsPowerOfTwo(res))
 	}
