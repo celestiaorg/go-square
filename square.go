@@ -31,7 +31,11 @@ func Build(txs [][]byte, maxSquareSize, subtreeRootThreshold int) (Square, [][]b
 			return nil, nil, fmt.Errorf("unmarshalling blob tx at index %d: %w", idx, err)
 		}
 		if isBlobTx {
-			if builder.AppendBlobTx(blobTx) {
+			added, err := builder.AppendBlobTx(blobTx)
+			if err != nil {
+				return nil, nil, fmt.Errorf("appending blob tx at index %d: %w", idx, err)
+			}
+			if added {
 				blobTxs = append(blobTxs, txBytes)
 			}
 		} else {
