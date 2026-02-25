@@ -23,27 +23,47 @@ A share is the atomic unit of data in Celestia, fixed at **512 bytes**. There ar
 
 The first share in a sequence includes header fields that continuation shares omit:
 
+**Sparse shares** (blob data):
+
 ```mermaid
-flowchart TB
-    subgraph sparse_v0_first["Sparse v0 — First Share (512 B)"]
+flowchart LR
+    subgraph sparse_v0_first["v0 — First Share (512 B)"]
         direction LR
-        sv0a["Namespace\n29 B"] --- sv0b["InfoByte\n1 B"] --- sv0c["SequenceLen\n4 B"] --- sv0d["Data\n478 B"]
+        sv0a["Namespace<br>29 B"] --- sv0b["InfoByte<br>1 B"] --- sv0c["SequenceLen<br>4 B"] --- sv0d["Data<br>478 B"]
     end
-    subgraph sparse_v1_first["Sparse v1 — First Share (512 B)"]
+```
+
+```mermaid
+flowchart LR
+    subgraph sparse_v1_first["v1 — First Share (512 B)"]
         direction LR
-        sv1a["Namespace\n29 B"] --- sv1b["InfoByte\n1 B"] --- sv1c["SequenceLen\n4 B"] --- sv1d["Signer\n20 B"] --- sv1e["Data\n458 B"]
+        sv1a["Namespace<br>29 B"] --- sv1b["InfoByte<br>1 B"] --- sv1c["SequenceLen<br>4 B"] --- sv1d["Signer<br>20 B"] --- sv1e["Data<br>458 B"]
     end
-    subgraph sparse_cont["Sparse — Continuation Share (512 B)"]
+```
+
+```mermaid
+flowchart LR
+    subgraph sparse_cont["Continuation Share (512 B)"]
         direction LR
-        sca["Namespace\n29 B"] --- scb["InfoByte\n1 B"] --- scc["Data\n482 B"]
+        sca["Namespace<br>29 B"] --- scb["InfoByte<br>1 B"] --- scc["Data<br>482 B"]
     end
-    subgraph compact_first["Compact — First Share (512 B)"]
+```
+
+**Compact shares** (transactions):
+
+```mermaid
+flowchart LR
+    subgraph compact_first["First Share (512 B)"]
         direction LR
-        cfa["Namespace\n29 B"] --- cfb["InfoByte\n1 B"] --- cfc["SequenceLen\n4 B"] --- cfd["Reserved\n4 B"] --- cfe["Data\n474 B"]
+        cfa["Namespace<br>29 B"] --- cfb["InfoByte<br>1 B"] --- cfc["SequenceLen<br>4 B"] --- cfd["Reserved<br>4 B"] --- cfe["Data<br>474 B"]
     end
-    subgraph compact_cont["Compact — Continuation Share (512 B)"]
+```
+
+```mermaid
+flowchart LR
+    subgraph compact_cont["Continuation Share (512 B)"]
         direction LR
-        cca["Namespace\n29 B"] --- ccb["InfoByte\n1 B"] --- ccc["Reserved\n4 B"] --- ccd["Data\n478 B"]
+        cca["Namespace<br>29 B"] --- ccb["InfoByte<br>1 B"] --- ccc["Reserved<br>4 B"] --- ccd["Data<br>478 B"]
     end
 ```
 
@@ -61,10 +81,10 @@ A blob is split into sparse shares by `SparseShareSplitter`. The first share car
 
 ```mermaid
 flowchart LR
-    Blob["Blob\n(namespace, data,\nversion, signer)"] --> SSS["SparseShareSplitter"]
-    SSS --> S1["Share 1 (first)\nheader + data"]
-    SSS --> S2["Share 2\ncontinuation"]
-    SSS --> SN["Share N\nzero-padded"]
+    Blob["Blob<br>(namespace, data,<br>version, signer)"] --> SSS["SparseShareSplitter"]
+    SSS --> S1["Share 1 (first)<br>header + data"]
+    SSS --> S2["Share 2<br>continuation"]
+    SSS --> SN["Share N<br>zero-padded"]
 ```
 
 Transactions are similarly packed into compact shares by `CompactShareSplitter`. Each transaction is prefixed with a varint length delimiter, and multiple transactions are concatenated into the data region.
@@ -117,10 +137,10 @@ The `Builder` processes a list of transactions and produces a data square:
 ```mermaid
 flowchart TD
     Input["Input Transactions"] --> Classify{"Classify"}
-    Classify -->|"Regular Tx"| TxW["CompactShareSplitter\n(TxNamespace)"]
+    Classify -->|"Regular Tx"| TxW["CompactShareSplitter<br>(TxNamespace)"]
     Classify -->|"BlobTx"| Unwrap["Unwrap BlobTx"]
-    Classify -->|"PayForFibreTx"| PffW["CompactShareSplitter\n(PayForFibreNamespace)"]
-    Unwrap --> PfbW["CompactShareSplitter\n(PayForBlobNamespace)"]
+    Classify -->|"PayForFibreTx"| PffW["CompactShareSplitter<br>(PayForFibreNamespace)"]
+    Unwrap --> PfbW["CompactShareSplitter<br>(PayForBlobNamespace)"]
     Unwrap --> Blobs["Collect Blobs"]
     Blobs --> Sort["Sort by Namespace"]
     Sort --> Align["Align to SubTreeWidth"]
@@ -129,7 +149,7 @@ flowchart TD
     PfbW --> Assemble
     PffW --> Assemble
     BlobW --> Assemble
-    Assemble --> Square["Data Square\n(power-of-2 dimensions)"]
+    Assemble --> Square["Data Square<br>(power-of-2 dimensions)"]
 ```
 
 Key steps:
@@ -146,14 +166,14 @@ A blob's **share commitment** is a Merkle root over Namespaced Merkle Tree (NMT)
 ```mermaid
 flowchart TD
     Blob["Blob"] --> Shares["Split into shares"]
-    Shares --> Partition["Partition by SubTreeWidth\n(MerkleMountainRangeSizes)"]
-    Partition --> ST1["Subtree 1\n(≤ w shares)"]
-    Partition --> ST2["Subtree 2\n(≤ w shares)"]
-    Partition --> STN["Subtree N\n(≤ w shares)"]
+    Shares --> Partition["Partition by SubTreeWidth<br>(MerkleMountainRangeSizes)"]
+    Partition --> ST1["Subtree 1<br>(≤ w shares)"]
+    Partition --> ST2["Subtree 2<br>(≤ w shares)"]
+    Partition --> STN["Subtree N<br>(≤ w shares)"]
     ST1 --> NMT1["NMT Root"]
     ST2 --> NMT2["NMT Root"]
     STN --> NMTN["NMT Root"]
-    NMT1 --> Root["Merkle Root\n= Commitment"]
+    NMT1 --> Root["Merkle Root<br>= Commitment"]
     NMT2 --> Root
     NMTN --> Root
 ```
