@@ -73,7 +73,11 @@ func NewBuilder(maxSquareSize int, subtreeRootThreshold int, txs ...[]byte) (*Bu
 		}
 		if isBlobTx {
 			seenFirstBlobTx = true
-			if !builder.AppendBlobTx(blobTx) {
+			added, err := builder.AppendBlobTx(blobTx)
+			if err != nil {
+				return nil, fmt.Errorf("appending blob tx at index %d: %w", idx, err)
+			}
+			if !added {
 				return nil, fmt.Errorf("not enough space to append blob tx at index %d", idx)
 			}
 		} else {
@@ -126,7 +130,7 @@ func (b *Builder) RevertLastTx() error {
 
 // AppendBlobTx attempts to allocate the blob transaction to the square. It returns false if there is not
 // enough space in the square to fit the transaction.
-func (b *Builder) AppendBlobTx(blobTx *tx.BlobTx) bool {
+func (b *Builder) AppendBlobTx(blobTx *tx.BlobTx) (bool, error) {
 	iw := tx.NewIndexWrapper(blobTx.Tx, worstCaseShareIndexes(len(blobTx.Blobs))...)
 	size := proto.Size(iw)
 	pfbShareDiff := b.PfbCounter.Add(size)
@@ -135,7 +139,12 @@ func (b *Builder) AppendBlobTx(blobTx *tx.BlobTx) bool {
 	blobElements := make([]*Element, len(blobTx.Blobs))
 	maxBlobShareCount := 0
 	for idx, blob := range blobTx.Blobs {
-		blobElements[idx] = newElement(blob, len(b.Pfbs), idx, b.subtreeRootThreshold)
+		element, err := newElement(blob, len(b.Pfbs), idx, b.subtreeRootThreshold)
+		if err != nil {
+			b.PfbCounter.Revert()
+			return false, err
+		}
+		blobElements[idx] = element
 		maxBlobShareCount += blobElements[idx].maxShareOffset()
 	}
 
@@ -147,10 +156,10 @@ func (b *Builder) AppendBlobTx(blobTx *tx.BlobTx) bool {
 		b.lastBlobTxSizeChange = totalSizeChange
 		b.blobTxReverted = false // reset revert flag
 		b.done = false
-		return true
+		return true, nil
 	}
 	b.PfbCounter.Revert()
-	return false
+	return false, nil
 }
 
 // RevertLastBlobTx reverts the last blob transaction that was appended to the builder.
@@ -446,38 +455,42 @@ type Element struct {
 	MaxPadding int
 }
 
-func newElement(blob *share.Blob, pfbIndex, blobIndex, subtreeRootThreshold int) *Element {
+func newElement(blob *share.Blob, pfbIndex, blobIndex, subtreeRootThreshold int) (*Element, error) {
 	numShares := share.SparseSharesNeeded(uint32(len(blob.Data())), blob.HasSigner())
-	return &Element{
-		Blob:      blob,
-		PfbIndex:  pfbIndex,
-		BlobIndex: blobIndex,
-		NumShares: numShares,
-		//
-		// For calculating the maximum possible padding consider the following tree
-		// where each leaf corresponds to a share.
-		//
-		//	Depth       Position
-		//	0              0
-		//	              / \
-		//	             /   \
-		//	1           0     1
-		//	           /\     /\
-		//	2         0  1   2  3
-		//	         /\  /\ /\  /\
-		//	3       0 1 2 3 4 5 6 7
-		//
-		// Imagine if, according to the share commitment rules, a transcation took up 11 shares
-		// and had the merkle mountain tree commitment of 4,4,2,1. The first part of the share commitment
-		// would then be something that spans 4 shares and has a depth of 1. The worst case padding
-		// would be if the last transaction had a share at leaf index 0. Thus three padding shares would
-		// be needed to start the transaction at index 4 and be aligned with the first commitment.
-		// Thus the rule is to take the subtreewidh of the share size and subtract 1.
-		//
-		// Note that the padding would actually belong to the namespace of the transaction before it, but
-		// this makes no difference to the total share size.
-		MaxPadding: inclusion.SubTreeWidth(numShares, subtreeRootThreshold) - 1,
+	//
+	// For calculating the maximum possible padding consider the following tree
+	// where each leaf corresponds to a share.
+	//
+	//	Depth       Position
+	//	0              0
+	//	              / \
+	//	             /   \
+	//	1           0     1
+	//	           /\     /\
+	//	2         0  1   2  3
+	//	         /\  /\ /\  /\
+	//	3       0 1 2 3 4 5 6 7
+	//
+	// Imagine if, according to the share commitment rules, a transcation took up 11 shares
+	// and had the merkle mountain tree commitment of 4,4,2,1. The first part of the share commitment
+	// would then be something that spans 4 shares and has a depth of 1. The worst case padding
+	// would be if the last transaction had a share at leaf index 0. Thus three padding shares would
+	// be needed to start the transaction at index 4 and be aligned with the first commitment.
+	// Thus the rule is to take the subtreewidh of the share size and subtract 1.
+	//
+	// Note that the padding would actually belong to the namespace of the transaction before it, but
+	// this makes no difference to the total share size.
+	subTreeWidth, err := inclusion.SubTreeWidth(numShares, subtreeRootThreshold)
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate subtree width: %w", err)
 	}
+	return &Element{
+		Blob:       blob,
+		PfbIndex:   pfbIndex,
+		BlobIndex:  blobIndex,
+		NumShares:  numShares,
+		MaxPadding: subTreeWidth - 1,
+	}, nil
 }
 
 func (e Element) maxShareOffset() int {
