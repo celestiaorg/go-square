@@ -363,6 +363,102 @@ func TestMarshalNamespace(t *testing.T) {
 	require.Equal(t, ns, newNs)
 }
 
+func TestAddInt(t *testing.T) {
+	// ns1 is a namespace with subID {1}
+	ns1 := MustNewV0Namespace([]byte{1})
+	// ns5 is a namespace with subID {5}
+	ns5 := MustNewV0Namespace([]byte{5})
+	// nsMax is a namespace where the last byte of the ID is 0xFF
+	nsMax := MustNewV0Namespace(bytes.Repeat([]byte{0xFF}, NamespaceVersionZeroIDSize))
+	// nsZero is the zero-value v0 namespace
+	nsZero := MustNewV0Namespace([]byte{0})
+
+	type testCase struct {
+		name    string
+		ns      Namespace
+		val     int
+		want    Namespace
+		wantErr bool
+	}
+
+	testCases := []testCase{
+		{
+			name: "add 0 returns the same namespace",
+			ns:   ns1,
+			val:  0,
+			want: ns1,
+		},
+		{
+			name: "add 1 to ns1 returns ns with subID {2}",
+			ns:   ns1,
+			val:  1,
+			want: MustNewV0Namespace([]byte{2}),
+		},
+		{
+			name: "add 4 to ns1 returns ns5",
+			ns:   ns1,
+			val:  4,
+			want: ns5,
+		},
+		{
+			name: "subtract 1 from ns5 returns ns with subID {4}",
+			ns:   ns5,
+			val:  -1,
+			want: MustNewV0Namespace([]byte{4}),
+		},
+		{
+			name: "subtract 4 from ns5 returns ns1",
+			ns:   ns5,
+			val:  -4,
+			want: ns1,
+		},
+		{
+			name: "add 256 causes carry propagation",
+			ns:   ns1,
+			val:  256,
+			want: MustNewV0Namespace([]byte{1, 1}),
+		},
+		{
+			name: "add 1 to nsMax carries across subID into prefix",
+			ns:   nsMax,
+			val:  1,
+			want: Namespace{data: append(append(bytes.Repeat([]byte{0x00}, NamespaceSize-NamespaceVersionZeroIDSize-1), 0x01), bytes.Repeat([]byte{0x00}, NamespaceVersionZeroIDSize)...)},
+		},
+		{
+			name:    "positive overflow returns error",
+			ns:      ParitySharesNamespace,
+			val:     1,
+			wantErr: true,
+		},
+		{
+			name:    "negative overflow (underflow) returns error",
+			ns:      nsZero,
+			val:     -1,
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := tc.ns.AddInt(tc.val)
+			if tc.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+
+	t.Run("add then subtract returns original namespace", func(t *testing.T) {
+		added, err := ns5.AddInt(100)
+		require.NoError(t, err)
+		result, err := added.AddInt(-100)
+		require.NoError(t, err)
+		assert.Equal(t, ns5, result)
+	})
+}
+
 func BenchmarkEqual(b *testing.B) {
 	n1 := RandomNamespace()
 	n2 := RandomNamespace()
