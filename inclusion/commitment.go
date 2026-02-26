@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	sh "github.com/celestiaorg/go-square/v3/share"
+	sh "github.com/celestiaorg/go-square/v4/share"
 	"github.com/celestiaorg/nmt"
 	"golang.org/x/sync/errgroup"
 )
@@ -40,7 +40,10 @@ func GenerateSubtreeRoots(blob *sh.Blob, subtreeRootThreshold int) ([][]byte, er
 	// determined by the number of roots required to create a share commitment
 	// over that blob. The size of the tree is only increased if the number of
 	// subtree roots surpasses a constant threshold.
-	subTreeWidth := SubTreeWidth(len(shares), subtreeRootThreshold)
+	subTreeWidth, err := SubTreeWidth(len(shares), subtreeRootThreshold)
+	if err != nil {
+		return nil, err
+	}
 	treeSizes, err := MerkleMountainRangeSizes(uint64(len(shares)), uint64(subTreeWidth))
 	if err != nil {
 		return nil, err
@@ -126,7 +129,10 @@ func CreateParallelCommitments(blobs []*sh.Blob, merkleRootFn MerkleRootFn, subt
 	// subtree for parallel calculation using pooled nmts
 	for i, blob := range blobs {
 		shares := blobSharesResults[i]
-		subTreeWidth := SubTreeWidth(len(shares), subtreeRootThreshold)
+		subTreeWidth, err := SubTreeWidth(len(shares), subtreeRootThreshold)
+		if err != nil {
+			return nil, err
+		}
 		treeSizes, err := MerkleMountainRangeSizes(uint64(len(shares)), uint64(subTreeWidth))
 		if err != nil {
 			return nil, err

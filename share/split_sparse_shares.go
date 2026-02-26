@@ -1,6 +1,7 @@
 package share
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 
@@ -32,14 +33,46 @@ func (sss *SparseShareSplitter) Write(blob *Blob) error {
 	if err != nil {
 		return err
 	}
-	if err := b.WriteSequenceLen(uint32(len(rawData))); err != nil {
+
+	// For share version 2, sequence length is the length of fibre_blob_version (4 bytes) + commitment (32 bytes) = 36 bytes
+	// For other versions, sequence length is the total data length
+	var sequenceLen uint32
+	if blob.ShareVersion() == ShareVersionTwo {
+		sequenceLen = FibreBlobVersionSize + FibreCommitmentSize
+	} else {
+		sequenceLen = uint32(len(rawData))
+	}
+
+	if err := b.WriteSequenceLen(sequenceLen); err != nil {
 		return err
 	}
-	// add the signer to the first share for v1 share versions only
-	if blob.ShareVersion() == ShareVersionOne {
+
+	// add the signer to the first share for v1 and v2 share versions
+	if blob.ShareVersion() == ShareVersionOne || blob.ShareVersion() == ShareVersionTwo {
 		b.WriteSigner(blob.Signer())
 	}
 
+	// For share version 2, write fibre_blob_version and commitment separately
+	if blob.ShareVersion() == ShareVersionTwo {
+		if len(rawData) != FibreBlobVersionSize+FibreCommitmentSize {
+			return fmt.Errorf("share version 2 requires data of size %d bytes (fibre_blob_version + commitment), got %d", FibreBlobVersionSize+FibreCommitmentSize, len(rawData))
+		}
+		// Extract fibre_blob_version (first 4 bytes) and commitment (last 32 bytes)
+		fibreBlobVersion := binary.BigEndian.Uint32(rawData[0:FibreBlobVersionSize])
+		commitment := rawData[FibreBlobVersionSize:]
+		b.WriteFibreBlobVersion(fibreBlobVersion)
+		b.WriteFibreCommitment(commitment)
+		// Zero pad the share since all data fits in one share
+		b.ZeroPadIfNecessary()
+		share, err := b.Build()
+		if err != nil {
+			return err
+		}
+		sss.shares = append(sss.shares, share)
+		return nil
+	}
+
+	// For share versions 0 and 1, write data normally
 	for rawData != nil {
 		rawDataLeftOver := b.AddData(rawData)
 		if rawDataLeftOver == nil {
@@ -51,7 +84,7 @@ func (sss *SparseShareSplitter) Write(blob *Blob) error {
 		if err != nil {
 			return err
 		}
-		sss.shares = append(sss.shares, *share)
+		sss.shares = append(sss.shares, share)
 
 		b, err = newBuilder(blobNamespace, blob.ShareVersion(), false)
 		if err != nil {

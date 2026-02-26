@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/celestiaorg/go-square/v3/inclusion"
+	"github.com/celestiaorg/go-square/v4/inclusion"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -435,8 +435,25 @@ func TestSubTreeWidth(t *testing.T) {
 	}
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("shareCount %d", tc.shareCount), func(t *testing.T) {
-			got := inclusion.SubTreeWidth(tc.shareCount, defaultSubtreeRootThreshold)
+			got, err := inclusion.SubTreeWidth(tc.shareCount, defaultSubtreeRootThreshold)
+			require.NoError(t, err)
 			assert.Equal(t, tc.want, got, i)
+		})
+	}
+}
+
+func TestSubTreeWidthErrors(t *testing.T) {
+	testCases := []struct {
+		name                 string
+		subtreeRootThreshold int
+	}{
+		{"zero threshold", 0},
+		{"negative threshold", -1},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := inclusion.SubTreeWidth(2, tc.subtreeRootThreshold)
+			assert.Error(t, err)
 		})
 	}
 }

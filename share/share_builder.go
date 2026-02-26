@@ -3,6 +3,7 @@ package share
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 )
 
 type builder struct {
@@ -45,9 +46,12 @@ func (b *builder) AvailableBytes() int {
 	return ShareSize - len(b.rawShareData)
 }
 
-func (b *builder) ImportRawShare(rawBytes []byte) *builder {
+func (b *builder) ImportRawShare(rawBytes []byte) error {
+	if len(rawBytes) != ShareSize {
+		return fmt.Errorf("imported share must be %d bytes, got %d", ShareSize, len(rawBytes))
+	}
 	b.rawShareData = rawBytes
-	return b
+	return nil
 }
 
 func (b *builder) AddData(rawData []byte) (rawDataLeftOver []byte) {
@@ -71,7 +75,7 @@ func (b *builder) AddData(rawData []byte) (rawDataLeftOver []byte) {
 	return rawData[pendingLeft:]
 }
 
-func (b *builder) Build() (*Share, error) {
+func (b *builder) Build() (Share, error) {
 	return NewShare(b.rawShareData)
 }
 
@@ -156,6 +160,9 @@ func (b *builder) WriteSequenceLen(sequenceLen uint32) error {
 	if !b.isFirstShare {
 		return errors.New("not the first share")
 	}
+	if len(b.rawShareData) < NamespaceSize+ShareInfoBytes+SequenceLenBytes {
+		return fmt.Errorf("rawShareData needs at least %d bytes to write sequence length, got %d", NamespaceSize+ShareInfoBytes+SequenceLenBytes, len(b.rawShareData))
+	}
 	sequenceLenBuf := make([]byte, SequenceLenBytes)
 	binary.BigEndian.PutUint32(sequenceLenBuf, sequenceLen)
 
@@ -168,13 +175,36 @@ func (b *builder) WriteSequenceLen(sequenceLen uint32) error {
 
 // WriteSigner writes the signer's information to the share.
 func (b *builder) WriteSigner(signer []byte) {
-	// only write the signer if it is the first share and the share version is 1
-	if b == nil || !b.isFirstShare || b.shareVersion != ShareVersionOne {
+	// write the signer if it is the first share and the share version is 1 or 2
+	if b == nil || !b.isFirstShare || (b.shareVersion != ShareVersionOne && b.shareVersion != ShareVersionTwo) {
 		return
 	}
 	// NOTE: we don't check whether previous data has already been expected
 	// like the sequence length (we just assume it has)
 	b.rawShareData = append(b.rawShareData, signer...)
+}
+
+// WriteFibreBlobVersion writes the Fibre blob version (uint32) to the share.
+// This is only used for share version 2.
+func (b *builder) WriteFibreBlobVersion(fibreBlobVersion uint32) {
+	if b == nil || !b.isFirstShare || b.shareVersion != ShareVersionTwo {
+		return
+	}
+	fibreBlobVersionBuf := make([]byte, FibreBlobVersionSize)
+	binary.BigEndian.PutUint32(fibreBlobVersionBuf, fibreBlobVersion)
+	b.rawShareData = append(b.rawShareData, fibreBlobVersionBuf...)
+}
+
+// WriteFibreCommitment writes the commitment to the share.
+// This is only used for share version 2.
+func (b *builder) WriteFibreCommitment(commitment []byte) {
+	if b == nil || !b.isFirstShare || b.shareVersion != ShareVersionTwo {
+		return
+	}
+	if len(commitment) != FibreCommitmentSize {
+		return
+	}
+	b.rawShareData = append(b.rawShareData, commitment...)
 }
 
 // FlipSequenceStart flips the sequence start indicator of the share provided
@@ -229,5 +259,5 @@ func (b *builder) prepareSparseShare() error {
 }
 
 func isCompactShare(ns Namespace) bool {
-	return ns.IsTx() || ns.IsPayForBlob()
+	return ns.IsTx() || ns.IsPayForBlob() || ns.IsPayForFibre()
 }

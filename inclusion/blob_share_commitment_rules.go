@@ -36,7 +36,10 @@ func NextShareIndex(cursor, blobShareLen, subtreeRootThreshold int) (int, error)
 	// Calculate the subtreewidth. This is the width of the first mountain in the
 	// merkle mountain range that makes up the blob share commitment (given the
 	// subtreeRootThreshold and the BlobMinSquareSize).
-	treeWidth := SubTreeWidth(blobShareLen, subtreeRootThreshold)
+	treeWidth, err := SubTreeWidth(blobShareLen, subtreeRootThreshold)
+	if err != nil {
+		return 0, fmt.Errorf("failed to calculate subtree width: %w", err)
+	}
 	// Round up the cursor to the next multiple of treeWidth. For example, if
 	// the cursor was at 13 and the tree width is 4, return 16.
 	roundedUpCursor, err := RoundUpByMultipleOf(cursor, treeWidth)
@@ -87,8 +90,12 @@ func BlobMinSquareSize(shareCount int) int {
 
 // SubTreeWidth returns the maximum number of leaves per subtree in the share
 // commitment over a given blob. The input should be the total number of shares
-// used by that blob. See ADR-013.
-func SubTreeWidth(shareCount, subtreeRootThreshold int) int {
+// used by that blob. The subtreeRootThreshold must be positive. See ADR-013.
+func SubTreeWidth(shareCount, subtreeRootThreshold int) (int, error) {
+	if subtreeRootThreshold <= 0 {
+		return 0, fmt.Errorf("subtreeRootThreshold must be positive, got %d", subtreeRootThreshold)
+	}
+
 	// Per ADR-013, we use a predetermined threshold to determine width of sub
 	// trees used to create share commitments
 	s := (shareCount / subtreeRootThreshold)
@@ -104,7 +111,7 @@ func SubTreeWidth(shareCount, subtreeRootThreshold int) int {
 
 	// use the minimum of the subtree width and the min square size, this
 	// gurarantees that a valid value is returned
-	return getMin(s, BlobMinSquareSize(shareCount))
+	return getMin(s, BlobMinSquareSize(shareCount)), nil
 }
 
 func getMin[T constraints.Integer](i, j T) T {
