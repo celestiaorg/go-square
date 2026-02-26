@@ -3,6 +3,7 @@ package share
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 )
 
 type builder struct {
@@ -45,9 +46,12 @@ func (b *builder) AvailableBytes() int {
 	return ShareSize - len(b.rawShareData)
 }
 
-func (b *builder) ImportRawShare(rawBytes []byte) *builder {
+func (b *builder) ImportRawShare(rawBytes []byte) error {
+	if len(rawBytes) != ShareSize {
+		return fmt.Errorf("imported share must be %d bytes, got %d", ShareSize, len(rawBytes))
+	}
 	b.rawShareData = rawBytes
-	return b
+	return nil
 }
 
 func (b *builder) AddData(rawData []byte) (rawDataLeftOver []byte) {
@@ -155,6 +159,9 @@ func (b *builder) WriteSequenceLen(sequenceLen uint32) error {
 	}
 	if !b.isFirstShare {
 		return errors.New("not the first share")
+	}
+	if len(b.rawShareData) < NamespaceSize+ShareInfoBytes+SequenceLenBytes {
+		return fmt.Errorf("rawShareData needs at least %d bytes to write sequence length, got %d", NamespaceSize+ShareInfoBytes+SequenceLenBytes, len(b.rawShareData))
 	}
 	sequenceLenBuf := make([]byte, SequenceLenBytes)
 	binary.BigEndian.PutUint32(sequenceLenBuf, sequenceLen)

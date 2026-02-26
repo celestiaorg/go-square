@@ -122,6 +122,12 @@ func TestShareBuilderWriteSequenceLen(t *testing.T) {
 			wantLen: 10,
 			wantErr: true,
 		},
+		{
+			name:    "undersized rawShareData",
+			builder: &builder{isFirstShare: true, rawShareData: []byte{1, 2, 3, 4, 5}},
+			wantLen: 10,
+			wantErr: true,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -229,11 +235,13 @@ func TestShareBuilderImportRawData(t *testing.T) {
 		0, 0, 0, 10, // sequence len
 		1, 2, 3, 4, 5, 6, 7, 8, 9, 10, // data
 	}...)
+	firstSparseShare = append(firstSparseShare, bytes.Repeat([]byte{0}, ShareSize-len(firstSparseShare))...)
 
 	continuationSparseShare := append(ns1.Bytes(), []byte{
 		0,                             // info byte
 		1, 2, 3, 4, 5, 6, 7, 8, 9, 10, // data
 	}...)
+	continuationSparseShare = append(continuationSparseShare, bytes.Repeat([]byte{0}, ShareSize-len(continuationSparseShare))...)
 
 	firstCompactShare := append(TxNamespace.Bytes(), []byte{
 		1,           // info byte
@@ -241,20 +249,16 @@ func TestShareBuilderImportRawData(t *testing.T) {
 		0, 0, 0, 15, // reserved bytes
 		1, 2, 3, 4, 5, 6, 7, 8, 9, 10, // data
 	}...)
+	firstCompactShare = append(firstCompactShare, bytes.Repeat([]byte{0}, ShareSize-len(firstCompactShare))...)
 
 	continuationCompactShare := append(TxNamespace.Bytes(), []byte{
 		0,          // info byte
 		0, 0, 0, 0, // reserved bytes
 		1, 2, 3, 4, 5, 6, 7, 8, 9, 10, // data
 	}...)
+	continuationCompactShare = append(continuationCompactShare, bytes.Repeat([]byte{0}, ShareSize-len(continuationCompactShare))...)
 
-	oversizedImport := append(
-		append(
-			ns1.Bytes(),
-			[]byte{
-				0,          // info byte
-				0, 0, 0, 0, // reserved bytes
-			}...), bytes.Repeat([]byte{1}, 513)...) // data
+	undersizedImport := []byte{1, 2, 3, 4, 5}
 
 	testCases := []testCase{
 		{
@@ -278,21 +282,25 @@ func TestShareBuilderImportRawData(t *testing.T) {
 			want:       []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
 		},
 		{
-			name:       "oversized import",
-			shareBytes: oversizedImport,
+			name:       "undersized import",
+			shareBytes: undersizedImport,
 			wantErr:    true,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			b := newEmptyBuilder().ImportRawShare(tc.shareBytes)
-			b.ZeroPadIfNecessary()
-			builtShare, err := b.Build()
+			b := newEmptyBuilder()
+			err := b.ImportRawShare(tc.shareBytes)
 			if tc.wantErr {
 				assert.Error(t, err)
 				return
 			}
+			require.NoError(t, err)
+
+			b.ZeroPadIfNecessary()
+			builtShare, err := b.Build()
+			require.NoError(t, err)
 
 			rawData := builtShare.RawData()
 			// Since rawData has padding, we need to use contains
