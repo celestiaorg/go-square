@@ -164,7 +164,9 @@ func (css *CompactShareSplitter) writeSequenceLen(sequenceLen uint32) error {
 	if err != nil {
 		return err
 	}
-	b.ImportRawShare(css.shares[0].ToBytes())
+	if err := b.ImportRawShare(css.shares[0].ToBytes()); err != nil {
+		return err
+	}
 	if err := b.WriteSequenceLen(sequenceLen); err != nil {
 		return err
 	}
