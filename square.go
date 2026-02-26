@@ -7,8 +7,8 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"math"
-	"math/bits"
 
+	"github.com/celestiaorg/go-square/v3/inclusion"
 	"github.com/celestiaorg/go-square/v3/share"
 	"github.com/celestiaorg/go-square/v3/tx"
 	"golang.org/x/exp/constraints"
@@ -110,19 +110,9 @@ func Size(length int) (int, error) {
 	return RoundUpPowerOfTwo(int(math.Ceil(math.Sqrt(float64(length)))))
 }
 
-// RoundUpPowerOfTwo returns the next power of two greater than or equal to input.
+// Deprecated: Use inclusion.RoundUpPowerOfTwo directly.
 func RoundUpPowerOfTwo[I constraints.Integer](input I) (I, error) {
-	if input <= 1 {
-		return 1, nil
-	}
-	if input&(input-1) == 0 {
-		return input, nil
-	}
-	result := I(1) << bits.Len64(uint64(input))
-	if result <= 0 {
-		return 0, fmt.Errorf("cannot round up %v: result overflows %T", input, input)
-	}
-	return result, nil
+	return inclusion.RoundUpPowerOfTwo(input)
 }
 
 // Equals returns true if two squares are equal
