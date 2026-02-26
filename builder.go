@@ -73,11 +73,11 @@ func NewBuilder(maxSquareSize int, subtreeRootThreshold int, txs ...[]byte) (*Bu
 		}
 		if isBlobTx {
 			seenFirstBlobTx = true
-			appended, err := builder.AppendBlobTx(blobTx)
+			added, err := builder.AppendBlobTx(blobTx)
 			if err != nil {
 				return nil, fmt.Errorf("appending blob tx at index %d: %w", idx, err)
 			}
-			if !appended {
+			if !added {
 				return nil, fmt.Errorf("not enough space to append blob tx at index %d", idx)
 			}
 		} else {

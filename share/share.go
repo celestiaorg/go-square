@@ -36,11 +36,11 @@ func (s *Share) UnmarshalJSON(data []byte) error {
 
 // NewShare creates a new share from the raw data, validating it's
 // size and versioning
-func NewShare(data []byte) (*Share, error) {
+func NewShare(data []byte) (Share, error) {
 	if err := validateSize(data); err != nil {
-		return nil, err
+		return Share{}, err
 	}
-	return &Share{data}, nil
+	return Share{data}, nil
 }
 
 func validateSize(data []byte) error {
@@ -225,7 +225,7 @@ func FromBytes(bytes [][]byte) (shares []Share, err error) {
 		if err != nil {
 			return nil, err
 		}
-		shares = append(shares, *share)
+		shares = append(shares, share)
 	}
 	return shares, nil
 }

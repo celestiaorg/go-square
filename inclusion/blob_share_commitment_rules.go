@@ -39,7 +39,7 @@ func NextShareIndex(cursor, blobShareLen, subtreeRootThreshold int) (int, error)
 	// subtreeRootThreshold and the BlobMinSquareSize).
 	treeWidth, err := SubTreeWidth(blobShareLen, subtreeRootThreshold)
 	if err != nil {
-		return 0, fmt.Errorf("failed to calculate subtree width for blobShareLen %d: %w", blobShareLen, err)
+		return 0, fmt.Errorf("failed to calculate subtree width: %w", err)
 	}
 	// Round up the cursor to the next multiple of treeWidth. For example, if
 	// the cursor was at 13 and the tree width is 4, return 16.
@@ -96,8 +96,12 @@ func BlobMinSquareSize(shareCount int) (int, error) {
 
 // SubTreeWidth returns the maximum number of leaves per subtree in the share
 // commitment over a given blob. The input should be the total number of shares
-// used by that blob. See ADR-013.
+// used by that blob. The subtreeRootThreshold must be positive. See ADR-013.
 func SubTreeWidth(shareCount, subtreeRootThreshold int) (int, error) {
+	if subtreeRootThreshold <= 0 {
+		return 0, fmt.Errorf("subtreeRootThreshold must be positive, got %d", subtreeRootThreshold)
+	}
+
 	// Per ADR-013, we use a predetermined threshold to determine width of sub
 	// trees used to create share commitments
 	s := (shareCount / subtreeRootThreshold)
