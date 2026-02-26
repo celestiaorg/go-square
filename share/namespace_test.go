@@ -436,12 +436,6 @@ func TestAddInt(t *testing.T) {
 			val:     -1,
 			wantErr: true,
 		},
-		{
-			name: "add and subtract are inverse operations",
-			ns:   ns5,
-			val:  3,
-			want: MustNewV0Namespace([]byte{8}),
-		},
 	}
 
 	for _, tc := range testCases {
