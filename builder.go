@@ -19,9 +19,9 @@ const (
 	// https://github.com/celestiaorg/celestia-app/blob/31cf18b8b3711965bab622e2c4dbc2f306c2a49d/pkg/appconsts/app_consts.go#L12-L13
 	squareSizeUpperBound = 512
 
-	// FibreBlobIndex indicates that a blob is a Fibre blob (not associated
-	// with a PFB transaction). Used as PfbIndex and BlobIndex for Fibre blobs.
-	FibreBlobIndex = -1
+	// NoPfbIndex is used as PfbIndex and BlobIndex for system blobs that
+	// are not associated with a PFB transaction (e.g., Fibre blobs).
+	NoPfbIndex = -1
 )
 
 type Builder struct {
@@ -177,23 +177,39 @@ func (b *Builder) RevertLastBlobTx() error {
 	return nil
 }
 
-// AppendPayForFibreTx attempts to allocate the pay-for-fibre transaction to the square.
-// It returns false if there is not enough space in the square to fit the transaction.
-func (b *Builder) AppendPayForFibreTx(tx []byte) bool {
-	lenChange := b.PayForFibreCounter.Add(len(tx))
-	if b.canFit(lenChange) {
-		b.PayForFibreTxs = append(b.PayForFibreTxs, tx)
-		b.currentSize += lenChange
-		b.lastPayForFibreTxSizeChange = lenChange
-		b.payForFibreTxReverted = false // reset revert flag
+// AppendFibreTx attempts to allocate a FibreTx to the square. It atomically
+// adds the raw SDK tx bytes to PayForFibreTxs (compact shares) and the system
+// blob to Blobs (sparse shares). It returns false if there is not enough space.
+func (b *Builder) AppendFibreTx(fibreTx *tx.FibreTx) (bool, error) {
+	if fibreTx.SystemBlob.ShareVersion() != share.ShareVersionTwo {
+		return false, fmt.Errorf("system blobs must use ShareVersionTwo, got version %d", fibreTx.SystemBlob.ShareVersion())
+	}
+
+	pffShareDiff := b.PayForFibreCounter.Add(len(fibreTx.Tx))
+
+	element, err := newElement(fibreTx.SystemBlob, NoPfbIndex, NoPfbIndex, b.subtreeRootThreshold)
+	if err != nil {
+		b.PayForFibreCounter.Revert()
+		return false, err
+	}
+	blobShareCount := element.maxShareOffset()
+
+	totalSizeChange := pffShareDiff + blobShareCount
+	if b.canFit(totalSizeChange) {
+		b.PayForFibreTxs = append(b.PayForFibreTxs, fibreTx.Tx)
+		b.Blobs = append(b.Blobs, element)
+		b.currentSize += totalSizeChange
+		b.lastPayForFibreTxSizeChange = totalSizeChange
+		b.payForFibreTxReverted = false
 		b.done = false
-		return true
+		return true, nil
 	}
 	b.PayForFibreCounter.Revert()
-	return false
+	return false, nil
 }
 
 // RevertLastPayForFibreTx reverts the last pay-for-fibre transaction that was appended to the builder.
+// It removes both the compact share tx and the associated system blob.
 // It returns an error if there are no pay-for-fibre transactions to revert or if this method
 // has been called consecutively without adding a tx in between calls.
 func (b *Builder) RevertLastPayForFibreTx() error {
@@ -205,35 +221,19 @@ func (b *Builder) RevertLastPayForFibreTx() error {
 	}
 
 	b.PayForFibreTxs = b.PayForFibreTxs[:len(b.PayForFibreTxs)-1]
+	// Remove the last system blob (NoPfbIndex sentinel)
+	for i := len(b.Blobs) - 1; i >= 0; i-- {
+		if b.Blobs[i].PfbIndex == NoPfbIndex {
+			b.Blobs = append(b.Blobs[:i], b.Blobs[i+1:]...)
+			break
+		}
+	}
 	b.PayForFibreCounter.Revert()
 	b.currentSize -= b.lastPayForFibreTxSizeChange
 	b.payForFibreTxReverted = true
 	b.done = false
 
 	return nil
-}
-
-// AppendSystemBlob attempts to allocate a system blob to the square. System blobs are blobs
-// that are not associated with a PFB transaction (e.g., Fibre system-level blobs).
-// It returns false if there is not enough space in the square to fit the blob.
-// System blobs use PfbIndex = FibreBlobIndex to indicate they are not associated with a PFB.
-func (b *Builder) AppendSystemBlob(blob *share.Blob) (bool, error) {
-	if blob.ShareVersion() != share.ShareVersionTwo {
-		return false, fmt.Errorf("system blobs must use ShareVersionTwo, got version %d", blob.ShareVersion())
-	}
-	element, err := newElement(blob, FibreBlobIndex, FibreBlobIndex, b.subtreeRootThreshold)
-	if err != nil {
-		return false, err
-	}
-	maxBlobShareCount := element.maxShareOffset()
-
-	if b.canFit(maxBlobShareCount) {
-		b.Blobs = append(b.Blobs, element)
-		b.currentSize += maxBlobShareCount
-		b.done = false
-		return true, nil
-	}
-	return false, nil
 }
 
 // Export constructs the square.
@@ -298,7 +298,7 @@ func (b *Builder) Export() (Square, error) {
 
 		// record the starting share index of the blob in the PFB that paid for it
 		// Skip this step for system blobs as they are not associated with a PFB
-		if element.PfbIndex != FibreBlobIndex {
+		if element.PfbIndex != NoPfbIndex {
 			b.Pfbs[element.PfbIndex].ShareIndexes[element.BlobIndex] = uint32(cursor)
 		}
 		// If this is not the first blob, we add padding by writing padded shares to the previous blob

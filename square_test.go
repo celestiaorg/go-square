@@ -21,80 +21,63 @@ const (
 func TestSquareConstruction(t *testing.T) {
 	sendTxs := test.GenerateTxs(250, 250, 250)
 	pfbTxs := test.GenerateBlobTxs(10_000, 1, 1024)
-	t.Run("nil handler returns error", func(t *testing.T) {
-		txs := sendTxs[:5]
-		_, err := square.Construct(txs, defaultMaxSquareSize, defaultSubtreeRootThreshold, nil)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "handler must not be nil")
-	})
 	t.Run("normal transactions after PFB transactions", func(t *testing.T) {
 		txs := sendTxs[:5]
 		txs = append(txs, append(pfbTxs, txs...)...)
-		_, err := square.Construct(txs, defaultMaxSquareSize, defaultSubtreeRootThreshold, &mockPayForFibreHandler{})
+		_, err := square.Construct(txs, defaultMaxSquareSize, defaultSubtreeRootThreshold)
 		require.Error(t, err)
 	})
 	t.Run("not enough space to append transactions", func(t *testing.T) {
-		_, err := square.Construct(sendTxs, 2, defaultSubtreeRootThreshold, &mockPayForFibreHandler{})
+		_, err := square.Construct(sendTxs, 2, defaultSubtreeRootThreshold)
 		require.Error(t, err)
-		_, err = square.Construct(pfbTxs, 2, defaultSubtreeRootThreshold, &mockPayForFibreHandler{})
+		_, err = square.Construct(pfbTxs, 2, defaultSubtreeRootThreshold)
 		require.Error(t, err)
 	})
 	t.Run("construction should fail if a single PFB tx contains a blob that is too large to fit in the square", func(t *testing.T) {
 		pfbTxs := test.GenerateBlobTxs(1, 1, 2*mebibyte)
-		_, err := square.Construct(pfbTxs, 64, defaultSubtreeRootThreshold, &mockPayForFibreHandler{})
+		_, err := square.Construct(pfbTxs, 64, defaultSubtreeRootThreshold)
 		require.Error(t, err)
 	})
 	t.Run("validates transaction ordering: normal -> blob -> pay-for-fibre", func(t *testing.T) {
-		// Create a mock handler that identifies specific tx bytes as PayForFibre
 		normalTx := sendTxs[0]
 		blobTx := pfbTxs[0]
-		payForFibreTx := []byte("pay-for-fibre-tx")
-
-		mockHandler := &mockPayForFibreHandler{
-			payForFibreTxs: map[string]bool{
-				string(payForFibreTx): true,
-			},
-		}
+		payForFibreTx := newFibreTxBytes(t)
 
 		// Valid ordering: normal -> blob -> pay-for-fibre
 		validTxs := [][]byte{normalTx, blobTx, payForFibreTx}
-		_, err := square.Construct(validTxs, defaultMaxSquareSize, defaultSubtreeRootThreshold, mockHandler)
+		_, err := square.Construct(validTxs, defaultMaxSquareSize, defaultSubtreeRootThreshold)
 		require.NoError(t, err)
 
 		// Invalid: blob after pay-for-fibre (blob must come before pay-for-fibre if both exist)
 		invalidTxs1 := [][]byte{normalTx, payForFibreTx, blobTx}
-		_, err = square.Construct(invalidTxs1, defaultMaxSquareSize, defaultSubtreeRootThreshold, mockHandler)
+		_, err = square.Construct(invalidTxs1, defaultMaxSquareSize, defaultSubtreeRootThreshold)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "cannot be appended after pay-for-fibre tx")
 
 		// Invalid: blob before normal
 		invalidTxs2 := [][]byte{blobTx, normalTx}
-		_, err = square.Construct(invalidTxs2, defaultMaxSquareSize, defaultSubtreeRootThreshold, mockHandler)
+		_, err = square.Construct(invalidTxs2, defaultMaxSquareSize, defaultSubtreeRootThreshold)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "cannot be appended after blob tx")
 
 		// Invalid: normal after pay-for-fibre (will report blob tx error first since normal tx comes after blob tx)
 		invalidTxs3 := [][]byte{blobTx, payForFibreTx, normalTx}
-		_, err = square.Construct(invalidTxs3, defaultMaxSquareSize, defaultSubtreeRootThreshold, mockHandler)
+		_, err = square.Construct(invalidTxs3, defaultMaxSquareSize, defaultSubtreeRootThreshold)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "cannot be appended after blob tx")
 	})
 }
 
-// mockPayForFibreHandler is a test helper that identifies specific transactions as PayForFibre
-type mockPayForFibreHandler struct {
-	payForFibreTxs map[string]bool
-}
-
-func (m *mockPayForFibreHandler) IsPayForFibreTx(tx []byte) bool {
-	return m.payForFibreTxs[string(tx)]
-}
-
-func (m *mockPayForFibreHandler) CreateSystemBlob(_ []byte) (*share.Blob, error) {
-	ns := share.MustNewV0Namespace([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
-	signer := bytes.Repeat([]byte{0x01}, share.SignerSize)
-	commitment := bytes.Repeat([]byte{0x02}, share.FibreCommitmentSize)
-	return share.NewV2Blob(ns, 1, commitment, signer)
+func newFibreTxBytes(t *testing.T) []byte {
+	t.Helper()
+	ns := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
+	signer := bytes.Repeat([]byte{0xAA}, share.SignerSize)
+	commitment := bytes.Repeat([]byte{0xFF}, share.FibreCommitmentSize)
+	systemBlob, err := share.NewV2Blob(ns, 1, commitment, signer)
+	require.NoError(t, err)
+	fibreTxBytes, err := tx.MarshalFibreTx([]byte("pay-for-fibre-sdk-tx"), systemBlob)
+	require.NoError(t, err)
+	return fibreTxBytes
 }
 
 func TestValidateTxOrdering(t *testing.T) {
@@ -103,167 +86,136 @@ func TestValidateTxOrdering(t *testing.T) {
 	normalTx2 := newTx(100)
 	blobTx1 := test.GenerateBlobTxs(1, 1, 1024)[0]
 	blobTx2 := test.GenerateBlobTxs(1, 1, 1024)[0]
-	payForFibreTx1 := []byte("pay-for-fibre-tx-1")
-	payForFibreTx2 := []byte("pay-for-fibre-tx-2")
-
-	mockHandler := &mockPayForFibreHandler{
-		payForFibreTxs: map[string]bool{
-			string(payForFibreTx1): true,
-			string(payForFibreTx2): true,
-		},
-	}
+	payForFibreTx1 := newFibreTxBytes(t)
+	payForFibreTx2 := newFibreTxBytes(t)
 
 	tests := []struct {
 		name          string
 		txs           [][]byte
-		handler       square.PayForFibreHandler
 		wantError     bool
 		errorContains string
 	}{
 		{
 			name:      "empty list - valid",
 			txs:       [][]byte{},
-			handler:   mockHandler,
 			wantError: false,
 		},
 		{
 			name:      "only normal txs - valid",
 			txs:       [][]byte{normalTx1, normalTx2},
-			handler:   mockHandler,
 			wantError: false,
 		},
 		{
 			name:      "only blob txs - valid",
 			txs:       [][]byte{blobTx1, blobTx2},
-			handler:   mockHandler,
 			wantError: false,
 		},
 		{
 			name:      "only pay-for-fibre txs - valid",
 			txs:       [][]byte{payForFibreTx1, payForFibreTx2},
-			handler:   mockHandler,
 			wantError: false,
 		},
 		{
 			name:      "normal -> blob - valid",
 			txs:       [][]byte{normalTx1, normalTx2, blobTx1, blobTx2},
-			handler:   mockHandler,
 			wantError: false,
 		},
 		{
 			name:      "normal -> blob -> pay-for-fibre - valid",
 			txs:       [][]byte{normalTx1, blobTx1, payForFibreTx1},
-			handler:   mockHandler,
 			wantError: false,
 		},
 		{
 			name:      "blob -> pay-for-fibre - valid",
 			txs:       [][]byte{blobTx1, payForFibreTx1},
-			handler:   mockHandler,
 			wantError: false,
 		},
 		{
 			name:      "normal -> pay-for-fibre (no blob) - valid",
 			txs:       [][]byte{normalTx1, payForFibreTx1},
-			handler:   mockHandler,
 			wantError: false,
 		},
 		{
 			name:          "pay-for-fibre -> blob - invalid (blob must come before pay-for-fibre)",
 			txs:           [][]byte{payForFibreTx1, blobTx1},
-			handler:       mockHandler,
 			wantError:     true,
 			errorContains: "cannot be appended after pay-for-fibre tx",
 		},
 		{
 			name:          "blob -> normal - invalid",
 			txs:           [][]byte{blobTx1, normalTx1},
-			handler:       mockHandler,
 			wantError:     true,
 			errorContains: "cannot be appended after blob tx",
 		},
 		{
 			name:          "blob -> pay-for-fibre -> normal - invalid",
 			txs:           [][]byte{blobTx1, payForFibreTx1, normalTx1},
-			handler:       mockHandler,
 			wantError:     true,
 			errorContains: "cannot be appended after",
 		},
 		{
 			name:          "normal -> blob -> pay-for-fibre -> normal - invalid",
 			txs:           [][]byte{normalTx1, blobTx1, payForFibreTx1, normalTx2},
-			handler:       mockHandler,
 			wantError:     true,
 			errorContains: "cannot be appended after",
 		},
 		{
 			name:          "blob -> blob -> pay-for-fibre -> blob - invalid",
 			txs:           [][]byte{blobTx1, blobTx2, payForFibreTx1, blobTx1},
-			handler:       mockHandler,
 			wantError:     true,
 			errorContains: "cannot be appended after pay-for-fibre tx",
 		},
 		{
 			name:      "normal -> normal -> blob -> blob -> pay-for-fibre -> pay-for-fibre - valid",
 			txs:       [][]byte{normalTx1, normalTx2, blobTx1, blobTx2, payForFibreTx1, payForFibreTx2},
-			handler:   mockHandler,
 			wantError: false,
 		},
 		{
 			name:          "normal -> pay-for-fibre -> blob - invalid (blob after pay-for-fibre)",
 			txs:           [][]byte{normalTx1, payForFibreTx1, blobTx1},
-			handler:       mockHandler,
 			wantError:     true,
 			errorContains: "cannot be appended after pay-for-fibre tx",
 		},
 		{
 			name:          "pay-for-fibre -> normal - invalid (normal after pay-for-fibre)",
 			txs:           [][]byte{payForFibreTx1, normalTx1},
-			handler:       mockHandler,
 			wantError:     true,
 			errorContains: "cannot be appended after pay-for-fibre tx",
 		},
 		{
 			name:          "multiple sequences mixed - invalid (normal after blob)",
 			txs:           [][]byte{normalTx1, blobTx1, payForFibreTx1, normalTx2, blobTx2, payForFibreTx2},
-			handler:       mockHandler,
 			wantError:     true,
 			errorContains: "cannot be appended after blob tx",
 		},
 		{
 			name:      "normal -> pay-for-fibre (no blob) with multiple pay-for-fibre - valid",
 			txs:       [][]byte{normalTx1, payForFibreTx1, payForFibreTx2},
-			handler:   mockHandler,
 			wantError: false,
 		},
 		{
 			name:      "single normal tx - valid",
 			txs:       [][]byte{normalTx1},
-			handler:   mockHandler,
 			wantError: false,
 		},
 		{
 			name:      "single blob tx - valid",
 			txs:       [][]byte{blobTx1},
-			handler:   mockHandler,
 			wantError: false,
 		},
 		{
 			name:      "single pay-for-fibre tx (no blob) - valid",
 			txs:       [][]byte{payForFibreTx1},
-			handler:   mockHandler,
 			wantError: false,
 		},
 		{
 			name:      "normal -> pay-for-fibre -> pay-for-fibre (no blob) - valid",
 			txs:       [][]byte{normalTx1, payForFibreTx1, payForFibreTx2},
-			handler:   mockHandler,
 			wantError: false,
 		},
 		{
 			name:      "blob -> pay-for-fibre -> pay-for-fibre - valid",
 			txs:       [][]byte{blobTx1, payForFibreTx1, payForFibreTx2},
-			handler:   mockHandler,
 			wantError: false,
 		},
 	}
@@ -272,7 +224,7 @@ func TestValidateTxOrdering(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Test through Construct which calls validateTxOrdering
 			// Use a large square size to avoid space-related errors
-			_, err := square.Construct(tt.txs, defaultMaxSquareSize, defaultSubtreeRootThreshold, tt.handler)
+			_, err := square.Construct(tt.txs, defaultMaxSquareSize, defaultSubtreeRootThreshold)
 
 			if tt.wantError {
 				require.Error(t, err, "expected error but got none")
@@ -345,7 +297,7 @@ func TestSquareTxShareRange(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			shareRange, err := square.TxShareRange(tc.txs, tc.index, 128, 64, &mockPayForFibreHandler{})
+			shareRange, err := square.TxShareRange(tc.txs, tc.index, 128, 64)
 			if tc.expectErr {
 				require.Error(t, err)
 			} else {
@@ -359,25 +311,19 @@ func TestSquareTxShareRange(t *testing.T) {
 
 func TestSquareTxShareRangeWithPayForFibre(t *testing.T) {
 	normalTx := newTx(100)
-	payForFibreTx := []byte("pay-for-fibre-tx")
-
-	mockHandler := &mockPayForFibreHandler{
-		payForFibreTxs: map[string]bool{
-			string(payForFibreTx): true,
-		},
-	}
+	payForFibreTx := newFibreTxBytes(t)
 
 	// Build a tx list: normal tx, then PayForFibre tx
 	txs := [][]byte{normalTx, payForFibreTx}
 
 	// Verify the normal tx share range is valid
-	normalRange, err := square.TxShareRange(txs, 0, 128, 64, mockHandler)
+	normalRange, err := square.TxShareRange(txs, 0, 128, 64)
 	require.NoError(t, err)
 	require.Equal(t, 0, normalRange.Start)
 	require.Greater(t, normalRange.End, normalRange.Start)
 
 	// Verify the PayForFibre tx share range is valid (index 1)
-	pffRange, err := square.TxShareRange(txs, 1, 128, 64, mockHandler)
+	pffRange, err := square.TxShareRange(txs, 1, 128, 64)
 	require.NoError(t, err)
 	require.Greater(t, pffRange.End, pffRange.Start)
 
@@ -386,7 +332,7 @@ func TestSquareTxShareRangeWithPayForFibre(t *testing.T) {
 	require.GreaterOrEqual(t, pffRange.Start, normalRange.End-1)
 
 	// Out of bounds index should error
-	_, err = square.TxShareRange(txs, 2, 128, 64, mockHandler)
+	_, err = square.TxShareRange(txs, 2, 128, 64)
 	require.Error(t, err)
 }
 
@@ -412,7 +358,7 @@ func TestSquareBlobShareRange(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, isBlobTx)
 		for blobIdx := range blobTx.Blobs {
-			shareRange, err := square.BlobShareRange(txs, pfbIdx, blobIdx, defaultMaxSquareSize, defaultSubtreeRootThreshold, &mockPayForFibreHandler{})
+			shareRange, err := square.BlobShareRange(txs, pfbIdx, blobIdx, defaultMaxSquareSize, defaultSubtreeRootThreshold)
 			require.NoError(t, err)
 			require.LessOrEqual(t, shareRange.End, len(dataSquare))
 			blobShares := dataSquare[shareRange.Start:shareRange.End]
@@ -423,16 +369,16 @@ func TestSquareBlobShareRange(t *testing.T) {
 	}
 
 	// error on out of bounds cases
-	_, err = square.BlobShareRange(txs, -1, 0, defaultMaxSquareSize, defaultSubtreeRootThreshold, &mockPayForFibreHandler{})
+	_, err = square.BlobShareRange(txs, -1, 0, defaultMaxSquareSize, defaultSubtreeRootThreshold)
 	require.Error(t, err)
 
-	_, err = square.BlobShareRange(txs, 0, -1, defaultMaxSquareSize, defaultSubtreeRootThreshold, &mockPayForFibreHandler{})
+	_, err = square.BlobShareRange(txs, 0, -1, defaultMaxSquareSize, defaultSubtreeRootThreshold)
 	require.Error(t, err)
 
-	_, err = square.BlobShareRange(txs, 10, 0, defaultMaxSquareSize, defaultSubtreeRootThreshold, &mockPayForFibreHandler{})
+	_, err = square.BlobShareRange(txs, 10, 0, defaultMaxSquareSize, defaultSubtreeRootThreshold)
 	require.Error(t, err)
 
-	_, err = square.BlobShareRange(txs, 0, 10, defaultMaxSquareSize, defaultSubtreeRootThreshold, &mockPayForFibreHandler{})
+	_, err = square.BlobShareRange(txs, 0, 10, defaultMaxSquareSize, defaultSubtreeRootThreshold)
 	require.Error(t, err)
 }
 
