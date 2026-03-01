@@ -323,3 +323,38 @@ func shareVersionZeroWithoutSigner(t *testing.T) Share {
 	require.NoError(t, err)
 	return share
 }
+
+func TestGetSignerV2(t *testing.T) {
+	signer := bytes.Repeat([]byte{0xAA}, SignerSize)
+	s := shareVersionTwoWithSigner(t, signer)
+	got := GetSigner(s)
+	require.Equal(t, signer, got)
+}
+
+func TestIsCompactSharePayForFibre(t *testing.T) {
+	infoByte, err := NewInfoByte(ShareVersionZero, true)
+	require.NoError(t, err)
+
+	data := PayForFibreNamespace.Bytes()
+	data = append(data, byte(infoByte))
+	data = append(data, bytes.Repeat([]byte{0}, ShareSize-len(data))...)
+
+	share, err := NewShare(data)
+	require.NoError(t, err)
+	require.True(t, share.IsCompactShare())
+}
+
+func shareVersionTwoWithSigner(t *testing.T, signer []byte) Share {
+	infoByte, err := NewInfoByte(ShareVersionTwo, true)
+	require.NoError(t, err)
+
+	data := RandomBlobNamespace().Bytes()
+	data = append(data, byte(infoByte))
+	data = append(data, []byte{0, 0, 0, 0}...) // sequence len
+	data = append(data, signer...)
+	data = append(data, bytes.Repeat([]byte{0}, ShareSize-len(data))...)
+
+	share, err := NewShare(data)
+	require.NoError(t, err)
+	return share
+}

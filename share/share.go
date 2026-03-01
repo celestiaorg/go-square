@@ -85,16 +85,16 @@ func (s *Share) IsSequenceStart() bool {
 // IsCompactShare returns true if this is a compact share.
 func (s Share) IsCompactShare() bool {
 	ns := s.Namespace()
-	isCompact := ns.IsTx() || ns.IsPayForBlob()
+	isCompact := ns.IsTx() || ns.IsPayForBlob() || ns.IsPayForFibre()
 	return isCompact
 }
 
 // GetSigner returns the signer of the share, if the
-// share is not of type v1 and is not the first share in a sequence
+// share is not of type v1 or v2 and is not the first share in a sequence
 // it returns nil
 func GetSigner(share Share) []byte {
 	infoByte := share.InfoByte()
-	if infoByte.Version() != ShareVersionOne {
+	if infoByte.Version() != ShareVersionOne && infoByte.Version() != ShareVersionTwo {
 		return nil
 	}
 	if !infoByte.IsSequenceStart() {
@@ -162,8 +162,8 @@ func (s *Share) rawDataStartIndex() int {
 	if isCompact {
 		index += ShareReservedBytes
 	}
-	if s.Version() == ShareVersionOne && s.IsSequenceStart() {
-		// the first share in v1 has the signer
+	if (s.Version() == ShareVersionOne || s.Version() == ShareVersionTwo) && s.IsSequenceStart() {
+		// the first share in v1 and v2 has the signer
 		index += SignerSize
 	}
 	return index
@@ -197,7 +197,7 @@ func (s *Share) rawDataStartIndexUsingReserved() (int, error) {
 	if isStart {
 		index += SequenceLenBytes
 	}
-	if s.Version() == ShareVersionOne {
+	if s.Version() == ShareVersionOne || s.Version() == ShareVersionTwo {
 		index += SignerSize
 	}
 
@@ -232,5 +232,5 @@ func FromBytes(bytes [][]byte) (shares []Share, err error) {
 
 func (s *Share) ContainsSigner() bool {
 	infoByte := s.InfoByte()
-	return infoByte.Version() == ShareVersionOne && infoByte.IsSequenceStart()
+	return (infoByte.Version() == ShareVersionOne || infoByte.Version() == ShareVersionTwo) && infoByte.IsSequenceStart()
 }
