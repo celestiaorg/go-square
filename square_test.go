@@ -80,6 +80,87 @@ func newFibreTxBytes(t *testing.T) []byte {
 	return fibreTxBytes
 }
 
+func TestBuild(t *testing.T) {
+	t.Run("empty input returns empty square", func(t *testing.T) {
+		s, txs, err := square.Build(nil, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+		require.NoError(t, err)
+		require.True(t, s.IsEmpty())
+		require.Empty(t, txs)
+	})
+	t.Run("normal txs only", func(t *testing.T) {
+		normalTxs := test.GenerateTxs(100, 200, 3)
+		s, includedTxs, err := square.Build(normalTxs, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+		require.NoError(t, err)
+		require.False(t, s.IsEmpty())
+		require.Len(t, includedTxs, 3)
+		// all included txs should match the input
+		for i, tx := range includedTxs {
+			require.Equal(t, normalTxs[i], tx)
+		}
+	})
+	t.Run("blob txs only", func(t *testing.T) {
+		blobTxs := test.GenerateBlobTxs(3, 1, 1024)
+		s, includedTxs, err := square.Build(blobTxs, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+		require.NoError(t, err)
+		require.False(t, s.IsEmpty())
+		require.Len(t, includedTxs, 3)
+	})
+	t.Run("fibre txs only", func(t *testing.T) {
+		fibreTxs := [][]byte{newFibreTxBytes(t), newFibreTxBytes(t)}
+		s, includedTxs, err := square.Build(fibreTxs, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+		require.NoError(t, err)
+		require.False(t, s.IsEmpty())
+		require.Len(t, includedTxs, 2)
+	})
+	t.Run("mixed tx types in any order", func(t *testing.T) {
+		normalTx := test.GenerateTxs(100, 100, 1)[0]
+		blobTx := test.GenerateBlobTxs(1, 1, 1024)[0]
+		fibreTx := newFibreTxBytes(t)
+
+		// Build accepts txs in any order (unlike Construct)
+		input := [][]byte{fibreTx, normalTx, blobTx}
+		s, includedTxs, err := square.Build(input, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+		require.NoError(t, err)
+		require.False(t, s.IsEmpty())
+		require.Len(t, includedTxs, 3)
+
+		// Return order is always: normal, blob, fibre
+		require.Equal(t, normalTx, includedTxs[0], "normal tx should be first")
+		require.Equal(t, blobTx, includedTxs[1], "blob tx should be second")
+		require.Equal(t, fibreTx, includedTxs[2], "fibre tx should be third")
+	})
+	t.Run("drops txs that do not fit", func(t *testing.T) {
+		// Use a tiny square (2x2 = 4 shares) to force dropping
+		smallSquareSize := 2
+		largeTxs := test.GenerateTxs(2000, 2000, 3)
+		s, includedTxs, err := square.Build(largeTxs, smallSquareSize, defaultSubtreeRootThreshold)
+		require.NoError(t, err)
+		// Some txs should be dropped because they don't fit
+		require.Less(t, len(includedTxs), len(largeTxs))
+		_ = s
+	})
+	t.Run("square contains all three namespace types", func(t *testing.T) {
+		normalTx := test.GenerateTxs(100, 100, 1)[0]
+		blobTx := test.GenerateBlobTxs(1, 1, 1024)[0]
+		fibreTx := newFibreTxBytes(t)
+
+		s, _, err := square.Build([][]byte{normalTx, blobTx, fibreTx}, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+		require.NoError(t, err)
+
+		txRange := share.GetShareRangeForNamespace(s, share.TxNamespace)
+		pfbRange := share.GetShareRangeForNamespace(s, share.PayForBlobNamespace)
+		pffRange := share.GetShareRangeForNamespace(s, share.PayForFibreNamespace)
+
+		require.False(t, txRange.IsEmpty(), "should have tx shares")
+		require.False(t, pfbRange.IsEmpty(), "should have pfb shares")
+		require.False(t, pffRange.IsEmpty(), "should have pay-for-fibre shares")
+
+		// Verify ordering: tx < pfb < pff
+		require.LessOrEqual(t, txRange.End, pfbRange.Start)
+		require.LessOrEqual(t, pfbRange.End, pffRange.Start)
+	})
+}
+
 func TestValidateTxOrdering(t *testing.T) {
 	// Create test transactions
 	normalTx1 := newTx(100)
