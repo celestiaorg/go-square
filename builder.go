@@ -19,9 +19,9 @@ const (
 	// https://github.com/celestiaorg/celestia-app/blob/31cf18b8b3711965bab622e2c4dbc2f306c2a49d/pkg/appconsts/app_consts.go#L12-L13
 	squareSizeUpperBound = 512
 
-	// NoPfbIndex is used as PfbIndex and BlobIndex for system blobs that
+	// NoPFBIndex is used as PfbIndex and BlobIndex for system blobs that
 	// are not associated with a PFB transaction (e.g., Fibre blobs).
-	NoPfbIndex = -1
+	NoPFBIndex = -1
 )
 
 type Builder struct {
@@ -234,7 +234,7 @@ func (b *Builder) AppendFibreTx(fibreTx *tx.FibreTx) (bool, error) {
 
 	pffShareDiff := b.PayForFibreCounter.Add(len(fibreTx.Tx))
 
-	element, err := newElement(fibreTx.SystemBlob, NoPfbIndex, NoPfbIndex, b.subtreeRootThreshold)
+	element, err := newElement(fibreTx.SystemBlob, NoPFBIndex, NoPFBIndex, b.subtreeRootThreshold)
 	if err != nil {
 		b.PayForFibreCounter.Revert()
 		return false, err
@@ -268,9 +268,9 @@ func (b *Builder) RevertLastPayForFibreTx() error {
 	}
 
 	b.PayForFibreTxs = b.PayForFibreTxs[:len(b.PayForFibreTxs)-1]
-	// Remove the last system blob (NoPfbIndex sentinel)
+	// Remove the last system blob (NoPFBIndex sentinel)
 	for i := len(b.Blobs) - 1; i >= 0; i-- {
-		if b.Blobs[i].PfbIndex == NoPfbIndex {
+		if b.Blobs[i].PfbIndex == NoPFBIndex {
 			b.Blobs = append(b.Blobs[:i], b.Blobs[i+1:]...)
 			break
 		}
@@ -345,7 +345,7 @@ func (b *Builder) Export() (Square, error) {
 
 		// record the starting share index of the blob in the PFB that paid for it
 		// Skip this step for system blobs as they are not associated with a PFB
-		if element.PfbIndex != NoPfbIndex {
+		if element.PfbIndex != NoPFBIndex {
 			b.Pfbs[element.PfbIndex].ShareIndexes[element.BlobIndex] = uint32(cursor)
 		}
 		// If this is not the first blob, we add padding by writing padded shares to the previous blob

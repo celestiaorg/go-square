@@ -1214,8 +1214,8 @@ func TestBuilderAppendFibreTxAtomic(t *testing.T) {
 		require.Len(t, builder.Blobs, 1)
 
 		element := builder.Blobs[0]
-		require.Equal(t, square.NoPfbIndex, element.PfbIndex)
-		require.Equal(t, square.NoPfbIndex, element.BlobIndex)
+		require.Equal(t, square.NoPFBIndex, element.PfbIndex)
+		require.Equal(t, square.NoPFBIndex, element.BlobIndex)
 		require.Equal(t, fibreTx1.SystemBlob, element.Blob)
 	})
 
