@@ -3,7 +3,7 @@ package test_test
 import (
 	"testing"
 
-	"github.com/celestiaorg/go-square/v3/internal/test"
+	"github.com/celestiaorg/go-square/v4/internal/test"
 	"github.com/stretchr/testify/require"
 )
 

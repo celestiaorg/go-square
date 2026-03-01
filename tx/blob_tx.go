@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 
-	v2 "github.com/celestiaorg/go-square/v3/proto/blob/v2"
-	"github.com/celestiaorg/go-square/v3/share"
+	v4 "github.com/celestiaorg/go-square/v4/proto/blob/v4"
+	"github.com/celestiaorg/go-square/v4/share"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -23,7 +23,7 @@ type BlobTx struct {
 // UnmarshalBlobTx attempts to unmarshal a transaction into blob transaction. It returns a boolean
 // If the bytes are of type BlobTx and an error if there is a problem with decoding
 func UnmarshalBlobTx(tx []byte) (*BlobTx, bool, error) {
-	bTx := v2.BlobTx{}
+	bTx := v4.BlobTx{}
 	err := proto.Unmarshal(tx, &bTx)
 	if err != nil {
 		return nil, false, err
@@ -63,7 +63,7 @@ func MarshalBlobTx(tx []byte, blobs ...*share.Blob) ([]byte, error) {
 			return nil, fmt.Errorf("blob %d is nil", i)
 		}
 	}
-	bTx := &v2.BlobTx{
+	bTx := &v4.BlobTx{
 		Tx:     tx,
 		Blobs:  blobsToProto(blobs),
 		TypeId: ProtoBlobTxTypeID,
@@ -71,10 +71,10 @@ func MarshalBlobTx(tx []byte, blobs ...*share.Blob) ([]byte, error) {
 	return proto.Marshal(bTx)
 }
 
-func blobsToProto(blobs []*share.Blob) []*v2.BlobProto {
-	pb := make([]*v2.BlobProto, len(blobs))
+func blobsToProto(blobs []*share.Blob) []*v4.BlobProto {
+	pb := make([]*v4.BlobProto, len(blobs))
 	for i, b := range blobs {
-		pb[i] = &v2.BlobProto{
+		pb[i] = &v4.BlobProto{
 			NamespaceId:      b.Namespace().ID(),
 			NamespaceVersion: uint32(b.Namespace().Version()),
 			ShareVersion:     uint32(b.ShareVersion()),
