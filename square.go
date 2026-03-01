@@ -13,58 +13,124 @@ import (
 	"golang.org/x/exp/constraints"
 )
 
-// Build takes an arbitrary long list of (prioritized) transactions and builds a square that is never
-// greater than maxSquareSize. It also returns the ordered list of transactions that are present
-// in the square and which have all PFBs trailing regular transactions. Note, this function does
-// not check the underlying validity of the transactions.
-// Errors should not occur and would reflect a violation in an invariant.
-func Build(txs [][]byte, maxSquareSize, subtreeRootThreshold int) (Square, [][]byte, error) {
-	builder, err := NewBuilder(maxSquareSize, subtreeRootThreshold)
-	if err != nil {
-		return nil, nil, err
-	}
-	normalTxs := make([][]byte, 0, len(txs))
-	blobTxs := make([][]byte, 0, len(txs))
+// validateTxOrdering validates that transactions are ordered correctly:
+//  1. Normal transactions
+//  2. Pay for blob transactions
+//  3. Pay for fibre transactions
+//
+// Returns an error if the ordering is invalid.
+func validateTxOrdering(txs [][]byte) error {
+	seenBlobTx := false
+	seenFibreTx := false
+
 	for idx, txBytes := range txs {
-		blobTx, isBlobTx, err := tx.UnmarshalBlobTx(txBytes)
+		_, isBlobTx, err := tx.UnmarshalBlobTx(txBytes)
 		if err != nil && isBlobTx {
-			return nil, nil, fmt.Errorf("unmarshalling blob tx at index %d: %w", idx, err)
+			return fmt.Errorf("unmarshalling blob tx at index %d: %w", idx, err)
 		}
+
 		if isBlobTx {
-			added, err := builder.AppendBlobTx(blobTx)
-			if err != nil {
-				return nil, nil, fmt.Errorf("appending blob tx at index %d: %w", idx, err)
+			seenBlobTx = true
+			if seenFibreTx {
+				return fmt.Errorf("blob tx at index %d cannot be appended after pay-for-fibre tx", idx)
 			}
-			if added {
-				blobTxs = append(blobTxs, txBytes)
-			}
-		} else if builder.AppendTx(txBytes) {
-			normalTxs = append(normalTxs, txBytes)
+			continue
+		}
+
+		_, isFibreTx, err := tx.UnmarshalFibreTx(txBytes)
+		if err != nil && isFibreTx {
+			return fmt.Errorf("unmarshalling fibre tx at index %d: %w", idx, err)
+		}
+		if isFibreTx {
+			seenFibreTx = true
+			continue
+		}
+
+		if seenBlobTx {
+			return fmt.Errorf("normal tx at index %d cannot be appended after blob tx", idx)
+		}
+		if seenFibreTx {
+			return fmt.Errorf("normal tx at index %d cannot be appended after pay-for-fibre tx", idx)
 		}
 	}
-	square, err := builder.Export()
-	return square, append(normalTxs, blobTxs...), err
+
+	return nil
 }
 
 // Construct takes the exact list of ordered transactions and constructs a square, validating that
-//   - all blobTxs are ordered after non-blob transactions
+//   - transactions are ordered: normal txs, pay for blob txs, pay for fibre txs
 //   - the transactions don't collectively exceed the maxSquareSize.
 //
 // Note that this function does not check the underlying validity of
 // the transactions.
 func Construct(txs [][]byte, maxSquareSize, subtreeRootThreshold int) (Square, error) {
-	builder, err := NewBuilder(maxSquareSize, subtreeRootThreshold, txs...)
+	if err := validateTxOrdering(txs); err != nil {
+		return nil, err
+	}
+
+	builder, err := NewBuilder(maxSquareSize, subtreeRootThreshold)
 	if err != nil {
 		return nil, err
 	}
+
+	if err := populateBuilder(builder, txs); err != nil {
+		return nil, err
+	}
+
 	return builder.Export()
+}
+
+// populateBuilder classifies each transaction in txs and appends it to the builder.
+// Blob txs are unmarshalled and appended as blob txs, Fibre txs (identified by
+// the "FIBR" type ID) are appended atomically with their system blobs, and all
+// other txs are appended as normal txs.
+func populateBuilder(builder *Builder, txs [][]byte) error {
+	for idx, txBytes := range txs {
+		blobTx, isBlobTx, err := tx.UnmarshalBlobTx(txBytes)
+		if err != nil && isBlobTx {
+			return fmt.Errorf("unmarshalling blob tx at index %d: %w", idx, err)
+		}
+		if isBlobTx {
+			added, err := builder.AppendBlobTx(blobTx)
+			if err != nil {
+				return fmt.Errorf("appending blob tx at index %d: %w", idx, err)
+			}
+			if !added {
+				return fmt.Errorf("not enough space to append blob tx at index %d", idx)
+			}
+			continue
+		}
+
+		fibreTx, isFibreTx, err := tx.UnmarshalFibreTx(txBytes)
+		if err != nil && isFibreTx {
+			return fmt.Errorf("unmarshalling fibre tx at index %d: %w", idx, err)
+		}
+		if isFibreTx {
+			added, err := builder.AppendFibreTx(fibreTx)
+			if err != nil {
+				return fmt.Errorf("appending fibre tx at index %d: %w", idx, err)
+			}
+			if !added {
+				return fmt.Errorf("not enough space to append fibre tx at index %d", idx)
+			}
+			continue
+		}
+
+		if !builder.AppendTx(txBytes) {
+			return fmt.Errorf("not enough space to append tx at index %d", idx)
+		}
+	}
+	return nil
 }
 
 // TxShareRange returns the range of share indexes that the tx, specified by txIndex, occupies.
 // The range is end exclusive.
 func TxShareRange(txs [][]byte, txIndex, maxSquareSize, subtreeRootThreshold int) (share.Range, error) {
-	builder, err := NewBuilder(maxSquareSize, subtreeRootThreshold, txs...)
+	builder, err := NewBuilder(maxSquareSize, subtreeRootThreshold)
 	if err != nil {
+		return share.Range{}, err
+	}
+	if err := populateBuilder(builder, txs); err != nil {
 		return share.Range{}, err
 	}
 
@@ -74,8 +140,11 @@ func TxShareRange(txs [][]byte, txIndex, maxSquareSize, subtreeRootThreshold int
 // BlobShareRange returns the range of share indexes that the blob, identified by txIndex and blobIndex, occupies.
 // The range is end exclusive.
 func BlobShareRange(txs [][]byte, txIndex, blobIndex, maxSquareSize, subtreeRootThreshold int) (share.Range, error) {
-	builder, err := NewBuilder(maxSquareSize, subtreeRootThreshold, txs...)
+	builder, err := NewBuilder(maxSquareSize, subtreeRootThreshold)
 	if err != nil {
+		return share.Range{}, err
+	}
+	if err := populateBuilder(builder, txs); err != nil {
 		return share.Range{}, err
 	}
 
@@ -165,15 +234,19 @@ func EmptySquare() Square {
 }
 
 func WriteSquare(
-	txWriter, pfbWriter *share.CompactShareSplitter,
+	txWriter *share.CompactShareSplitter,
+	pfbWriter *share.CompactShareSplitter,
+	payForFibreWriter *share.CompactShareSplitter,
 	blobWriter *share.SparseShareSplitter,
-	nonReservedStart, squareSize int,
+	nonReservedStart int,
+	squareSize int,
 ) (Square, error) {
 	totalShares := squareSize * squareSize
 	pfbStartIndex := txWriter.Count()
-	paddingStartIndex := pfbStartIndex + pfbWriter.Count()
+	payForFibreStartIndex := pfbStartIndex + pfbWriter.Count()
+	paddingStartIndex := payForFibreStartIndex + payForFibreWriter.Count()
 	if nonReservedStart < paddingStartIndex {
-		return nil, fmt.Errorf("nonReservedStart %d is too small to fit all PFBs and txs", nonReservedStart)
+		return nil, fmt.Errorf("nonReservedStart %d is too small to fit all txs, PayForBlob txs, and PayForFibre txs", nonReservedStart)
 	}
 	padding := share.ReservedPaddingShares(nonReservedStart - paddingStartIndex)
 	endOfLastBlob := nonReservedStart + blobWriter.Count()
@@ -191,9 +264,15 @@ func WriteSquare(
 		return nil, fmt.Errorf("failed to export pfb shares: %w", err)
 	}
 
+	payForFibreShares, err := payForFibreWriter.Export()
+	if err != nil {
+		return nil, fmt.Errorf("failed to export pay-for-fibre shares: %w", err)
+	}
+
 	square := make([]share.Share, totalShares)
 	copy(square, txShares)
 	copy(square[pfbStartIndex:], pfbShares)
+	copy(square[payForFibreStartIndex:], payForFibreShares)
 	if blobWriter.Count() > 0 {
 		copy(square[paddingStartIndex:], padding)
 		copy(square[nonReservedStart:], blobWriter.Export())
