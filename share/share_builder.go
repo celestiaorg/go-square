@@ -175,13 +175,31 @@ func (b *builder) WriteSequenceLen(sequenceLen uint32) error {
 
 // WriteSigner writes the signer's information to the share.
 func (b *builder) WriteSigner(signer []byte) {
-	// only write the signer if it is the first share and the share version is 1
-	if b == nil || !b.isFirstShare || b.shareVersion != ShareVersionOne {
+	// only write the signer if it is the first share and the share version is 1 or 2
+	if b == nil || !b.isFirstShare || (b.shareVersion != ShareVersionOne && b.shareVersion != ShareVersionTwo) {
 		return
 	}
 	// NOTE: we don't check whether previous data has already been expected
 	// like the sequence length (we just assume it has)
 	b.rawShareData = append(b.rawShareData, signer...)
+}
+
+// WriteFibreBlobVersion writes the Fibre blob version to the share.
+func (b *builder) WriteFibreBlobVersion(version uint32) {
+	if b == nil || !b.isFirstShare || b.shareVersion != ShareVersionTwo {
+		return
+	}
+	buf := make([]byte, FibreBlobVersionSize)
+	binary.BigEndian.PutUint32(buf, version)
+	b.rawShareData = append(b.rawShareData, buf...)
+}
+
+// WriteFibreCommitment writes the Fibre commitment to the share.
+func (b *builder) WriteFibreCommitment(commitment []byte) {
+	if b == nil || !b.isFirstShare || b.shareVersion != ShareVersionTwo {
+		return
+	}
+	b.rawShareData = append(b.rawShareData, commitment...)
 }
 
 // FlipSequenceStart flips the sequence start indicator of the share provided
@@ -236,5 +254,5 @@ func (b *builder) prepareSparseShare() error {
 }
 
 func isCompactShare(ns Namespace) bool {
-	return ns.IsTx() || ns.IsPayForBlob()
+	return ns.IsTx() || ns.IsPayForBlob() || ns.IsPayForFibre()
 }
