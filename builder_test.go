@@ -10,10 +10,10 @@ import (
 	"os"
 	"testing"
 
-	"github.com/celestiaorg/go-square/v3"
-	"github.com/celestiaorg/go-square/v3/internal/test"
-	"github.com/celestiaorg/go-square/v3/share"
-	"github.com/celestiaorg/go-square/v3/tx"
+	"github.com/celestiaorg/go-square/v4"
+	"github.com/celestiaorg/go-square/v4/internal/test"
+	"github.com/celestiaorg/go-square/v4/share"
+	"github.com/celestiaorg/go-square/v4/tx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

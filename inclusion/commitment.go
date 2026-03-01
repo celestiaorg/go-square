@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	sh "github.com/celestiaorg/go-square/v3/share"
+	sh "github.com/celestiaorg/go-square/v4/share"
 	"github.com/celestiaorg/nmt"
 	"golang.org/x/sync/errgroup"
 )
