@@ -285,4 +285,3 @@ func WriteSquare(
 }
 
 type PFBDecoder func(txBytes []byte) ([]uint32, error)
-
