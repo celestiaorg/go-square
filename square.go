@@ -13,48 +13,54 @@ import (
 	"golang.org/x/exp/constraints"
 )
 
-// validateTxOrdering validates that transactions are ordered correctly:
-//  1. Normal transactions
-//  2. Pay for blob transactions
-//  3. Pay for fibre transactions
-//
-// Returns an error if the ordering is invalid.
-func validateTxOrdering(txs [][]byte) error {
-	seenBlobTx := false
-	seenFibreTx := false
-
+// Build takes an arbitrary long list of (prioritized) transactions and builds a square that is never
+// greater than maxSquareSize. It also returns the ordered list of transactions that are present
+// in the square and which have all PFBs trailing regular transactions and all FibreTxs trailing
+// PFBs. Note, this function does not check the underlying validity of the transactions.
+// Errors should not occur and would reflect a violation in an invariant.
+func Build(txs [][]byte, maxSquareSize, subtreeRootThreshold int) (Square, [][]byte, error) {
+	builder, err := NewBuilder(maxSquareSize, subtreeRootThreshold)
+	if err != nil {
+		return nil, nil, err
+	}
+	normalTxs := make([][]byte, 0, len(txs))
+	blobTxs := make([][]byte, 0, len(txs))
+	fibreTxs := make([][]byte, 0, len(txs))
 	for idx, txBytes := range txs {
-		_, isBlobTx, err := tx.UnmarshalBlobTx(txBytes)
+		blobTx, isBlobTx, err := tx.UnmarshalBlobTx(txBytes)
 		if err != nil && isBlobTx {
-			return fmt.Errorf("unmarshalling blob tx at index %d: %w", idx, err)
+			return nil, nil, fmt.Errorf("unmarshalling blob tx at index %d: %w", idx, err)
 		}
-
 		if isBlobTx {
-			seenBlobTx = true
-			if seenFibreTx {
-				return fmt.Errorf("blob tx at index %d cannot be appended after pay-for-fibre tx", idx)
+			added, err := builder.AppendBlobTx(blobTx)
+			if err != nil {
+				return nil, nil, fmt.Errorf("appending blob tx at index %d: %w", idx, err)
+			}
+			if added {
+				blobTxs = append(blobTxs, txBytes)
 			}
 			continue
 		}
-
-		_, isFibreTx, err := tx.UnmarshalFibreTx(txBytes)
+		fibreTx, isFibreTx, err := tx.UnmarshalFibreTx(txBytes)
 		if err != nil && isFibreTx {
-			return fmt.Errorf("unmarshalling fibre tx at index %d: %w", idx, err)
+			return nil, nil, fmt.Errorf("unmarshalling fibre tx at index %d: %w", idx, err)
 		}
 		if isFibreTx {
-			seenFibreTx = true
+			added, err := builder.AppendFibreTx(fibreTx)
+			if err != nil {
+				return nil, nil, fmt.Errorf("appending fibre tx at index %d: %w", idx, err)
+			}
+			if added {
+				fibreTxs = append(fibreTxs, txBytes)
+			}
 			continue
 		}
-
-		if seenBlobTx {
-			return fmt.Errorf("normal tx at index %d cannot be appended after blob tx", idx)
-		}
-		if seenFibreTx {
-			return fmt.Errorf("normal tx at index %d cannot be appended after pay-for-fibre tx", idx)
+		if builder.AppendTx(txBytes) {
+			normalTxs = append(normalTxs, txBytes)
 		}
 	}
-
-	return nil
+	square, err := builder.Export()
+	return square, append(append(normalTxs, blobTxs...), fibreTxs...), err
 }
 
 // Construct takes the exact list of ordered transactions and constructs a square, validating that
@@ -64,73 +70,18 @@ func validateTxOrdering(txs [][]byte) error {
 // Note that this function does not check the underlying validity of
 // the transactions.
 func Construct(txs [][]byte, maxSquareSize, subtreeRootThreshold int) (Square, error) {
-	if err := validateTxOrdering(txs); err != nil {
-		return nil, err
-	}
-
-	builder, err := NewBuilder(maxSquareSize, subtreeRootThreshold)
+	builder, err := NewBuilder(maxSquareSize, subtreeRootThreshold, txs...)
 	if err != nil {
 		return nil, err
 	}
-
-	if err := populateBuilder(builder, txs); err != nil {
-		return nil, err
-	}
-
 	return builder.Export()
-}
-
-// populateBuilder classifies each transaction in txs and appends it to the builder.
-// Blob txs are unmarshalled and appended as blob txs, Fibre txs (identified by
-// the "FIBR" type ID) are appended atomically with their system blobs, and all
-// other txs are appended as normal txs.
-func populateBuilder(builder *Builder, txs [][]byte) error {
-	for idx, txBytes := range txs {
-		blobTx, isBlobTx, err := tx.UnmarshalBlobTx(txBytes)
-		if err != nil && isBlobTx {
-			return fmt.Errorf("unmarshalling blob tx at index %d: %w", idx, err)
-		}
-		if isBlobTx {
-			added, err := builder.AppendBlobTx(blobTx)
-			if err != nil {
-				return fmt.Errorf("appending blob tx at index %d: %w", idx, err)
-			}
-			if !added {
-				return fmt.Errorf("not enough space to append blob tx at index %d", idx)
-			}
-			continue
-		}
-
-		fibreTx, isFibreTx, err := tx.UnmarshalFibreTx(txBytes)
-		if err != nil && isFibreTx {
-			return fmt.Errorf("unmarshalling fibre tx at index %d: %w", idx, err)
-		}
-		if isFibreTx {
-			added, err := builder.AppendFibreTx(fibreTx)
-			if err != nil {
-				return fmt.Errorf("appending fibre tx at index %d: %w", idx, err)
-			}
-			if !added {
-				return fmt.Errorf("not enough space to append fibre tx at index %d", idx)
-			}
-			continue
-		}
-
-		if !builder.AppendTx(txBytes) {
-			return fmt.Errorf("not enough space to append tx at index %d", idx)
-		}
-	}
-	return nil
 }
 
 // TxShareRange returns the range of share indexes that the tx, specified by txIndex, occupies.
 // The range is end exclusive.
 func TxShareRange(txs [][]byte, txIndex, maxSquareSize, subtreeRootThreshold int) (share.Range, error) {
-	builder, err := NewBuilder(maxSquareSize, subtreeRootThreshold)
+	builder, err := NewBuilder(maxSquareSize, subtreeRootThreshold, txs...)
 	if err != nil {
-		return share.Range{}, err
-	}
-	if err := populateBuilder(builder, txs); err != nil {
 		return share.Range{}, err
 	}
 
@@ -140,11 +91,8 @@ func TxShareRange(txs [][]byte, txIndex, maxSquareSize, subtreeRootThreshold int
 // BlobShareRange returns the range of share indexes that the blob, identified by txIndex and blobIndex, occupies.
 // The range is end exclusive.
 func BlobShareRange(txs [][]byte, txIndex, blobIndex, maxSquareSize, subtreeRootThreshold int) (share.Range, error) {
-	builder, err := NewBuilder(maxSquareSize, subtreeRootThreshold)
+	builder, err := NewBuilder(maxSquareSize, subtreeRootThreshold, txs...)
 	if err != nil {
-		return share.Range{}, err
-	}
-	if err := populateBuilder(builder, txs); err != nil {
 		return share.Range{}, err
 	}
 

@@ -54,7 +54,7 @@ type Builder struct {
 	subtreeRootThreshold int
 }
 
-func NewBuilder(maxSquareSize int, subtreeRootThreshold int) (*Builder, error) {
+func NewBuilder(maxSquareSize int, subtreeRootThreshold int, txs ...[]byte) (*Builder, error) {
 	if maxSquareSize <= 0 {
 		return nil, errors.New("max square size must be strictly positive")
 	}
@@ -64,7 +64,7 @@ func NewBuilder(maxSquareSize int, subtreeRootThreshold int) (*Builder, error) {
 	if !IsPowerOfTwo(maxSquareSize) {
 		return nil, errors.New("max square size must be a power of two")
 	}
-	return &Builder{
+	builder := &Builder{
 		maxSquareSize:        maxSquareSize,
 		subtreeRootThreshold: subtreeRootThreshold,
 		Blobs:                make([]*Element, 0),
@@ -74,7 +74,54 @@ func NewBuilder(maxSquareSize int, subtreeRootThreshold int) (*Builder, error) {
 		TxCounter:            share.NewCompactShareCounter(),
 		PfbCounter:           share.NewCompactShareCounter(),
 		PayForFibreCounter:   share.NewCompactShareCounter(),
-	}, nil
+	}
+	seenBlobTx := false
+	seenFibreTx := false
+	for idx, txBytes := range txs {
+		blobTx, isBlobTx, err := tx.UnmarshalBlobTx(txBytes)
+		if err != nil && isBlobTx {
+			return nil, fmt.Errorf("unmarshalling blob tx at index %d: %w", idx, err)
+		}
+		if isBlobTx {
+			seenBlobTx = true
+			if seenFibreTx {
+				return nil, fmt.Errorf("blob tx at index %d cannot be appended after pay-for-fibre tx", idx)
+			}
+			added, err := builder.AppendBlobTx(blobTx)
+			if err != nil {
+				return nil, fmt.Errorf("appending blob tx at index %d: %w", idx, err)
+			}
+			if !added {
+				return nil, fmt.Errorf("not enough space to append blob tx at index %d", idx)
+			}
+			continue
+		}
+		fibreTx, isFibreTx, err := tx.UnmarshalFibreTx(txBytes)
+		if err != nil && isFibreTx {
+			return nil, fmt.Errorf("unmarshalling fibre tx at index %d: %w", idx, err)
+		}
+		if isFibreTx {
+			seenFibreTx = true
+			added, err := builder.AppendFibreTx(fibreTx)
+			if err != nil {
+				return nil, fmt.Errorf("appending fibre tx at index %d: %w", idx, err)
+			}
+			if !added {
+				return nil, fmt.Errorf("not enough space to append fibre tx at index %d", idx)
+			}
+			continue
+		}
+		if seenBlobTx {
+			return nil, fmt.Errorf("normal tx at index %d cannot be appended after blob tx", idx)
+		}
+		if seenFibreTx {
+			return nil, fmt.Errorf("normal tx at index %d cannot be appended after pay-for-fibre tx", idx)
+		}
+		if !builder.AppendTx(txBytes) {
+			return nil, fmt.Errorf("not enough space to append tx at index %d", idx)
+		}
+	}
+	return builder, nil
 }
 
 // AppendTx attempts to allocate the transaction to the square. It returns false if there is not
