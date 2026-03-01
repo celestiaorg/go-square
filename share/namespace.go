@@ -231,6 +231,11 @@ func (n Namespace) IsPayForBlob() bool {
 	return n.Equals(PayForBlobNamespace)
 }
 
+// IsPayForFibre returns true if the namespace is the PayForFibre namespace.
+func (n Namespace) IsPayForFibre() bool {
+	return n.Equals(PayForFibreNamespace)
+}
+
 func (n Namespace) Repeat(times int) []Namespace {
 	ns := make([]Namespace, times)
 	for i := 0; i < times; i++ {

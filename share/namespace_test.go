@@ -238,6 +238,10 @@ func TestIsReserved(t *testing.T) {
 			want: true,
 		},
 		{
+			ns:   PayForFibreNamespace,
+			want: true,
+		},
+		{
 			ns:   PrimaryReservedPaddingNamespace,
 			want: true,
 		},
@@ -563,6 +567,14 @@ func TestValidateForBlob(t *testing.T) {
 			wantErr:   fmt.Errorf("invalid data namespace(0000000000000000000000000000000000000000000000000000000001): reserved data is forbidden"),
 		},
 		{
+			namespace: PayForBlobNamespace, // reserved namespace
+			wantErr:   fmt.Errorf("invalid data namespace(0000000000000000000000000000000000000000000000000000000004): reserved data is forbidden"),
+		},
+		{
+			namespace: PayForFibreNamespace, // reserved namespace
+			wantErr:   fmt.Errorf("invalid data namespace(0000000000000000000000000000000000000000000000000000000005): reserved data is forbidden"),
+		},
+		{
 			namespace: invalidVersion,
 			wantErr:   fmt.Errorf("unsupported namespace version 1"),
 		},
@@ -572,4 +584,18 @@ func TestValidateForBlob(t *testing.T) {
 		err := tc.namespace.ValidateForBlob()
 		assert.Equal(t, tc.wantErr, err)
 	}
+}
+
+func TestPayForFibreNamespace(t *testing.T) {
+	t.Run("Bytes", func(t *testing.T) {
+		want := []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05}
+		got := PayForFibreNamespace.Bytes()
+		assert.Equal(t, want, got)
+	})
+	t.Run("IsPayForFibre", func(t *testing.T) {
+		assert.True(t, PayForFibreNamespace.IsPayForFibre())
+		assert.False(t, PayForBlobNamespace.IsPayForFibre())
+		assert.False(t, TxNamespace.IsPayForFibre())
+		assert.False(t, MustNewV0Namespace(bytes.Repeat([]byte{1}, NamespaceVersionZeroIDSize)).IsPayForFibre())
+	})
 }
