@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/celestiaorg/go-square/v3/inclusion"
-	"github.com/celestiaorg/go-square/v3/share"
-	"github.com/celestiaorg/go-square/v3/tx"
+	"github.com/celestiaorg/go-square/v4/inclusion"
+	"github.com/celestiaorg/go-square/v4/share"
+	"github.com/celestiaorg/go-square/v4/tx"
 	"golang.org/x/exp/constraints"
 )
 

@@ -4,7 +4,7 @@ import (
 	"crypto/sha256"
 	"errors"
 
-	sh "github.com/celestiaorg/go-square/v3/share"
+	sh "github.com/celestiaorg/go-square/v4/share"
 	"github.com/celestiaorg/nmt"
 )
 
