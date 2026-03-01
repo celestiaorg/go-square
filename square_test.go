@@ -164,7 +164,8 @@ func TestSize(t *testing.T) {
 		{input: defaultMaxSquareSize*defaultMaxSquareSize + 1, expect: defaultMaxSquareSize * 2},
 	}
 	for i, tt := range tests {
-		res := square.Size(tt.input)
+		res, err := square.Size(tt.input)
+		require.NoError(t, err, i)
 		assert.Equal(t, tt.expect, res, i)
 		assert.True(t, square.IsPowerOfTwo(res))
 	}
