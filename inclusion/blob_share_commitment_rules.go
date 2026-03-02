@@ -3,6 +3,7 @@ package inclusion
 import (
 	"fmt"
 	"math"
+	"math/bits"
 
 	"golang.org/x/exp/constraints"
 )
@@ -62,12 +63,18 @@ func RoundUpByMultipleOf(cursor, v int) (int, error) {
 }
 
 // RoundUpPowerOfTwo returns the next power of two greater than or equal to input.
-func RoundUpPowerOfTwo[I constraints.Integer](input I) I {
-	var result I = 1
-	for result < input {
-		result <<= 1
+func RoundUpPowerOfTwo[I constraints.Integer](input I) (I, error) {
+	if input <= 1 {
+		return 1, nil
 	}
-	return result
+	if input&(input-1) == 0 {
+		return input, nil
+	}
+	result := I(1) << bits.Len64(uint64(input))
+	if result <= 0 {
+		return 0, fmt.Errorf("cannot round up %v: result overflows %T", input, input)
+	}
+	return result, nil
 }
 
 // RoundDownPowerOfTwo returns the next power of two less than or equal to input.
@@ -75,16 +82,15 @@ func RoundDownPowerOfTwo[I constraints.Integer](input I) (I, error) {
 	if input <= 0 {
 		return 0, fmt.Errorf("input %v must be positive", input)
 	}
-	roundedUp := RoundUpPowerOfTwo(input)
-	if roundedUp == input {
-		return roundedUp, nil
+	if input&(input-1) == 0 {
+		return input, nil
 	}
-	return roundedUp / 2, nil
+	return 1 << (bits.Len64(uint64(input)) - 1), nil
 }
 
 // BlobMinSquareSize returns the minimum square size that can contain shareCount
 // number of shares.
-func BlobMinSquareSize(shareCount int) int {
+func BlobMinSquareSize(shareCount int) (int, error) {
 	return RoundUpPowerOfTwo(int(math.Ceil(math.Sqrt(float64(shareCount)))))
 }
 
@@ -107,11 +113,18 @@ func SubTreeWidth(shareCount, subtreeRootThreshold int) (int, error) {
 
 	// use a power of two equal to or larger than the multiple of the subtree
 	// root threshold
-	s = RoundUpPowerOfTwo(s)
+	s, err := RoundUpPowerOfTwo(s)
+	if err != nil {
+		return 0, err
+	}
 
 	// use the minimum of the subtree width and the min square size, this
 	// gurarantees that a valid value is returned
-	return getMin(s, BlobMinSquareSize(shareCount)), nil
+	minSquareSize, err := BlobMinSquareSize(shareCount)
+	if err != nil {
+		return 0, err
+	}
+	return getMin(s, minSquareSize), nil
 }
 
 func getMin[T constraints.Integer](i, j T) T {

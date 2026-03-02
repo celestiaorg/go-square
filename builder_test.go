@@ -45,7 +45,9 @@ func TestBuilderSquareSizeEstimation(t *testing.T) {
 			txs := generateMixedTxs(tt.normalTxs, tt.pfbCount, 1, tt.pfbSize)
 			square, _, err := square.Build(txs, 64, defaultSubtreeRootThreshold)
 			require.NoError(t, err)
-			require.EqualValues(t, tt.expectedSquareSize, square.Size())
+			size, err := square.Size()
+			require.NoError(t, err)
+			require.EqualValues(t, tt.expectedSquareSize, size)
 		})
 	}
 }
@@ -120,7 +122,9 @@ func TestBuilderFindTxShareRange(t *testing.T) {
 
 	dataSquare, err := builder.Export()
 	require.NoError(t, err)
-	size := dataSquare.Size() * dataSquare.Size()
+	dataSquareSize, err := dataSquare.Size()
+	require.NoError(t, err)
+	size := dataSquareSize * dataSquareSize
 
 	var lastEnd int
 	for idx, txBytes := range blockTxs {

@@ -202,7 +202,10 @@ func (b *Builder) Export() (Square, error) {
 	// calculate the square size.
 	// NOTE: A future optimization could be to recalculate the currentSize based on the actual
 	// interblob padding used when the blobs are correctly ordered instead of using worst case padding.
-	ss := inclusion.BlobMinSquareSize(b.currentSize)
+	ss, err := inclusion.BlobMinSquareSize(b.currentSize)
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate blob min square size: %w", err)
+	}
 
 	// Sort the blobs by shares. This uses SliceStable to preserve the order
 	// of blobs within a namespace because b.Blobs are already ordered by tx
@@ -226,7 +229,6 @@ func (b *Builder) Export() (Square, error) {
 	cursor := nonReservedStart
 	endOfLastBlob := nonReservedStart
 	blobWriter := share.NewSparseShareSplitter()
-	var err error
 	for i, element := range b.Blobs {
 		// NextShareIndex returned where the next blob should start so as to comply with the share commitment rules
 		// We fill out the remaining

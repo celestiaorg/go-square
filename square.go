@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/celestiaorg/go-square/v4/inclusion"
 	"github.com/celestiaorg/go-square/v4/share"
 	"github.com/celestiaorg/go-square/v4/tx"
 	"golang.org/x/exp/constraints"
@@ -97,7 +98,7 @@ func BlobShareRange(txs [][]byte, txIndex, blobIndex, maxSquareSize, subtreeRoot
 type Square []share.Share
 
 // Size returns the size of the sides of a square
-func (s Square) Size() int {
+func (s Square) Size() (int, error) {
 	return Size(len(s))
 }
 
@@ -105,17 +106,13 @@ func (s Square) Size() int {
 // function is currently a wrapper around the da packages equivalent function to
 // avoid breaking the api. In future versions there will not be a copy of this
 // code here.
-func Size(length int) int {
+func Size(length int) (int, error) {
 	return RoundUpPowerOfTwo(int(math.Ceil(math.Sqrt(float64(length)))))
 }
 
-// RoundUpPowerOfTwo returns the next power of two greater than or equal to input.
-func RoundUpPowerOfTwo[I constraints.Integer](input I) I {
-	var result I = 1
-	for result < input {
-		result <<= 1
-	}
-	return result
+// Deprecated: Use inclusion.RoundUpPowerOfTwo directly.
+func RoundUpPowerOfTwo[I constraints.Integer](input I) (I, error) {
+	return inclusion.RoundUpPowerOfTwo(input)
 }
 
 // Equals returns true if two squares are equal
