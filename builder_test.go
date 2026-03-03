@@ -1043,7 +1043,7 @@ func TestBuilderRevertPayForFibreTx(t *testing.T) {
 	}{
 		{
 			name:      "no txs to revert",
-			setup:     func(t *testing.T, b *square.Builder) {},
+			setup:     func(_ *testing.T, _ *square.Builder) {},
 			wantErr:   "no pay-for-fibre transactions to revert",
 			wantEmpty: true,
 		},
