@@ -19,6 +19,8 @@ import (
 // in the square and which have all PFBs trailing regular transactions. Note, this function does
 // not check the underlying validity of the transactions.
 // Errors should not occur and would reflect a violation in an invariant.
+//
+// Deprecated: Use NewBuilder directly with AppendTx, AppendBlobTx, and Export instead.
 func Build(txs [][]byte, maxSquareSize, subtreeRootThreshold int) (Square, [][]byte, error) {
 	builder, err := NewBuilder(maxSquareSize, subtreeRootThreshold)
 	if err != nil {
