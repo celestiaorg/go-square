@@ -1450,3 +1450,93 @@ func TestBuilderExportWithSystemBlobs(t *testing.T) {
 		require.NotNil(t, sq)
 	})
 }
+
+// TestBlobShareRangeNotSupportedForSystemBlobs verifies that FindBlobStartingIndex
+// and BlobShareLength return errors when called for system blobs (FibreTx blobs with
+// NoPfbIndex). System blobs are placed in the sparse share area but their share indices
+// are not recorded in any IndexWrapper, so they cannot be queried through the
+// PFB-oriented blob query interface. This is expected behavior because:
+//   - System blobs contain only metadata (fibre_blob_version + commitment)
+//   - Their inclusion can be verified through the PayForFibre tx itself
+//   - The actual Fibre data is verified off-chain against the commitment
+func TestBlobShareRangeNotSupportedForSystemBlobs(t *testing.T) {
+	ns1 := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
+	ns2 := share.MustNewV0Namespace(bytes.Repeat([]byte{2}, share.NamespaceVersionZeroIDSize))
+
+	builder, err := square.NewBuilder(64, 64)
+	require.NoError(t, err)
+
+	// Add a normal tx
+	builder.AppendTx([]byte("normal-tx"))
+
+	// Add a PFB tx with one blob
+	blobTx := test.GenerateBlobTxs(1, 1, 200)[0]
+	parsed, isBlobTx, err := tx.UnmarshalBlobTx(blobTx)
+	require.NoError(t, err)
+	require.True(t, isBlobTx)
+	mustAppendBlobTx(t, builder, parsed)
+
+	// Add a FibreTx with a system blob
+	fibreTx := newFibreTx(t, ns1)
+	added, err := builder.AppendFibreTx(fibreTx)
+	require.NoError(t, err)
+	require.True(t, added)
+
+	// Add a second FibreTx with a different namespace
+	fibreTx2 := newFibreTx(t, ns2)
+	added, err = builder.AppendFibreTx(fibreTx2)
+	require.NoError(t, err)
+	require.True(t, added)
+
+	// Export the square to compute share indices
+	sq, err := builder.Export()
+	require.NoError(t, err)
+	require.NotNil(t, sq)
+
+	// Verify the builder has both PFB blobs and system blobs
+	assert.Equal(t, 1, len(builder.Txs), "should have 1 normal tx")
+	assert.Equal(t, 1, len(builder.Pfbs), "should have 1 PFB")
+	assert.Equal(t, 2, len(builder.PayForFibreTxs), "should have 2 PayForFibre txs")
+
+	// Count system blobs vs PFB blobs
+	systemBlobCount := 0
+	pfbBlobCount := 0
+	for _, blob := range builder.Blobs {
+		if blob.PfbIndex == square.NoPfbIndex {
+			systemBlobCount++
+		} else {
+			pfbBlobCount++
+		}
+	}
+	assert.Equal(t, 2, systemBlobCount, "should have 2 system blobs")
+	assert.True(t, pfbBlobCount >= 1, "should have at least 1 PFB blob")
+
+	// FindBlobStartingIndex WORKS for PFB blobs (txIndex=1 is the PFB, blobIndex=0)
+	pfbTxIndex := len(builder.Txs) // txIndex for the first PFB
+	start, err := builder.FindBlobStartingIndex(pfbTxIndex, 0)
+	assert.NoError(t, err, "FindBlobStartingIndex should work for PFB blobs")
+	assert.True(t, start > 0, "PFB blob should have a valid starting index")
+
+	// BlobShareLength WORKS for PFB blobs
+	length, err := builder.BlobShareLength(pfbTxIndex, 0)
+	assert.NoError(t, err, "BlobShareLength should work for PFB blobs")
+	assert.True(t, length > 0, "PFB blob should have a valid share length")
+
+	// FindBlobStartingIndex FAILS for FibreTx system blobs
+	// The FibreTx is at txIndex = len(Txs) + len(Pfbs) + fibreTxIdx
+	fibreTxIndex := len(builder.Txs) + len(builder.Pfbs) // first fibre tx index
+	_, err = builder.FindBlobStartingIndex(fibreTxIndex, 0)
+	assert.Error(t, err, "FindBlobStartingIndex should fail for system blob indices because they fall outside the Pfbs range")
+
+	// BlobShareLength also FAILS for system blobs via the PFB-oriented interface
+	_, err = builder.BlobShareLength(fibreTxIndex, 0)
+	assert.Error(t, err, "BlobShareLength should fail for system blob indices because they fall outside the Pfbs range")
+
+	// Verify system blobs ARE correctly placed in the square by checking
+	// the sparse share area contains shares in the system blob namespaces
+	ns1Range := share.GetShareRangeForNamespace(sq, ns1)
+	assert.False(t, ns1Range.IsEmpty(), "system blob namespace ns1 should be present in the square")
+
+	ns2Range := share.GetShareRangeForNamespace(sq, ns2)
+	assert.False(t, ns2Range.IsEmpty(), "system blob namespace ns2 should be present in the square")
+}

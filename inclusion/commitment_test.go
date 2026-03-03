@@ -93,12 +93,28 @@ func TestCreateCommitment(t *testing.T) {
 			shareVersion: share.ShareVersionOne,
 			signer:       bytes.Repeat([]byte{1}, share.SignerSize),
 		},
+		{
+			name:         "v2 blob (fibre system blob) of 1 share succeeds",
+			namespace:    ns1,
+			blob:         append([]byte{0, 0, 0, 1}, bytes.Repeat([]byte{0xAB}, share.FibreCommitmentSize)...),
+			expected:     []byte{0xbc, 0x9c, 0x8, 0xd4, 0x38, 0x35, 0xc0, 0x21, 0xb5, 0xd5, 0x1e, 0xca, 0xb, 0xcc, 0x89, 0x62, 0xda, 0xae, 0x3c, 0xf4, 0x6, 0xd2, 0x12, 0x98, 0x98, 0x74, 0xcc, 0x82, 0x70, 0x34, 0xc8, 0x39},
+			shareVersion: share.ShareVersionTwo,
+			signer:       bytes.Repeat([]byte{2}, share.SignerSize),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			blob, err := share.NewBlob(tt.namespace, tt.blob, tt.shareVersion, tt.signer)
 			require.NoError(t, err)
-			res, err := inclusion.CreateCommitment(blob, twoLeafMerkleRoot, defaultSubtreeRootThreshold)
+			// v2 blobs produce 1 share / 1 subtree root, so use hashConcatenatedData
+			// which works with any number of roots. v0/v1 blobs in these tests produce
+			// 2 shares / 2 subtree roots, so use twoLeafMerkleRoot for backwards
+			// compatibility with the existing expected hashes.
+			merkleRootFn := twoLeafMerkleRoot
+			if tt.shareVersion == share.ShareVersionTwo {
+				merkleRootFn = hashConcatenatedData
+			}
+			res, err := inclusion.CreateCommitment(blob, merkleRootFn, defaultSubtreeRootThreshold)
 			if tt.expectErr {
 				assert.Error(t, err)
 				return
@@ -107,6 +123,58 @@ func TestCreateCommitment(t *testing.T) {
 			assert.Equal(t, tt.expected, res)
 		})
 	}
+}
+
+// TestCreateCommitmentV2Blob verifies that CreateCommitment works correctly
+// for ShareVersionTwo (Fibre system) blobs. These blobs produce exactly 1
+// share and 1 subtree root.
+func TestCreateCommitmentV2Blob(t *testing.T) {
+	ns := share.MustNewV0Namespace(bytes.Repeat([]byte{0x1}, share.NamespaceVersionZeroIDSize))
+	signer := bytes.Repeat([]byte{0xAA}, share.SignerSize)
+	commitment := bytes.Repeat([]byte{0xBB}, share.FibreCommitmentSize)
+	fibreBlobVersion := uint32(1)
+
+	blob, err := share.NewV2Blob(ns, fibreBlobVersion, commitment, signer)
+	require.NoError(t, err)
+
+	// Verify v2 blob produces exactly 1 share
+	shares, err := blob.ToShares()
+	require.NoError(t, err)
+	assert.Equal(t, 1, len(shares), "v2 blob must produce exactly 1 share")
+
+	// Verify SubTreeWidth is 1 for a single-share blob
+	subTreeWidth, err := inclusion.SubTreeWidth(1, defaultSubtreeRootThreshold)
+	require.NoError(t, err)
+	assert.Equal(t, 1, subTreeWidth)
+
+	// Verify MerkleMountainRangeSizes returns [1] for a single share
+	treeSizes, err := inclusion.MerkleMountainRangeSizes(1, 1)
+	require.NoError(t, err)
+	assert.Equal(t, []uint64{1}, treeSizes)
+
+	// Verify GenerateSubtreeRoots produces exactly 1 root
+	roots, err := inclusion.GenerateSubtreeRoots(blob, defaultSubtreeRootThreshold)
+	require.NoError(t, err)
+	assert.Equal(t, 1, len(roots), "v2 blob must produce exactly 1 subtree root")
+	assert.NotEmpty(t, roots[0], "subtree root must not be empty")
+
+	// Verify CreateCommitment produces a deterministic, non-nil commitment
+	res, err := inclusion.CreateCommitment(blob, hashConcatenatedData, defaultSubtreeRootThreshold)
+	require.NoError(t, err)
+	assert.Len(t, res, 32, "commitment must be 32 bytes")
+
+	// Verify determinism: same blob always produces same commitment
+	res2, err := inclusion.CreateCommitment(blob, hashConcatenatedData, defaultSubtreeRootThreshold)
+	require.NoError(t, err)
+	assert.Equal(t, res, res2, "commitment must be deterministic")
+
+	// Verify parallel commitment matches sequential for v2 blobs
+	blobs := []*share.Blob{blob}
+	sequential, err := inclusion.CreateCommitments(blobs, hashConcatenatedData, defaultSubtreeRootThreshold)
+	require.NoError(t, err)
+	parallel, err := inclusion.CreateParallelCommitments(blobs, hashConcatenatedData, defaultSubtreeRootThreshold, 2)
+	require.NoError(t, err)
+	assert.Equal(t, sequential, parallel, "parallel and sequential commitments must match for v2 blobs")
 }
 
 func twoLeafMerkleRoot(data [][]byte) []byte {

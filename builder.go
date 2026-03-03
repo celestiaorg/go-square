@@ -359,6 +359,11 @@ func (b *Builder) Export() (Square, error) {
 
 // FindBlobStartingIndex returns the starting share index of the blob in the square. It takes
 // the index of the pfb in the tx set and the index of the blob within the PFB.
+//
+// Note: this function only supports PFB blobs. It does not support FibreTx
+// system blobs (NoPfbIndex) because their share indexes are not tracked via
+// IndexWrapper. Callers needing system blob positions can use
+// GetShareRangeForNamespace on the exported square instead.
 func (b *Builder) FindBlobStartingIndex(pfbIndex, blobIndex int) (int, error) {
 	if pfbIndex < len(b.Txs) {
 		return 0, fmt.Errorf("pfbIndex %d does not match a pfb", pfbIndex)
@@ -389,6 +394,11 @@ func (b *Builder) FindBlobStartingIndex(pfbIndex, blobIndex int) (int, error) {
 
 // BlobShareLength returns the amount of shares a blob takes up in the square. It takes
 // the index of the pfb in the tx set and the index of the blob within the PFB.
+//
+// Note: this function only supports PFB blobs. It does not support FibreTx
+// system blobs (NoPfbIndex). FibreTx system blobs always occupy exactly 1
+// share.
+//
 // TODO: we could look in to creating a map to avoid O(n) lookup when we expect large
 // numbers of blobs
 func (b *Builder) BlobShareLength(pfbIndex, blobIndex int) (int, error) {
