@@ -958,92 +958,130 @@ func TestBuilderAppendFibreTx(t *testing.T) {
 func TestBuilderRevertPayForFibreTx(t *testing.T) {
 	ns1 := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
 
-	t.Run("basic", func(t *testing.T) {
-		builder, err := square.NewBuilder(8, 64)
-		require.NoError(t, err)
+	tests := []struct {
+		name       string
+		setup      func(t *testing.T, b *square.Builder)
+		wantErr    string // empty means no error expected
+		wantPFFTxs int
+		wantBlobs  int
+		wantTxs    int
+		wantPfbs   int
+		wantEmpty  bool
+	}{
+		{
+			name:      "no txs to revert",
+			setup:     func(t *testing.T, b *square.Builder) {},
+			wantErr:   "no pay-for-fibre transactions to revert",
+			wantEmpty: true,
+		},
+		{
+			name: "add one, revert one",
+			setup: func(t *testing.T, b *square.Builder) {
+				mustAppendFibreTx(t, b, ns1)
+			},
+			wantEmpty: true,
+		},
+		{
+			name: "add two, revert last",
+			setup: func(t *testing.T, b *square.Builder) {
+				mustAppendFibreTx(t, b, ns1)
+				mustAppendFibreTx(t, b, ns1)
+			},
+			wantPFFTxs: 1,
+			wantBlobs:  1,
+		},
+		{
+			name: "consecutive reverts prevented",
+			setup: func(t *testing.T, b *square.Builder) {
+				mustAppendFibreTx(t, b, ns1)
+				mustAppendFibreTx(t, b, ns1)
+				require.NoError(t, b.RevertLastPayForFibreTx())
+			},
+			wantErr:    "already been reverted",
+			wantPFFTxs: 1,
+			wantBlobs:  1,
+		},
+		{
+			name: "revert works after new add following prior revert",
+			setup: func(t *testing.T, b *square.Builder) {
+				mustAppendFibreTx(t, b, ns1)
+				require.NoError(t, b.RevertLastPayForFibreTx())
+				mustAppendFibreTx(t, b, ns1)
+			},
+			wantEmpty: true,
+		},
+		{
+			name: "does not affect normal txs",
+			setup: func(t *testing.T, b *square.Builder) {
+				require.True(t, b.AppendTx(newTx(100)))
+				mustAppendFibreTx(t, b, ns1)
+			},
+			wantTxs: 1,
+		},
+		{
+			name: "does not affect blob txs",
+			setup: func(t *testing.T, b *square.Builder) {
+				blobTxs := generateBlobTxsWithNamespaces(
+					[]share.Namespace{ns1}, [][]int{{100}},
+				)
+				blobTx, isBlobTx, err := tx.UnmarshalBlobTx(blobTxs[0])
+				require.NoError(t, err)
+				require.True(t, isBlobTx)
+				mustAppendBlobTx(t, b, blobTx)
+				mustAppendFibreTx(t, b, ns1)
+			},
+			wantPfbs:  1,
+			wantBlobs: 1, // PFB blob remains, fibre blob removed
+		},
+		{
+			name: "removes only fibre blob when mixed with PFB blobs",
+			setup: func(t *testing.T, b *square.Builder) {
+				// Add two blob txs, then a fibre tx
+				for i := 0; i < 2; i++ {
+					blobTxs := generateBlobTxsWithNamespaces(
+						[]share.Namespace{ns1}, [][]int{{100}},
+					)
+					blobTx, isBlobTx, err := tx.UnmarshalBlobTx(blobTxs[0])
+					require.NoError(t, err)
+					require.True(t, isBlobTx)
+					mustAppendBlobTx(t, b, blobTx)
+				}
+				mustAppendFibreTx(t, b, ns1)
+			},
+			wantPfbs:  2,
+			wantBlobs: 2, // both PFB blobs remain
+		},
+	}
 
-		// Reverting with no txs errors
-		require.Error(t, builder.RevertLastPayForFibreTx())
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			builder, err := square.NewBuilder(64, 64)
+			require.NoError(t, err)
 
-		// Add and revert a fibre transaction
-		fibreTx1 := newFibreTx(t, ns1)
-		added, err := builder.AppendFibreTx(fibreTx1)
-		require.NoError(t, err)
-		require.True(t, added)
-		require.Greater(t, builder.CurrentSize(), 0)
-		require.Len(t, builder.Blobs, 1)
-		require.NoError(t, builder.RevertLastPayForFibreTx())
-		require.Len(t, builder.PayForFibreTxs, 0)
-		require.Len(t, builder.Blobs, 0)
-		require.Equal(t, 0, builder.CurrentSize())
+			tt.setup(t, builder)
+			err = builder.RevertLastPayForFibreTx()
 
-		// Add multiple, revert only the last one
-		fibreTx2 := newFibreTx(t, ns1)
-		fibreTx3 := newFibreTx(t, ns1)
-		added, err = builder.AppendFibreTx(fibreTx2)
-		require.NoError(t, err)
-		require.True(t, added)
-		sizeAfterOneTx := builder.CurrentSize()
-		added, err = builder.AppendFibreTx(fibreTx3)
-		require.NoError(t, err)
-		require.True(t, added)
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
 
-		require.NoError(t, builder.RevertLastPayForFibreTx())
-		require.Len(t, builder.PayForFibreTxs, 1)
-		require.Len(t, builder.Blobs, 1)
-		require.Equal(t, fibreTx2.Tx, builder.PayForFibreTxs[0])
-		require.Equal(t, sizeAfterOneTx, builder.CurrentSize())
-	})
+			require.Len(t, builder.PayForFibreTxs, tt.wantPFFTxs)
+			require.Len(t, builder.Blobs, tt.wantBlobs)
+			require.Len(t, builder.Txs, tt.wantTxs)
+			require.Len(t, builder.Pfbs, tt.wantPfbs)
+			require.Equal(t, tt.wantEmpty, builder.IsEmpty())
+		})
+	}
+}
 
-	t.Run("consecutive reverts prevented", func(t *testing.T) {
-		builder, err := square.NewBuilder(64, 64)
-		require.NoError(t, err)
-
-		fibreTx1 := newFibreTx(t, ns1)
-		fibreTx2 := newFibreTx(t, ns1)
-		added, err := builder.AppendFibreTx(fibreTx1)
-		require.NoError(t, err)
-		require.True(t, added)
-		added, err = builder.AppendFibreTx(fibreTx2)
-		require.NoError(t, err)
-		require.True(t, added)
-
-		// First revert works
-		require.NoError(t, builder.RevertLastPayForFibreTx())
-		require.Len(t, builder.PayForFibreTxs, 1)
-		require.Len(t, builder.Blobs, 1)
-		sizeAfterRevert := builder.CurrentSize()
-
-		// Second consecutive revert is prevented
-		err = builder.RevertLastPayForFibreTx()
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "already been reverted")
-		require.Len(t, builder.PayForFibreTxs, 1)
-		require.Equal(t, sizeAfterRevert, builder.CurrentSize())
-	})
-
-	t.Run("revert works after new add", func(t *testing.T) {
-		builder, err := square.NewBuilder(64, 64)
-		require.NoError(t, err)
-
-		fibreTx1 := newFibreTx(t, ns1)
-		added, err := builder.AppendFibreTx(fibreTx1)
-		require.NoError(t, err)
-		require.True(t, added)
-		require.NoError(t, builder.RevertLastPayForFibreTx())
-
-		// Can't revert again (no txs left)
-		require.Error(t, builder.RevertLastPayForFibreTx())
-
-		// Add new tx, revert works again
-		fibreTx2 := newFibreTx(t, ns1)
-		added, err = builder.AppendFibreTx(fibreTx2)
-		require.NoError(t, err)
-		require.True(t, added)
-		require.NoError(t, builder.RevertLastPayForFibreTx())
-		require.Len(t, builder.PayForFibreTxs, 0)
-		require.Len(t, builder.Blobs, 0)
-	})
+func mustAppendFibreTx(t *testing.T, b *square.Builder, ns share.Namespace) {
+	t.Helper()
+	fibreTx := newFibreTx(t, ns)
+	added, err := b.AppendFibreTx(fibreTx)
+	require.NoError(t, err)
+	require.True(t, added)
 }
 
 func TestBuilderIsEmptyWithPayForFibreTx(t *testing.T) {
