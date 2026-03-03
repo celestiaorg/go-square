@@ -10,7 +10,7 @@ inclusion | Package inclusion contains functions to generate the blob share comm
 proto     | Package contains proto definitions and go generated code
 share     | Package share contains encoding and decoding logic from blobs to shares.
 square    | Package square implements the logic to construct the original data square based on a list of transactions.
-tx        | Package tx contains BlobTx and IndexWrapper types
+tx        | Package tx contains BlobTx, FibreTx, and IndexWrapper types
 
 ## Architecture
 
@@ -40,6 +40,16 @@ flowchart LR
         sv1a["Namespace<br>29 B"] --- sv1b["InfoByte<br>1 B"] --- sv1c["SequenceLen<br>4 B"] --- sv1d["Signer<br>20 B"] --- sv1e["Data<br>458 B"]
     end
 ```
+
+```mermaid
+flowchart LR
+    subgraph sparse_v2_first["v2 — First Share (512 B, Fibre system blob)"]
+        direction LR
+        sv2a["Namespace<br>29 B"] --- sv2b["InfoByte<br>1 B"] --- sv2c["SequenceLen<br>4 B"] --- sv2d["Signer<br>20 B"] --- sv2e["FibreBlobVer<br>4 B"] --- sv2f["FibreCommit<br>32 B"] --- sv2g["Unused<br>422 B"]
+    end
+```
+
+v2 shares are used exclusively for Fibre system-level blobs. The data region encodes a 4-byte `FibreBlobVersion` (big-endian `uint32`) followed by a 32-byte commitment hash, totaling 36 bytes. The remaining space is zero-padded.
 
 ```mermaid
 flowchart LR
@@ -73,6 +83,8 @@ Namespace | 29 B | 1-byte version + 28-byte ID. Determines the share's namespace
 InfoByte | 1 B | Bits 1–7: share version, bit 0: 1 if first share in sequence.
 SequenceLen | 4 B | Big-endian `uint32` of total data length. First shares only.
 Signer | 20 B | Blob signer address. First sparse share only, version ≥ 1.
+FibreBlobVersion | 4 B | Big-endian `uint32` Fibre blob version. v2 shares only.
+FibreCommitment | 32 B | Fibre commitment hash. v2 shares only.
 ReservedBytes | 4 B | Byte index where the next unit begins. Compact shares only.
 
 ### Blob to Shares
