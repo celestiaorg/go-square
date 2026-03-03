@@ -168,6 +168,11 @@ func TxShareRange(txs [][]byte, txIndex, maxSquareSize, subtreeRootThreshold int
 
 // BlobShareRange returns the range of share indexes that the blob, identified by txIndex and blobIndex, occupies.
 // The range is end exclusive.
+//
+// Note: this function only supports PFB blobs. It does not support FibreTx
+// system blobs because their share indexes are not tracked via IndexWrapper.
+// Callers needing system blob positions can use GetShareRangeForNamespace on
+// the constructed square instead.
 func BlobShareRange(txs [][]byte, txIndex, blobIndex, maxSquareSize, subtreeRootThreshold int) (share.Range, error) {
 	builder, err := NewBuilder(maxSquareSize, subtreeRootThreshold, txs...)
 	if err != nil {

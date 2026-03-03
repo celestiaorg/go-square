@@ -607,3 +607,54 @@ func TestWriteSquare(t *testing.T) {
 		require.Equal(t, txWriter.Count()+pfbWriter.Count(), payForFibreShareRange.Start, "PayForFibreNamespace should start after PayForBlobNamespace")
 	})
 }
+
+// TestBlobShareRangeWithPayForFibre verifies that the BlobShareRange function
+// works for PFB blobs but returns an error for FibreTx system blobs. This is
+// expected because system blobs are not tracked through the PFB IndexWrapper
+// mechanism.
+func TestBlobShareRangeWithPayForFibre(t *testing.T) {
+	ns := share.MustNewV0Namespace(bytes.Repeat([]byte{0x1}, share.NamespaceVersionZeroIDSize))
+	signer := bytes.Repeat([]byte{0xAA}, share.SignerSize)
+	commitment := bytes.Repeat([]byte{0xBB}, share.FibreCommitmentSize)
+	systemBlob, err := share.NewV2Blob(ns, 1, commitment, signer)
+	require.NoError(t, err)
+
+	fibreTxBytes, err := tx.MarshalFibreTx([]byte("pay-for-fibre-sdk-tx"), systemBlob)
+	require.NoError(t, err)
+
+	// Create a blob tx for testing
+	blobTxBytes := test.GenerateBlobTxs(1, 1, 200)
+
+	// Ordered txs: normal tx, blob tx, fibre tx
+	txs := [][]byte{
+		[]byte("normal-tx"),
+		blobTxBytes[0],
+		fibreTxBytes,
+	}
+
+	// TxShareRange should work for all three tx types
+	// txIndex=0: normal tx
+	txRange, err := square.TxShareRange(txs, 0, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+	assert.NoError(t, err, "TxShareRange should work for normal txs")
+	assert.False(t, txRange.IsEmpty())
+
+	// txIndex=1: blob tx (PFB)
+	txRange, err = square.TxShareRange(txs, 1, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+	assert.NoError(t, err, "TxShareRange should work for PFB txs")
+	assert.False(t, txRange.IsEmpty())
+
+	// txIndex=2: PayForFibre tx
+	txRange, err = square.TxShareRange(txs, 2, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+	assert.NoError(t, err, "TxShareRange should work for PayForFibre txs")
+	assert.False(t, txRange.IsEmpty())
+
+	// BlobShareRange should work for blob tx's blobs (txIndex=1, blobIndex=0)
+	blobRange, err := square.BlobShareRange(txs, 1, 0, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+	assert.NoError(t, err, "BlobShareRange should work for PFB blobs")
+	assert.False(t, blobRange.IsEmpty())
+
+	// BlobShareRange returns an error for FibreTx system blobs (txIndex=2, blobIndex=0)
+	// because system blobs use NoPfbIndex and are not tracked via IndexWrapper
+	_, err = square.BlobShareRange(txs, 2, 0, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+	assert.Error(t, err, "BlobShareRange should return error for FibreTx system blob indices")
+}
