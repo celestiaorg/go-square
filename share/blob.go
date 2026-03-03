@@ -1,6 +1,7 @@
 package share
 
 import (
+	"crypto/sha256"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -156,6 +157,16 @@ func NewBlobFromProto(pb *v4.BlobProto) (*Blob, error) {
 		uint8(pb.ShareVersion),
 		pb.Signer,
 	)
+}
+
+// Hash returns a SHA-256 hash of all the blob's fields.
+func (b *Blob) Hash() []byte {
+	h := sha256.New()
+	h.Write(b.Namespace().Bytes())
+	h.Write(b.Data())
+	h.Write([]byte{b.ShareVersion()})
+	h.Write(b.Signer())
+	return h.Sum(nil)
 }
 
 // Namespace returns the namespace of the blob

@@ -3,6 +3,7 @@ package share
 import (
 	"bytes"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/binary"
 	"encoding/json"
 	"testing"
@@ -96,6 +97,78 @@ func TestBlobConstructor(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, blobList, 1)
 	require.Equal(t, blob, blobList[0])
+}
+
+func TestBlobHash(t *testing.T) {
+	ns := RandomNamespace()
+	data := []byte{1, 2, 3, 4, 5}
+	signer := bytes.Repeat([]byte{1}, SignerSize)
+
+	t.Run("deterministic", func(t *testing.T) {
+		blob, err := NewV0Blob(ns, data)
+		require.NoError(t, err)
+
+		hash1 := blob.Hash()
+		hash2 := blob.Hash()
+		assert.Equal(t, hash1, hash2)
+	})
+
+	t.Run("covers all fields", func(t *testing.T) {
+		blob, err := NewV1Blob(ns, data, signer)
+		require.NoError(t, err)
+
+		h := sha256.New()
+		h.Write(ns.Bytes())
+		h.Write(data)
+		h.Write([]byte{ShareVersionOne})
+		h.Write(signer)
+		expected := h.Sum(nil)
+
+		assert.Equal(t, expected, blob.Hash())
+	})
+
+	t.Run("different namespace produces different hash", func(t *testing.T) {
+		blob1, err := NewV0Blob(ns, data)
+		require.NoError(t, err)
+
+		ns2 := RandomNamespace()
+		blob2, err := NewV0Blob(ns2, data)
+		require.NoError(t, err)
+
+		assert.NotEqual(t, blob1.Hash(), blob2.Hash())
+	})
+
+	t.Run("different data produces different hash", func(t *testing.T) {
+		blob1, err := NewV0Blob(ns, data)
+		require.NoError(t, err)
+
+		blob2, err := NewV0Blob(ns, []byte{6, 7, 8})
+		require.NoError(t, err)
+
+		assert.NotEqual(t, blob1.Hash(), blob2.Hash())
+	})
+
+	t.Run("different share version produces different hash", func(t *testing.T) {
+		blob1, err := NewV0Blob(ns, data)
+		require.NoError(t, err)
+
+		blob2, err := NewV1Blob(ns, data, signer)
+		require.NoError(t, err)
+
+		assert.NotEqual(t, blob1.Hash(), blob2.Hash())
+	})
+
+	t.Run("different signer produces different hash", func(t *testing.T) {
+		signer2 := bytes.Repeat([]byte{2}, SignerSize)
+
+		blob1, err := NewV1Blob(ns, data, signer)
+		require.NoError(t, err)
+
+		blob2, err := NewV1Blob(ns, data, signer2)
+		require.NoError(t, err)
+
+		assert.NotEqual(t, blob1.Hash(), blob2.Hash())
+	})
 }
 
 func TestNewBlobFromProto(t *testing.T) {
