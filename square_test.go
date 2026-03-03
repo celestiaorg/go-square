@@ -39,9 +39,10 @@ func TestSquareConstruction(t *testing.T) {
 		require.Error(t, err)
 	})
 	t.Run("validates transaction ordering: normal -> blob -> pay-for-fibre", func(t *testing.T) {
+		ns := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
 		normalTx := sendTxs[0]
 		blobTx := pfbTxs[0]
-		payForFibreTx := newFibreTxBytes(t)
+		payForFibreTx := newFibreTxBytes(t, ns)
 
 		// Valid ordering: normal -> blob -> pay-for-fibre
 		validTxs := [][]byte{normalTx, blobTx, payForFibreTx}
@@ -68,9 +69,8 @@ func TestSquareConstruction(t *testing.T) {
 	})
 }
 
-func newFibreTxBytes(t *testing.T) []byte {
+func newFibreTxBytes(t *testing.T, ns share.Namespace) []byte {
 	t.Helper()
-	ns := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
 	signer := bytes.Repeat([]byte{0xAA}, share.SignerSize)
 	commitment := bytes.Repeat([]byte{0xFF}, share.FibreCommitmentSize)
 	systemBlob, err := share.NewV2Blob(ns, 1, commitment, signer)
@@ -86,8 +86,9 @@ func TestValidateTxOrdering(t *testing.T) {
 	normalTx2 := newTx(100)
 	blobTx1 := test.GenerateBlobTxs(1, 1, 1024)[0]
 	blobTx2 := test.GenerateBlobTxs(1, 1, 1024)[0]
-	payForFibreTx1 := newFibreTxBytes(t)
-	payForFibreTx2 := newFibreTxBytes(t)
+	ns := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
+	payForFibreTx1 := newFibreTxBytes(t, ns)
+	payForFibreTx2 := newFibreTxBytes(t, ns)
 
 	tests := []struct {
 		name          string
@@ -310,8 +311,9 @@ func TestSquareTxShareRange(t *testing.T) {
 }
 
 func TestSquareTxShareRangeWithPayForFibre(t *testing.T) {
+	ns := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
 	normalTx := newTx(100)
-	payForFibreTx := newFibreTxBytes(t)
+	payForFibreTx := newFibreTxBytes(t, ns)
 
 	// Build a tx list: normal tx, then PayForFibre tx
 	txs := [][]byte{normalTx, payForFibreTx}
@@ -339,16 +341,8 @@ func TestSquareTxShareRangeWithPayForFibre(t *testing.T) {
 func TestSquareBlobShareRange(t *testing.T) {
 	txs := test.GenerateBlobTxs(10, 1, 1024)
 
-	builder, err := square.NewBuilder(defaultMaxSquareSize, defaultSubtreeRootThreshold)
+	builder, err := square.NewBuilder(defaultMaxSquareSize, defaultSubtreeRootThreshold, txs...)
 	require.NoError(t, err)
-	for idx, txBytes := range txs {
-		blobTx, isBlobTx, err := tx.UnmarshalBlobTx(txBytes)
-		require.NoError(t, err)
-		require.True(t, isBlobTx)
-		added, err := builder.AppendBlobTx(blobTx)
-		require.NoError(t, err)
-		require.True(t, added, "not enough space to append blob tx at index %d", idx)
-	}
 
 	dataSquare, err := builder.Export()
 	require.NoError(t, err)

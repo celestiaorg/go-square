@@ -54,7 +54,7 @@ type Builder struct {
 	subtreeRootThreshold int
 }
 
-func NewBuilder(maxSquareSize int, subtreeRootThreshold int) (*Builder, error) {
+func NewBuilder(maxSquareSize int, subtreeRootThreshold int, txs ...[]byte) (*Builder, error) {
 	if maxSquareSize <= 0 {
 		return nil, errors.New("max square size must be strictly positive")
 	}
@@ -64,7 +64,7 @@ func NewBuilder(maxSquareSize int, subtreeRootThreshold int) (*Builder, error) {
 	if !IsPowerOfTwo(maxSquareSize) {
 		return nil, errors.New("max square size must be a power of two")
 	}
-	return &Builder{
+	builder := &Builder{
 		maxSquareSize:        maxSquareSize,
 		subtreeRootThreshold: subtreeRootThreshold,
 		Blobs:                make([]*Element, 0),
@@ -74,7 +74,11 @@ func NewBuilder(maxSquareSize int, subtreeRootThreshold int) (*Builder, error) {
 		TxCounter:            share.NewCompactShareCounter(),
 		PfbCounter:           share.NewCompactShareCounter(),
 		PayForFibreCounter:   share.NewCompactShareCounter(),
-	}, nil
+	}
+	if err := populateBuilder(builder, txs); err != nil {
+		return nil, err
+	}
+	return builder, nil
 }
 
 // AppendTx attempts to allocate the transaction to the square. It returns false if there is not

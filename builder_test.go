@@ -122,6 +122,108 @@ func TestBuilderInvalidConstructor(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestNewBuilderWithVariadicTxs(t *testing.T) {
+	ns1 := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
+
+	t.Run("no txs", func(t *testing.T) {
+		builder, err := square.NewBuilder(64, 64)
+		require.NoError(t, err)
+		require.True(t, builder.IsEmpty())
+	})
+	t.Run("normal txs only", func(t *testing.T) {
+		txs := test.GenerateTxs(200, 400, 5)
+		builder, err := square.NewBuilder(64, 64, txs...)
+		require.NoError(t, err)
+		require.Len(t, builder.Txs, 5)
+		require.Len(t, builder.Pfbs, 0)
+		require.Len(t, builder.Blobs, 0)
+	})
+	t.Run("blob txs only", func(t *testing.T) {
+		txs := test.GenerateBlobTxs(3, 1, 1024)
+		builder, err := square.NewBuilder(64, 64, txs...)
+		require.NoError(t, err)
+		require.Len(t, builder.Txs, 0)
+		require.Len(t, builder.Pfbs, 3)
+		require.Len(t, builder.Blobs, 3)
+	})
+	t.Run("mixed normal and blob txs", func(t *testing.T) {
+		txs := test.GenerateTxs(200, 400, 3)
+		txs = append(txs, test.GenerateBlobTxs(2, 1, 1024)...)
+		builder, err := square.NewBuilder(64, 64, txs...)
+		require.NoError(t, err)
+		require.Len(t, builder.Txs, 3)
+		require.Len(t, builder.Pfbs, 2)
+		require.Len(t, builder.Blobs, 2)
+	})
+	t.Run("fibre txs only", func(t *testing.T) {
+		fibreTxBytes := newFibreTxBytes(t, ns1)
+		builder, err := square.NewBuilder(64, 64, fibreTxBytes)
+		require.NoError(t, err)
+		require.Len(t, builder.Txs, 0)
+		require.Len(t, builder.Pfbs, 0)
+		require.Len(t, builder.PayForFibreTxs, 1)
+		require.Len(t, builder.Blobs, 1)
+	})
+	t.Run("mixed normal, blob, and fibre txs", func(t *testing.T) {
+		txs := test.GenerateTxs(200, 400, 2)
+		txs = append(txs, test.GenerateBlobTxs(2, 1, 1024)...)
+		txs = append(txs, newFibreTxBytes(t, ns1))
+		builder, err := square.NewBuilder(64, 64, txs...)
+		require.NoError(t, err)
+		require.Len(t, builder.Txs, 2)
+		require.Len(t, builder.Pfbs, 2)
+		require.Len(t, builder.PayForFibreTxs, 1)
+		require.Len(t, builder.Blobs, 3) // 2 PFB blobs + 1 fibre system blob
+	})
+	t.Run("not enough space", func(t *testing.T) {
+		// 2x2 square is very small, large blob shouldn't fit
+		blobTxs := test.GenerateBlobTxs(1, 1, 1_000_000)
+		_, err := square.NewBuilder(2, 64, blobTxs...)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "not enough space")
+	})
+	t.Run("equivalent to manual append", func(t *testing.T) {
+		normalTxs := test.GenerateTxs(200, 400, 2)
+		blobTxs := test.GenerateBlobTxs(2, 1, 1024)
+		fibreTxBytes := newFibreTxBytes(t, ns1)
+		txs := make([][]byte, 0, len(normalTxs)+len(blobTxs)+1)
+		txs = append(txs, normalTxs...)
+		txs = append(txs, blobTxs...)
+		txs = append(txs, fibreTxBytes)
+
+		// Build via variadic parameter
+		builderVariadic, err := square.NewBuilder(64, 64, txs...)
+		require.NoError(t, err)
+		squareVariadic, err := builderVariadic.Export()
+		require.NoError(t, err)
+
+		// Build via manual append
+		builderManual, err := square.NewBuilder(64, 64)
+		require.NoError(t, err)
+		for _, txBytes := range normalTxs {
+			require.True(t, builderManual.AppendTx(txBytes))
+		}
+		for _, txBytes := range blobTxs {
+			blobTx, isBlobTx, err := tx.UnmarshalBlobTx(txBytes)
+			require.NoError(t, err)
+			require.True(t, isBlobTx)
+			added, err := builderManual.AppendBlobTx(blobTx)
+			require.NoError(t, err)
+			require.True(t, added)
+		}
+		fibreTx, isFibreTx, err := tx.UnmarshalFibreTx(fibreTxBytes)
+		require.NoError(t, err)
+		require.True(t, isFibreTx)
+		added, err := builderManual.AppendFibreTx(fibreTx)
+		require.NoError(t, err)
+		require.True(t, added)
+		squareManual, err := builderManual.Export()
+		require.NoError(t, err)
+
+		require.True(t, squareVariadic.Equals(squareManual))
+	})
+}
+
 func newTx(length int) []byte {
 	return bytes.Repeat([]byte{0}, length-test.DelimLen(uint64(length)))
 }
@@ -130,21 +232,8 @@ func TestBuilderFindTxShareRange(t *testing.T) {
 	blockTxs := generateOrderedTxs(5, 5, 1000, 10)
 	require.Len(t, blockTxs, 10)
 
-	builder, err := square.NewBuilder(128, 64)
+	builder, err := square.NewBuilder(128, 64, blockTxs...)
 	require.NoError(t, err)
-	for idx, txBytes := range blockTxs {
-		blobTx, isBlobTx, err := tx.UnmarshalBlobTx(txBytes)
-		if err != nil && isBlobTx {
-			require.NoError(t, err)
-		}
-		if isBlobTx {
-			added, err := builder.AppendBlobTx(blobTx)
-			require.NoError(t, err)
-			require.True(t, added, "not enough space to append blob tx at index %d", idx)
-		} else {
-			require.True(t, builder.AppendTx(txBytes), "not enough space to append tx at index %d", idx)
-		}
-	}
 
 	dataSquare, err := builder.Export()
 	require.NoError(t, err)
@@ -485,24 +574,8 @@ func TestBigBlock(t *testing.T) {
 	err := json.Unmarshal([]byte(bigBlockJSON), &bigBlock)
 	require.NoError(t, err)
 
-	builder, err := square.NewBuilder(defaultMaxSquareSize, defaultSubtreeRootThreshold)
+	builder, err := square.NewBuilder(defaultMaxSquareSize, defaultSubtreeRootThreshold, bigBlock.Txs...)
 	require.NoError(t, err)
-	seenFirstBlobTx := false
-	for idx, txBytes := range bigBlock.Txs {
-		blobTx, isBlobTx, err := tx.UnmarshalBlobTx(txBytes)
-		if err != nil && isBlobTx {
-			require.NoError(t, err)
-		}
-		if isBlobTx {
-			seenFirstBlobTx = true
-			added, err := builder.AppendBlobTx(blobTx)
-			require.NoError(t, err)
-			require.True(t, added, "not enough space to append blob tx at index %d", idx)
-		} else {
-			require.False(t, seenFirstBlobTx, "normal tx at index %d after blob tx", idx)
-			require.True(t, builder.AppendTx(txBytes), "not enough space to append tx at index %d", idx)
-		}
-	}
 	assert.Len(t, builder.Blobs, 84)
 	assert.Len(t, builder.Pfbs, 25)
 
