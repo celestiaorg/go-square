@@ -43,9 +43,22 @@ func TestBuilderSquareSizeEstimation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			txs := generateMixedTxs(tt.normalTxs, tt.pfbCount, 1, tt.pfbSize)
-			square, _, err := square.Build(txs, 64, defaultSubtreeRootThreshold)
+			builder, err := square.NewBuilder(64, defaultSubtreeRootThreshold)
 			require.NoError(t, err)
-			size, err := square.Size()
+			for _, txBytes := range txs {
+				blobTx, isBlobTx, err := tx.UnmarshalBlobTx(txBytes)
+				if err != nil && isBlobTx {
+					require.NoError(t, err)
+				}
+				if isBlobTx {
+					_, _ = builder.AppendBlobTx(blobTx)
+				} else {
+					builder.AppendTx(txBytes)
+				}
+			}
+			dataSquare, err := builder.Export()
+			require.NoError(t, err)
+			size, err := dataSquare.Size()
 			require.NoError(t, err)
 			require.EqualValues(t, tt.expectedSquareSize, size)
 		})
@@ -109,6 +122,108 @@ func TestBuilderInvalidConstructor(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestNewBuilderWithVariadicTxs(t *testing.T) {
+	ns1 := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
+
+	t.Run("no txs", func(t *testing.T) {
+		builder, err := square.NewBuilder(64, 64)
+		require.NoError(t, err)
+		require.True(t, builder.IsEmpty())
+	})
+	t.Run("normal txs only", func(t *testing.T) {
+		txs := test.GenerateTxs(200, 400, 5)
+		builder, err := square.NewBuilder(64, 64, txs...)
+		require.NoError(t, err)
+		require.Len(t, builder.Txs, 5)
+		require.Len(t, builder.Pfbs, 0)
+		require.Len(t, builder.Blobs, 0)
+	})
+	t.Run("blob txs only", func(t *testing.T) {
+		txs := test.GenerateBlobTxs(3, 1, 1024)
+		builder, err := square.NewBuilder(64, 64, txs...)
+		require.NoError(t, err)
+		require.Len(t, builder.Txs, 0)
+		require.Len(t, builder.Pfbs, 3)
+		require.Len(t, builder.Blobs, 3)
+	})
+	t.Run("mixed normal and blob txs", func(t *testing.T) {
+		txs := test.GenerateTxs(200, 400, 3)
+		txs = append(txs, test.GenerateBlobTxs(2, 1, 1024)...)
+		builder, err := square.NewBuilder(64, 64, txs...)
+		require.NoError(t, err)
+		require.Len(t, builder.Txs, 3)
+		require.Len(t, builder.Pfbs, 2)
+		require.Len(t, builder.Blobs, 2)
+	})
+	t.Run("fibre txs only", func(t *testing.T) {
+		fibreTxBytes := newFibreTxBytes(t, ns1)
+		builder, err := square.NewBuilder(64, 64, fibreTxBytes)
+		require.NoError(t, err)
+		require.Len(t, builder.Txs, 0)
+		require.Len(t, builder.Pfbs, 0)
+		require.Len(t, builder.PayForFibreTxs, 1)
+		require.Len(t, builder.Blobs, 1)
+	})
+	t.Run("mixed normal, blob, and fibre txs", func(t *testing.T) {
+		txs := test.GenerateTxs(200, 400, 2)
+		txs = append(txs, test.GenerateBlobTxs(2, 1, 1024)...)
+		txs = append(txs, newFibreTxBytes(t, ns1))
+		builder, err := square.NewBuilder(64, 64, txs...)
+		require.NoError(t, err)
+		require.Len(t, builder.Txs, 2)
+		require.Len(t, builder.Pfbs, 2)
+		require.Len(t, builder.PayForFibreTxs, 1)
+		require.Len(t, builder.Blobs, 3) // 2 PFB blobs + 1 fibre system blob
+	})
+	t.Run("not enough space", func(t *testing.T) {
+		// 2x2 square is very small, large blob shouldn't fit
+		blobTxs := test.GenerateBlobTxs(1, 1, 1_000_000)
+		_, err := square.NewBuilder(2, 64, blobTxs...)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "not enough space")
+	})
+	t.Run("equivalent to manual append", func(t *testing.T) {
+		normalTxs := test.GenerateTxs(200, 400, 2)
+		blobTxs := test.GenerateBlobTxs(2, 1, 1024)
+		fibreTxBytes := newFibreTxBytes(t, ns1)
+		txs := make([][]byte, 0, len(normalTxs)+len(blobTxs)+1)
+		txs = append(txs, normalTxs...)
+		txs = append(txs, blobTxs...)
+		txs = append(txs, fibreTxBytes)
+
+		// Build via variadic parameter
+		builderVariadic, err := square.NewBuilder(64, 64, txs...)
+		require.NoError(t, err)
+		squareVariadic, err := builderVariadic.Export()
+		require.NoError(t, err)
+
+		// Build via manual append
+		builderManual, err := square.NewBuilder(64, 64)
+		require.NoError(t, err)
+		for _, txBytes := range normalTxs {
+			require.True(t, builderManual.AppendTx(txBytes))
+		}
+		for _, txBytes := range blobTxs {
+			blobTx, isBlobTx, err := tx.UnmarshalBlobTx(txBytes)
+			require.NoError(t, err)
+			require.True(t, isBlobTx)
+			added, err := builderManual.AppendBlobTx(blobTx)
+			require.NoError(t, err)
+			require.True(t, added)
+		}
+		fibreTx, isFibreTx, err := tx.UnmarshalFibreTx(fibreTxBytes)
+		require.NoError(t, err)
+		require.True(t, isFibreTx)
+		added, err := builderManual.AppendFibreTx(fibreTx)
+		require.NoError(t, err)
+		require.True(t, added)
+		squareManual, err := builderManual.Export()
+		require.NoError(t, err)
+
+		require.True(t, squareVariadic.Equals(squareManual))
+	})
+}
+
 func newTx(length int) []byte {
 	return bytes.Repeat([]byte{0}, length-test.DelimLen(uint64(length)))
 }
@@ -149,6 +264,97 @@ func TestBuilderFindTxShareRange(t *testing.T) {
 		require.True(t, bytes.Contains(parsedShares, txBytes))
 		lastEnd = shareRange.End
 	}
+}
+
+func TestBuilderFindTxShareRangeWithPayForFibre(t *testing.T) {
+	builder, err := square.NewBuilder(128, 64)
+	require.NoError(t, err)
+
+	// Add normal txs
+	normalTx1 := newTx(100)
+	normalTx2 := newTx(200)
+	require.True(t, builder.AppendTx(normalTx1))
+	require.True(t, builder.AppendTx(normalTx2))
+
+	// Add a PFB tx
+	ns1 := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
+	blob1, err := share.NewBlob(ns1, []byte("blob data"), share.ShareVersionZero, nil)
+	require.NoError(t, err)
+	blobTxBytes := test.GenerateBlobTxWithNamespace([]share.Namespace{ns1}, []int{len(blob1.Data())}, share.ShareVersionZero)
+	blobTx, isBlobTx, err := tx.UnmarshalBlobTx(blobTxBytes)
+	require.NoError(t, err)
+	require.True(t, isBlobTx)
+	mustAppendBlobTx(t, builder, blobTx)
+
+	// Add PayForFibre txs via AppendFibreTx
+	ns2 := share.MustNewV0Namespace(bytes.Repeat([]byte{2}, share.NamespaceVersionZeroIDSize))
+	fibreTx1 := newFibreTx(t, ns2)
+	fibreTx2 := newFibreTx(t, ns2)
+	added2, err := builder.AppendFibreTx(fibreTx1)
+	require.NoError(t, err)
+	require.True(t, added2)
+	added2, err = builder.AppendFibreTx(fibreTx2)
+	require.NoError(t, err)
+	require.True(t, added2)
+	payForFibreTx1 := fibreTx1.Tx
+	payForFibreTx2 := fibreTx2.Tx
+
+	// Export to finalize
+	dataSquare, err := builder.Export()
+	require.NoError(t, err)
+	dataSquareSize, err := dataSquare.Size()
+	require.NoError(t, err)
+	size := dataSquareSize * dataSquareSize
+
+	// Index 0: normal tx 1
+	r0, err := builder.FindTxShareRange(0)
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, r0.Start, 0)
+	require.LessOrEqual(t, r0.End, size)
+	shares0 := dataSquare[r0.Start : r0.End+1]
+	raw0, err := rawData(shares0)
+	require.NoError(t, err)
+	require.True(t, bytes.Contains(raw0, normalTx1))
+
+	// Index 1: normal tx 2
+	r1, err := builder.FindTxShareRange(1)
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, r1.Start, r0.Start)
+	require.LessOrEqual(t, r1.End, size)
+	shares1 := dataSquare[r1.Start : r1.End+1]
+	raw1, err := rawData(shares1)
+	require.NoError(t, err)
+	require.True(t, bytes.Contains(raw1, normalTx2))
+
+	// Index 2: PFB tx
+	r2, err := builder.FindTxShareRange(2)
+	require.NoError(t, err)
+	require.Greater(t, r2.Start, r1.Start)
+	require.LessOrEqual(t, r2.End, size)
+
+	// Index 3: PayForFibre tx 1
+	r3, err := builder.FindTxShareRange(3)
+	require.NoError(t, err)
+	require.Greater(t, r3.Start, r2.Start)
+	require.LessOrEqual(t, r3.End, size)
+	shares3 := dataSquare[r3.Start : r3.End+1]
+	raw3, err := rawData(shares3)
+	require.NoError(t, err)
+	require.True(t, bytes.Contains(raw3, payForFibreTx1))
+
+	// Index 4: PayForFibre tx 2
+	r4, err := builder.FindTxShareRange(4)
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, r4.Start, r3.Start)
+	require.LessOrEqual(t, r4.End, size)
+	shares4 := dataSquare[r4.Start : r4.End+1]
+	raw4, err := rawData(shares4)
+	require.NoError(t, err)
+	require.True(t, bytes.Contains(raw4, payForFibreTx2))
+
+	// Index 5: out of range
+	_, err = builder.FindTxShareRange(5)
+	require.Error(t, err)
 }
 
 func rawData(shares []share.Share) ([]byte, error) {
@@ -738,7 +944,20 @@ func TestRevertAfterNewAdd(t *testing.T) {
 func TestArabicaSquareHash(t *testing.T) {
 	arabicaTxs := loadArabicaTxs(t)
 
-	currentSquare, _, err := square.Build(arabicaTxs, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+	builder, err := square.NewBuilder(defaultMaxSquareSize, defaultSubtreeRootThreshold)
+	require.NoError(t, err)
+	for _, txBytes := range arabicaTxs {
+		blobTx, isBlobTx, err := tx.UnmarshalBlobTx(txBytes)
+		if err != nil && isBlobTx {
+			require.NoError(t, err)
+		}
+		if isBlobTx {
+			_, _ = builder.AppendBlobTx(blobTx)
+		} else {
+			builder.AppendTx(txBytes)
+		}
+	}
+	currentSquare, err := builder.Export()
 	require.NoError(t, err)
 
 	want := [32]uint8([32]uint8{0x18, 0x80, 0xb0, 0xe7, 0x7b, 0x46, 0x84, 0xcb, 0xc, 0xb, 0x33, 0x1b, 0xe3, 0xc9, 0xf9, 0x9f, 0x15, 0x7, 0x93, 0x3e, 0x5, 0xa1, 0x35, 0x2c, 0xdb, 0xaa, 0xba, 0xb3, 0x4e, 0x8f, 0xc0, 0x3f})
@@ -763,4 +982,471 @@ func loadArabicaTxs(t *testing.T) [][]byte {
 	}
 
 	return txs
+}
+
+func mustAppendBlobTx(t *testing.T, builder *square.Builder, blobTx *tx.BlobTx) {
+	t.Helper()
+	added, err := builder.AppendBlobTx(blobTx)
+	require.NoError(t, err)
+	require.True(t, added)
+}
+
+func newFibreTx(t *testing.T, ns share.Namespace) *tx.FibreTx {
+	t.Helper()
+	signer := bytes.Repeat([]byte{0xAA}, share.SignerSize)
+	commitment := bytes.Repeat([]byte{0xFF}, share.FibreCommitmentSize)
+	systemBlob, err := share.NewV2Blob(ns, 1, commitment, signer)
+	require.NoError(t, err)
+	return &tx.FibreTx{
+		Tx:         []byte("pay-for-fibre-sdk-tx"),
+		SystemBlob: systemBlob,
+	}
+}
+
+func TestBuilderAppendFibreTx(t *testing.T) {
+	ns1 := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
+
+	builder, err := square.NewBuilder(8, 64)
+	require.NoError(t, err)
+
+	// Test appending a fibre transaction
+	fibreTx1 := newFibreTx(t, ns1)
+	added, err := builder.AppendFibreTx(fibreTx1)
+	require.NoError(t, err)
+	require.True(t, added)
+	require.Len(t, builder.PayForFibreTxs, 1)
+	require.Equal(t, fibreTx1.Tx, builder.PayForFibreTxs[0])
+	require.Len(t, builder.Blobs, 1)
+	require.Greater(t, builder.CurrentSize(), 0)
+
+	// Test appending another fibre transaction
+	fibreTx2 := newFibreTx(t, ns1)
+	added, err = builder.AppendFibreTx(fibreTx2)
+	require.NoError(t, err)
+	require.True(t, added)
+	require.Len(t, builder.PayForFibreTxs, 2)
+	require.Len(t, builder.Blobs, 2)
+}
+
+func TestBuilderRevertPayForFibreTx(t *testing.T) {
+	ns1 := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
+
+	tests := []struct {
+		name       string
+		setup      func(t *testing.T, b *square.Builder)
+		wantErr    string // empty means no error expected
+		wantPFFTxs int
+		wantBlobs  int
+		wantTxs    int
+		wantPfbs   int
+		wantEmpty  bool
+	}{
+		{
+			name:      "no txs to revert",
+			setup:     func(_ *testing.T, _ *square.Builder) {},
+			wantErr:   "no pay-for-fibre transactions to revert",
+			wantEmpty: true,
+		},
+		{
+			name: "add one, revert one",
+			setup: func(t *testing.T, b *square.Builder) {
+				mustAppendFibreTx(t, b, ns1)
+			},
+			wantEmpty: true,
+		},
+		{
+			name: "add two, revert last",
+			setup: func(t *testing.T, b *square.Builder) {
+				mustAppendFibreTx(t, b, ns1)
+				mustAppendFibreTx(t, b, ns1)
+			},
+			wantPFFTxs: 1,
+			wantBlobs:  1,
+		},
+		{
+			name: "consecutive reverts prevented",
+			setup: func(t *testing.T, b *square.Builder) {
+				mustAppendFibreTx(t, b, ns1)
+				mustAppendFibreTx(t, b, ns1)
+				require.NoError(t, b.RevertLastPayForFibreTx())
+			},
+			wantErr:    "already been reverted",
+			wantPFFTxs: 1,
+			wantBlobs:  1,
+		},
+		{
+			name: "revert works after new add following prior revert",
+			setup: func(t *testing.T, b *square.Builder) {
+				mustAppendFibreTx(t, b, ns1)
+				require.NoError(t, b.RevertLastPayForFibreTx())
+				mustAppendFibreTx(t, b, ns1)
+			},
+			wantEmpty: true,
+		},
+		{
+			name: "does not affect normal txs",
+			setup: func(t *testing.T, b *square.Builder) {
+				require.True(t, b.AppendTx(newTx(100)))
+				mustAppendFibreTx(t, b, ns1)
+			},
+			wantTxs: 1,
+		},
+		{
+			name: "does not affect blob txs",
+			setup: func(t *testing.T, b *square.Builder) {
+				blobTxs := generateBlobTxsWithNamespaces(
+					[]share.Namespace{ns1}, [][]int{{100}},
+				)
+				blobTx, isBlobTx, err := tx.UnmarshalBlobTx(blobTxs[0])
+				require.NoError(t, err)
+				require.True(t, isBlobTx)
+				mustAppendBlobTx(t, b, blobTx)
+				mustAppendFibreTx(t, b, ns1)
+			},
+			wantPfbs:  1,
+			wantBlobs: 1, // PFB blob remains, fibre blob removed
+		},
+		{
+			name: "removes only fibre blob when mixed with PFB blobs",
+			setup: func(t *testing.T, b *square.Builder) {
+				// Add two blob txs, then a fibre tx
+				for i := 0; i < 2; i++ {
+					blobTxs := generateBlobTxsWithNamespaces(
+						[]share.Namespace{ns1}, [][]int{{100}},
+					)
+					blobTx, isBlobTx, err := tx.UnmarshalBlobTx(blobTxs[0])
+					require.NoError(t, err)
+					require.True(t, isBlobTx)
+					mustAppendBlobTx(t, b, blobTx)
+				}
+				mustAppendFibreTx(t, b, ns1)
+			},
+			wantPfbs:  2,
+			wantBlobs: 2, // both PFB blobs remain
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			builder, err := square.NewBuilder(64, 64)
+			require.NoError(t, err)
+
+			tt.setup(t, builder)
+			err = builder.RevertLastPayForFibreTx()
+
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+
+			require.Len(t, builder.PayForFibreTxs, tt.wantPFFTxs)
+			require.Len(t, builder.Blobs, tt.wantBlobs)
+			require.Len(t, builder.Txs, tt.wantTxs)
+			require.Len(t, builder.Pfbs, tt.wantPfbs)
+			require.Equal(t, tt.wantEmpty, builder.IsEmpty())
+		})
+	}
+}
+
+func mustAppendFibreTx(t *testing.T, b *square.Builder, ns share.Namespace) {
+	t.Helper()
+	fibreTx := newFibreTx(t, ns)
+	added, err := b.AppendFibreTx(fibreTx)
+	require.NoError(t, err)
+	require.True(t, added)
+}
+
+func TestBuilderIsEmptyWithPayForFibreTx(t *testing.T) {
+	builder, err := square.NewBuilder(8, 64)
+	require.NoError(t, err)
+
+	require.True(t, builder.IsEmpty())
+
+	ns1 := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
+	fibreTx1 := newFibreTx(t, ns1)
+	added, err := builder.AppendFibreTx(fibreTx1)
+	require.NoError(t, err)
+	require.True(t, added)
+	require.False(t, builder.IsEmpty())
+
+	require.NoError(t, builder.RevertLastPayForFibreTx())
+	require.True(t, builder.IsEmpty())
+}
+
+func TestBuilderNumTxsWithPayForFibreTx(t *testing.T) {
+	builder, err := square.NewBuilder(64, 64)
+	require.NoError(t, err)
+
+	require.Equal(t, 0, builder.NumTxs())
+
+	require.True(t, builder.AppendTx(newTx(100)))
+	require.Equal(t, 1, builder.NumTxs())
+
+	ns1 := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
+	fibreTx1 := newFibreTx(t, ns1)
+	added, err := builder.AppendFibreTx(fibreTx1)
+	require.NoError(t, err)
+	require.True(t, added)
+	require.Equal(t, 2, builder.NumTxs())
+
+	blobTxs := generateBlobTxsWithNamespaces([]share.Namespace{ns1}, [][]int{{100}})
+	blobTx, isBlobTx, err := tx.UnmarshalBlobTx(blobTxs[0])
+	require.NoError(t, err)
+	require.True(t, isBlobTx)
+	mustAppendBlobTx(t, builder, blobTx)
+	require.Equal(t, 3, builder.NumTxs())
+
+	require.NoError(t, builder.RevertLastPayForFibreTx())
+	require.Equal(t, 2, builder.NumTxs())
+}
+
+func TestBuilderExportWithMixedTransactions(t *testing.T) {
+	builder, err := square.NewBuilder(16, 64)
+	require.NoError(t, err)
+
+	ns1 := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
+
+	// Add transactions in different order
+	normalTx1 := newTx(100)
+	normalTx2 := newTx(100)
+
+	require.True(t, builder.AppendTx(normalTx1))
+	fibreTx1 := newFibreTx(t, ns1)
+	added, err := builder.AppendFibreTx(fibreTx1)
+	require.NoError(t, err)
+	require.True(t, added)
+	require.True(t, builder.AppendTx(normalTx2))
+	fibreTx2 := newFibreTx(t, ns1)
+	added, err = builder.AppendFibreTx(fibreTx2)
+	require.NoError(t, err)
+	require.True(t, added)
+
+	// Add a blob transaction
+	blobTxs := generateBlobTxsWithNamespaces([]share.Namespace{ns1}, [][]int{{100}})
+	blobTx, isBlobTx, err := tx.UnmarshalBlobTx(blobTxs[0])
+	require.NoError(t, err)
+	require.True(t, isBlobTx)
+	mustAppendBlobTx(t, builder, blobTx)
+
+	// Export the square
+	square, err := builder.Export()
+	require.NoError(t, err)
+
+	// Verify normal transactions are in TxNamespace
+	txShareRange := share.GetShareRangeForNamespace(square, share.TxNamespace)
+	require.False(t, txShareRange.IsEmpty())
+	txShares := square[txShareRange.Start:txShareRange.End]
+	txTxs, err := share.ParseTxs(txShares)
+	require.NoError(t, err)
+	require.Len(t, txTxs, 2)
+
+	// Verify pay-for-fibre transactions are in PayForFibreNamespace
+	payForFibreShareRange := share.GetShareRangeForNamespace(square, share.PayForFibreNamespace)
+	require.False(t, payForFibreShareRange.IsEmpty())
+	payForFibreShares := square[payForFibreShareRange.Start:payForFibreShareRange.End]
+	payForFibreTxs, err := share.ParseTxs(payForFibreShares)
+	require.NoError(t, err)
+	require.Len(t, payForFibreTxs, 2)
+
+	// Verify blob transactions (PFBs) are in PayForBlobNamespace
+	pfbShareRange := share.GetShareRangeForNamespace(square, share.PayForBlobNamespace)
+	require.False(t, pfbShareRange.IsEmpty())
+	pfbShares := square[pfbShareRange.Start:pfbShareRange.End]
+	pfbTxs, err := share.ParseTxs(pfbShares)
+	require.NoError(t, err)
+	require.Len(t, pfbTxs, 1)
+
+	// Verify order: Normal txs (TxNamespace) come before blob txs (PayForBlobNamespace)
+	// and blob txs come before pay-for-fibre txs (PayForFibreNamespace)
+	require.LessOrEqual(t, txShareRange.End, pfbShareRange.Start, "Normal txs should come before blob txs")
+	require.LessOrEqual(t, pfbShareRange.End, payForFibreShareRange.Start, "Blob txs should come before pay-for-fibre txs")
+}
+
+func TestBuilderRevertMixedWithPayForFibreTx(t *testing.T) {
+	builder, err := square.NewBuilder(64, 64)
+	require.NoError(t, err)
+
+	// Add a normal transaction
+	tx1 := newTx(100)
+	require.True(t, builder.AppendTx(tx1))
+
+	// Add a fibre transaction (adds both compact tx and system blob)
+	ns1 := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
+	fibreTx1 := newFibreTx(t, ns1)
+	added, err := builder.AppendFibreTx(fibreTx1)
+	require.NoError(t, err)
+	require.True(t, added)
+
+	// Add a blob transaction
+	blobTxs := generateBlobTxsWithNamespaces([]share.Namespace{ns1}, [][]int{{100}})
+	blobTx, isBlobTx, err := tx.UnmarshalBlobTx(blobTxs[0])
+	require.NoError(t, err)
+	require.True(t, isBlobTx)
+	mustAppendBlobTx(t, builder, blobTx)
+
+	// Verify state: fibre tx adds 1 blob, blob tx adds 1 blob = 2 total
+	require.Len(t, builder.Txs, 1)
+	require.Len(t, builder.PayForFibreTxs, 1)
+	require.Len(t, builder.Pfbs, 1)
+	require.Len(t, builder.Blobs, 2)
+
+	// Revert pay-for-fibre transaction - should remove system blob but not affect other transactions
+	err = builder.RevertLastPayForFibreTx()
+	require.NoError(t, err)
+	require.Len(t, builder.Txs, 1)
+	require.Len(t, builder.PayForFibreTxs, 0)
+	require.Len(t, builder.Pfbs, 1)
+	require.Len(t, builder.Blobs, 1) // system blob removed, PFB blob remains
+
+	// Normal transaction should still be there
+	require.Equal(t, tx1, builder.Txs[0])
+
+	// Revert blob transaction
+	err = builder.RevertLastBlobTx()
+	require.NoError(t, err)
+	require.Len(t, builder.Txs, 1)
+	require.Len(t, builder.Pfbs, 0)
+	require.Len(t, builder.Blobs, 0)
+
+	// Revert normal transaction
+	err = builder.RevertLastTx()
+	require.NoError(t, err)
+	require.Len(t, builder.Txs, 0)
+	require.True(t, builder.IsEmpty())
+}
+
+func TestBuilderAppendFibreTxAtomic(t *testing.T) {
+	t.Run("basic", func(t *testing.T) {
+		builder, err := square.NewBuilder(8, 64)
+		require.NoError(t, err)
+
+		ns1 := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
+		fibreTx1 := newFibreTx(t, ns1)
+
+		added, err := builder.AppendFibreTx(fibreTx1)
+		require.NoError(t, err)
+		require.True(t, added)
+		require.Len(t, builder.PayForFibreTxs, 1)
+		require.Len(t, builder.Blobs, 1)
+
+		element := builder.Blobs[0]
+		require.Equal(t, square.NoPfbIndex, element.PfbIndex)
+		require.Equal(t, square.NoPfbIndex, element.BlobIndex)
+		require.Equal(t, fibreTx1.SystemBlob, element.Blob)
+	})
+
+	t.Run("rejects non-ShareVersionTwo blob", func(t *testing.T) {
+		builder, err := square.NewBuilder(8, 64)
+		require.NoError(t, err)
+
+		ns := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
+		v0Blob, err := share.NewV0Blob(ns, []byte("data"))
+		require.NoError(t, err)
+
+		fibreTx := &tx.FibreTx{
+			Tx:         []byte("sdk-tx"),
+			SystemBlob: v0Blob,
+		}
+		added, err := builder.AppendFibreTx(fibreTx)
+		require.Error(t, err)
+		require.False(t, added)
+		require.Contains(t, err.Error(), "ShareVersionTwo")
+	})
+
+	t.Run("rejects when full", func(t *testing.T) {
+		builder, err := square.NewBuilder(2, 64)
+		require.NoError(t, err)
+
+		// Fill the square
+		for i := 0; i < 100; i++ {
+			if !builder.AppendTx(newTx(100)) {
+				break
+			}
+		}
+
+		ns1 := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
+		fibreTx1 := newFibreTx(t, ns1)
+		added, err := builder.AppendFibreTx(fibreTx1)
+		require.NoError(t, err)
+		require.False(t, added)
+		require.Len(t, builder.PayForFibreTxs, 0)
+		require.Len(t, builder.Blobs, 0)
+	})
+}
+
+func TestBuilderExportWithSystemBlobs(t *testing.T) {
+	t.Run("namespace ordering", func(t *testing.T) {
+		builder, err := square.NewBuilder(16, 64)
+		require.NoError(t, err)
+
+		require.True(t, builder.AppendTx(newTx(100)))
+
+		ns1 := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
+		ns2 := share.MustNewV0Namespace(bytes.Repeat([]byte{2}, share.NamespaceVersionZeroIDSize))
+		fibreTx1 := newFibreTx(t, ns1)
+		fibreTx2 := newFibreTx(t, ns2)
+		added, err := builder.AppendFibreTx(fibreTx1)
+		require.NoError(t, err)
+		require.True(t, added)
+		added, err = builder.AppendFibreTx(fibreTx2)
+		require.NoError(t, err)
+		require.True(t, added)
+
+		sq, err := builder.Export()
+		require.NoError(t, err)
+
+		ns1Range := share.GetShareRangeForNamespace(sq, ns1)
+		ns2Range := share.GetShareRangeForNamespace(sq, ns2)
+		require.False(t, ns1Range.IsEmpty())
+		require.False(t, ns2Range.IsEmpty())
+		require.Less(t, ns1Range.Start, ns2Range.Start)
+	})
+
+	t.Run("no PFB index recording", func(t *testing.T) {
+		builder, err := square.NewBuilder(16, 64)
+		require.NoError(t, err)
+
+		require.True(t, builder.AppendTx(newTx(100)))
+
+		ns1 := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
+		fibreTx1 := newFibreTx(t, ns1)
+		added, err := builder.AppendFibreTx(fibreTx1)
+		require.NoError(t, err)
+		require.True(t, added)
+		require.Len(t, builder.Pfbs, 0)
+
+		sq, err := builder.Export()
+		require.NoError(t, err)
+
+		ns1Range := share.GetShareRangeForNamespace(sq, ns1)
+		require.False(t, ns1Range.IsEmpty())
+	})
+
+	t.Run("with regular blobs", func(t *testing.T) {
+		builder, err := square.NewBuilder(16, 64)
+		require.NoError(t, err)
+
+		require.True(t, builder.AppendTx(newTx(100)))
+
+		ns1 := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
+		fibreTx1 := newFibreTx(t, ns1)
+		added, err := builder.AppendFibreTx(fibreTx1)
+		require.NoError(t, err)
+		require.True(t, added)
+
+		ns2 := share.MustNewV0Namespace(bytes.Repeat([]byte{2}, share.NamespaceVersionZeroIDSize))
+		blobTxs := generateBlobTxsWithNamespaces([]share.Namespace{ns2}, [][]int{{100}})
+		blobTx, isBlobTx, err := tx.UnmarshalBlobTx(blobTxs[0])
+		require.NoError(t, err)
+		require.True(t, isBlobTx)
+		mustAppendBlobTx(t, builder, blobTx)
+
+		require.Len(t, builder.Blobs, 2)
+		require.Len(t, builder.Pfbs, 1)
+
+		sq, err := builder.Export()
+		require.NoError(t, err)
+		require.NotNil(t, sq)
+	})
 }
