@@ -1,0 +1,21 @@
+syntax = "proto3";
+package celestia.fibre.v1;
+
+option go_package = "github.com/celestiaorg/go-square/v4/proto/celestia/fibre/v1";
+
+// MsgPayForFibre contains the original payment promise with validator
+// signatures. This is a minimal subset of the full MsgPayForFibre message from
+// celestia-app, containing only the fields needed by go-square.
+message MsgPayForFibre {
+  string signer = 1;
+  PaymentPromise payment_promise = 2;
+}
+
+// PaymentPromise is a promise to pay for a fibre blob. This is a minimal subset
+// of the full PaymentPromise message from celestia-app, containing only the
+// fields needed by go-square.
+message PaymentPromise {
+  bytes namespace = 3;
+  uint32 blob_version = 5;
+  bytes commitment = 6;
+}

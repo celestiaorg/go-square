@@ -1,0 +1,19 @@
+syntax = "proto3";
+package cosmos.tx.v1beta1;
+
+import "google/protobuf/any.proto";
+
+option go_package = "github.com/celestiaorg/go-square/v4/proto/cosmos/tx/v1beta1";
+
+// Tx is the standard type used for broadcasting transactions.
+// This is a minimal subset of the full cosmos.tx.v1beta1.Tx message,
+// containing only the fields needed by go-square.
+message Tx {
+  TxBody body = 1;
+}
+
+// TxBody is the body of a transaction that all signers sign over.
+// This is a minimal subset containing only the messages field.
+message TxBody {
+  repeated google.protobuf.Any messages = 1;
+}

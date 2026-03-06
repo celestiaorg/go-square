@@ -6,11 +6,15 @@ import (
 
 	"github.com/celestiaorg/go-square/v4"
 	"github.com/celestiaorg/go-square/v4/internal/test"
+	fibrev1 "github.com/celestiaorg/go-square/v4/proto/celestia/fibre/v1"
+	cosmostx "github.com/celestiaorg/go-square/v4/proto/cosmos/tx/v1beta1"
 	"github.com/celestiaorg/go-square/v4/share"
 	"github.com/celestiaorg/go-square/v4/tx"
+	"github.com/cosmos/btcutil/bech32"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/encoding/protowire"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 const (
@@ -81,96 +85,44 @@ func newFibreTxBytes(t *testing.T, ns share.Namespace) []byte {
 	return buildMsgPayForFibreTxBytes(signer, ns.Bytes(), commitment, 1)
 }
 
-// buildMsgPayForFibreTxBytes encodes a minimal Cosmos SDK Tx proto containing
-// a single MsgPayForFibre using raw protowire encoding.
+// buildMsgPayForFibreTxBytes constructs Cosmos SDK Tx proto bytes containing a
+// single MsgPayForFibre message using generated proto types.
 func buildMsgPayForFibreTxBytes(signer string, ns, commitment []byte, blobVersion uint32) []byte {
-	var promise []byte
-	promise = protowire.AppendTag(promise, 3, protowire.BytesType)
-	promise = protowire.AppendBytes(promise, ns)
-	promise = protowire.AppendTag(promise, 5, protowire.VarintType)
-	promise = protowire.AppendVarint(promise, uint64(blobVersion))
-	promise = protowire.AppendTag(promise, 6, protowire.BytesType)
-	promise = protowire.AppendBytes(promise, commitment)
-
-	var msg []byte
-	msg = protowire.AppendTag(msg, 1, protowire.BytesType)
-	msg = protowire.AppendBytes(msg, []byte(signer))
-	msg = protowire.AppendTag(msg, 2, protowire.BytesType)
-	msg = protowire.AppendBytes(msg, promise)
-
-	var any []byte
-	any = protowire.AppendTag(any, 1, protowire.BytesType)
-	any = protowire.AppendBytes(any, []byte("/celestia.fibre.v1.MsgPayForFibre"))
-	any = protowire.AppendTag(any, 2, protowire.BytesType)
-	any = protowire.AppendBytes(any, msg)
-
-	var body []byte
-	body = protowire.AppendTag(body, 1, protowire.BytesType)
-	body = protowire.AppendBytes(body, any)
-
-	var txBytes []byte
-	txBytes = protowire.AppendTag(txBytes, 1, protowire.BytesType)
-	txBytes = protowire.AppendBytes(txBytes, body)
+	msg := &fibrev1.MsgPayForFibre{
+		Signer: signer,
+		PaymentPromise: &fibrev1.PaymentPromise{
+			Namespace:   ns,
+			BlobVersion: blobVersion,
+			Commitment:  commitment,
+		},
+	}
+	msgBytes, err := proto.Marshal(msg)
+	if err != nil {
+		panic(err)
+	}
+	sdkTx := &cosmostx.Tx{
+		Body: &cosmostx.TxBody{
+			Messages: []*anypb.Any{
+				{
+					TypeUrl: tx.MsgPayForFibreTypeURL,
+					Value:   msgBytes,
+				},
+			},
+		},
+	}
+	txBytes, err := proto.Marshal(sdkTx)
+	if err != nil {
+		panic(err)
+	}
 	return txBytes
 }
 
-// testEncodeBech32 encodes raw bytes as a bech32 string (test helper only).
+// testEncodeBech32 encodes raw bytes as a bech32 string (test helper).
 func testEncodeBech32(t *testing.T, hrp string, data []byte) string {
 	t.Helper()
-	const charset = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
-
-	acc, bits := 0, uint(0)
-	var conv []byte
-	for _, b := range data {
-		acc = (acc << 8) | int(b)
-		bits += 8
-		for bits >= 5 {
-			bits -= 5
-			conv = append(conv, byte((acc>>bits)&0x1f))
-		}
-	}
-	if bits > 0 {
-		conv = append(conv, byte((acc<<(5-bits))&0x1f))
-	}
-
-	chk := testBech32Checksum(hrp, conv)
-	combined := append(conv, chk...)
-
-	s := hrp + "1"
-	for _, b := range combined {
-		s += string(charset[b])
-	}
-	return s
-}
-
-func testBech32Checksum(hrp string, data []byte) []byte {
-	gen := [5]uint32{0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3}
-	var values []byte
-	for _, c := range hrp {
-		values = append(values, byte(c)>>5)
-	}
-	values = append(values, 0)
-	for _, c := range hrp {
-		values = append(values, byte(c)&31)
-	}
-	values = append(values, data...)
-	values = append(values, 0, 0, 0, 0, 0, 0)
-	chk := uint32(1)
-	for _, v := range values {
-		top := chk >> 25
-		chk = (chk&0x1ffffff)<<5 ^ uint32(v)
-		for i := 0; i < 5; i++ {
-			if (top>>i)&1 != 0 {
-				chk ^= gen[i]
-			}
-		}
-	}
-	chk ^= 1
-	out := make([]byte, 6)
-	for i := range out {
-		out[i] = byte((chk >> (5 * (5 - i))) & 0x1f)
-	}
-	return out
+	encoded, err := bech32.EncodeFromBase256(hrp, data)
+	require.NoError(t, err)
+	return encoded
 }
 
 func TestValidateTxOrdering(t *testing.T) {
