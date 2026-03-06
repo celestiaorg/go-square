@@ -1,5 +1,5 @@
 syntax = "proto3";
-package celestia.fibre.v1;
+package proto.celestia.fibre.v1;
 
 option go_package = "github.com/celestiaorg/go-square/v4/proto/celestia/fibre/v1";
 

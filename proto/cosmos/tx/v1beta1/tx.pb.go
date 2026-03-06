@@ -119,9 +119,9 @@ var File_proto_cosmos_tx_v1beta1_tx_proto protoreflect.FileDescriptor
 
 const file_proto_cosmos_tx_v1beta1_tx_proto_rawDesc = "" +
 	"\n" +
-	" proto/cosmos/tx/v1beta1/tx.proto\x12\x11cosmos.tx.v1beta1\x1a\x19google/protobuf/any.proto\"3\n" +
-	"\x02Tx\x12-\n" +
-	"\x04body\x18\x01 \x01(\v2\x19.cosmos.tx.v1beta1.TxBodyR\x04body\":\n" +
+	" proto/cosmos/tx/v1beta1/tx.proto\x12\x17proto.cosmos.tx.v1beta1\x1a\x19google/protobuf/any.proto\"9\n" +
+	"\x02Tx\x123\n" +
+	"\x04body\x18\x01 \x01(\v2\x1f.proto.cosmos.tx.v1beta1.TxBodyR\x04body\":\n" +
 	"\x06TxBody\x120\n" +
 	"\bmessages\x18\x01 \x03(\v2\x14.google.protobuf.AnyR\bmessagesB=Z;github.com/celestiaorg/go-square/v4/proto/cosmos/tx/v1beta1b\x06proto3"
 
@@ -139,13 +139,13 @@ func file_proto_cosmos_tx_v1beta1_tx_proto_rawDescGZIP() []byte {
 
 var file_proto_cosmos_tx_v1beta1_tx_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_proto_cosmos_tx_v1beta1_tx_proto_goTypes = []any{
-	(*Tx)(nil),        // 0: cosmos.tx.v1beta1.Tx
-	(*TxBody)(nil),    // 1: cosmos.tx.v1beta1.TxBody
+	(*Tx)(nil),        // 0: proto.cosmos.tx.v1beta1.Tx
+	(*TxBody)(nil),    // 1: proto.cosmos.tx.v1beta1.TxBody
 	(*anypb.Any)(nil), // 2: google.protobuf.Any
 }
 var file_proto_cosmos_tx_v1beta1_tx_proto_depIdxs = []int32{
-	1, // 0: cosmos.tx.v1beta1.Tx.body:type_name -> cosmos.tx.v1beta1.TxBody
-	2, // 1: cosmos.tx.v1beta1.TxBody.messages:type_name -> google.protobuf.Any
+	1, // 0: proto.cosmos.tx.v1beta1.Tx.body:type_name -> proto.cosmos.tx.v1beta1.TxBody
+	2, // 1: proto.cosmos.tx.v1beta1.TxBody.messages:type_name -> google.protobuf.Any
 	2, // [2:2] is the sub-list for method output_type
 	2, // [2:2] is the sub-list for method input_type
 	2, // [2:2] is the sub-list for extension type_name

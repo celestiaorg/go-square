@@ -143,10 +143,10 @@ var File_proto_celestia_fibre_v1_tx_proto protoreflect.FileDescriptor
 
 const file_proto_celestia_fibre_v1_tx_proto_rawDesc = "" +
 	"\n" +
-	" proto/celestia/fibre/v1/tx.proto\x12\x11celestia.fibre.v1\"t\n" +
+	" proto/celestia/fibre/v1/tx.proto\x12\x17proto.celestia.fibre.v1\"z\n" +
 	"\x0eMsgPayForFibre\x12\x16\n" +
-	"\x06signer\x18\x01 \x01(\tR\x06signer\x12J\n" +
-	"\x0fpayment_promise\x18\x02 \x01(\v2!.celestia.fibre.v1.PaymentPromiseR\x0epaymentPromise\"q\n" +
+	"\x06signer\x18\x01 \x01(\tR\x06signer\x12P\n" +
+	"\x0fpayment_promise\x18\x02 \x01(\v2'.proto.celestia.fibre.v1.PaymentPromiseR\x0epaymentPromise\"q\n" +
 	"\x0ePaymentPromise\x12\x1c\n" +
 	"\tnamespace\x18\x03 \x01(\fR\tnamespace\x12!\n" +
 	"\fblob_version\x18\x05 \x01(\rR\vblobVersion\x12\x1e\n" +
@@ -168,11 +168,11 @@ func file_proto_celestia_fibre_v1_tx_proto_rawDescGZIP() []byte {
 
 var file_proto_celestia_fibre_v1_tx_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_proto_celestia_fibre_v1_tx_proto_goTypes = []any{
-	(*MsgPayForFibre)(nil), // 0: celestia.fibre.v1.MsgPayForFibre
-	(*PaymentPromise)(nil), // 1: celestia.fibre.v1.PaymentPromise
+	(*MsgPayForFibre)(nil), // 0: proto.celestia.fibre.v1.MsgPayForFibre
+	(*PaymentPromise)(nil), // 1: proto.celestia.fibre.v1.PaymentPromise
 }
 var file_proto_celestia_fibre_v1_tx_proto_depIdxs = []int32{
-	1, // 0: celestia.fibre.v1.MsgPayForFibre.payment_promise:type_name -> celestia.fibre.v1.PaymentPromise
+	1, // 0: proto.celestia.fibre.v1.MsgPayForFibre.payment_promise:type_name -> proto.celestia.fibre.v1.PaymentPromise
 	1, // [1:1] is the sub-list for method output_type
 	1, // [1:1] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name
