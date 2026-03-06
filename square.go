@@ -73,9 +73,9 @@ func validateTxOrdering(txs [][]byte) error {
 			continue
 		}
 
-		_, isFibreTx, err := tx.UnmarshalFibreTx(txBytes)
+		_, isFibreTx, err := tx.SynthesizeFibreTx(txBytes)
 		if err != nil && isFibreTx {
-			return fmt.Errorf("unmarshalling fibre tx at index %d: %w", idx, err)
+			return fmt.Errorf("synthesizing fibre tx at index %d: %w", idx, err)
 		}
 		if isFibreTx {
 			seenFibreTx = true
@@ -113,9 +113,9 @@ func Construct(txs [][]byte, maxSquareSize, subtreeRootThreshold int) (Square, e
 }
 
 // populateBuilder classifies each transaction in txs and appends it to the builder.
-// Blob txs are unmarshalled and appended as blob txs, Fibre txs (identified by
-// the "FIBR" type ID) are appended atomically with their system blobs, and all
-// other txs are appended as normal txs.
+// Blob txs are unmarshalled and appended as blob txs, plain MsgPayForFibre txs
+// are synthesized into FibreTxs and appended atomically with their system blobs,
+// and all other txs are appended as normal txs.
 func populateBuilder(builder *Builder, txs [][]byte) error {
 	for idx, txBytes := range txs {
 		blobTx, isBlobTx, err := tx.UnmarshalBlobTx(txBytes)
@@ -133,9 +133,9 @@ func populateBuilder(builder *Builder, txs [][]byte) error {
 			continue
 		}
 
-		fibreTx, isFibreTx, err := tx.UnmarshalFibreTx(txBytes)
+		fibreTx, isFibreTx, err := tx.SynthesizeFibreTx(txBytes)
 		if err != nil && isFibreTx {
-			return fmt.Errorf("unmarshalling fibre tx at index %d: %w", idx, err)
+			return fmt.Errorf("synthesizing fibre tx at index %d: %w", idx, err)
 		}
 		if isFibreTx {
 			added, err := builder.AppendFibreTx(fibreTx)
