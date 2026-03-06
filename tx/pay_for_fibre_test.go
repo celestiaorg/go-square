@@ -4,61 +4,20 @@ import (
 	"bytes"
 	"testing"
 
-	fibrev1 "github.com/celestiaorg/go-square/v4/proto/celestia/fibre/v1"
 	cosmostx "github.com/celestiaorg/go-square/v4/proto/cosmos/tx/v1beta1"
+	"github.com/celestiaorg/go-square/v4/internal/test"
 	"github.com/celestiaorg/go-square/v4/share"
 	"github.com/celestiaorg/go-square/v4/tx"
-	"github.com/cosmos/btcutil/bech32"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
-// buildMsgPayForFibreTxBytes constructs Cosmos SDK Tx proto bytes containing a
-// single MsgPayForFibre message using generated proto types.
-func buildMsgPayForFibreTxBytes(signer string, ns, commitment []byte, blobVersion uint32) []byte {
-	msg := &fibrev1.MsgPayForFibre{
-		Signer: signer,
-		PaymentPromise: &fibrev1.PaymentPromise{
-			Namespace:   ns,
-			BlobVersion: blobVersion,
-			Commitment:  commitment,
-		},
-	}
-	msgBytes, err := proto.Marshal(msg)
-	if err != nil {
-		panic(err)
-	}
-	sdkTx := &cosmostx.Tx{
-		Body: &cosmostx.TxBody{
-			Messages: []*anypb.Any{
-				{
-					TypeUrl: tx.MsgPayForFibreTypeURL,
-					Value:   msgBytes,
-				},
-			},
-		},
-	}
-	txBytes, err := proto.Marshal(sdkTx)
-	if err != nil {
-		panic(err)
-	}
-	return txBytes
-}
-
-// testEncodeBech32 encodes raw bytes as a bech32 string (test helper).
-func testEncodeBech32(t *testing.T, hrp string, data []byte) string {
-	t.Helper()
-	encoded, err := bech32.EncodeFromBase256(hrp, data)
-	require.NoError(t, err)
-	return encoded
-}
-
 func TestSynthesizeFibreTx(t *testing.T) {
 	ns := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
 	commitment := bytes.Repeat([]byte{0xFF}, share.FibreCommitmentSize)
 	signerBytes := bytes.Repeat([]byte{0xAB}, share.SignerSize)
-	signer := testEncodeBech32(t, "celestia", signerBytes)
+	signer := test.EncodeBech32("celestia", signerBytes)
 
 	tests := []struct {
 		name        string
@@ -80,7 +39,7 @@ func TestSynthesizeFibreTx(t *testing.T) {
 		},
 		{
 			name:        "valid MsgPayForFibre tx",
-			txBytes:     buildMsgPayForFibreTxBytes(signer, ns.Bytes(), commitment, 1),
+			txBytes:     test.BuildMsgPayForFibreTxBytes(signer, ns.Bytes(), commitment, 1),
 			wantFibreTx: true,
 			wantErr:     false,
 		},
@@ -135,9 +94,9 @@ func TestSynthesizeFibreTxMatchesManualConstruction(t *testing.T) {
 	ns := share.MustNewV0Namespace(bytes.Repeat([]byte{2}, share.NamespaceVersionZeroIDSize))
 	commitment := bytes.Repeat([]byte{0xCC}, share.FibreCommitmentSize)
 	signerBytes := bytes.Repeat([]byte{0x12}, share.SignerSize)
-	signer := testEncodeBech32(t, "celestia", signerBytes)
+	signer := test.EncodeBech32("celestia", signerBytes)
 
-	txBytes := buildMsgPayForFibreTxBytes(signer, ns.Bytes(), commitment, 2)
+	txBytes := test.BuildMsgPayForFibreTxBytes(signer, ns.Bytes(), commitment, 2)
 
 	fibreTx, isFibreTx, err := tx.SynthesizeFibreTx(txBytes)
 	require.NoError(t, err)
