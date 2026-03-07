@@ -42,7 +42,7 @@ func TestBuilderSquareSizeEstimation(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			txs := generateMixedTxs(tt.normalTxs, tt.pfbCount, 1, tt.pfbSize)
+			txs := generateMixedTxs(t, tt.normalTxs, tt.pfbCount, 1, tt.pfbSize)
 			builder, err := square.NewBuilder(64, defaultSubtreeRootThreshold)
 			require.NoError(t, err)
 			for _, txBytes := range txs {
@@ -101,7 +101,7 @@ func TestBuilderRejectsBlobTransactions(t *testing.T) {
 		t.Run(fmt.Sprintf("case%d", idx), func(t *testing.T) {
 			builder, err := square.NewBuilder(2, 64)
 			require.NoError(t, err)
-			txs := generateBlobTxsWithNamespaces(ns1.Repeat(len(tc.blobSize)), [][]int{tc.blobSize})
+			txs := generateBlobTxsWithNamespaces(t, ns1.Repeat(len(tc.blobSize)), [][]int{tc.blobSize})
 			require.Len(t, txs, 1)
 			blobTx, isBlobTx, err := tx.UnmarshalBlobTx(txs[0])
 			require.NoError(t, err)
@@ -131,7 +131,8 @@ func TestNewBuilderWithVariadicTxs(t *testing.T) {
 		require.True(t, builder.IsEmpty())
 	})
 	t.Run("normal txs only", func(t *testing.T) {
-		txs := test.GenerateTxs(200, 400, 5)
+		txs, err := test.GenerateTxs(200, 400, 5)
+		require.NoError(t, err)
 		builder, err := square.NewBuilder(64, 64, txs...)
 		require.NoError(t, err)
 		require.Len(t, builder.Txs, 5)
@@ -139,7 +140,8 @@ func TestNewBuilderWithVariadicTxs(t *testing.T) {
 		require.Len(t, builder.Blobs, 0)
 	})
 	t.Run("blob txs only", func(t *testing.T) {
-		txs := test.GenerateBlobTxs(3, 1, 1024)
+		txs, err := test.GenerateBlobTxs(3, 1, 1024)
+		require.NoError(t, err)
 		builder, err := square.NewBuilder(64, 64, txs...)
 		require.NoError(t, err)
 		require.Len(t, builder.Txs, 0)
@@ -147,8 +149,11 @@ func TestNewBuilderWithVariadicTxs(t *testing.T) {
 		require.Len(t, builder.Blobs, 3)
 	})
 	t.Run("mixed normal and blob txs", func(t *testing.T) {
-		txs := test.GenerateTxs(200, 400, 3)
-		txs = append(txs, test.GenerateBlobTxs(2, 1, 1024)...)
+		txs, err := test.GenerateTxs(200, 400, 3)
+		require.NoError(t, err)
+		blobTxs, err := test.GenerateBlobTxs(2, 1, 1024)
+		require.NoError(t, err)
+		txs = append(txs, blobTxs...)
 		builder, err := square.NewBuilder(64, 64, txs...)
 		require.NoError(t, err)
 		require.Len(t, builder.Txs, 3)
@@ -165,8 +170,11 @@ func TestNewBuilderWithVariadicTxs(t *testing.T) {
 		require.Len(t, builder.Blobs, 1)
 	})
 	t.Run("mixed normal, blob, and fibre txs", func(t *testing.T) {
-		txs := test.GenerateTxs(200, 400, 2)
-		txs = append(txs, test.GenerateBlobTxs(2, 1, 1024)...)
+		txs, err := test.GenerateTxs(200, 400, 2)
+		require.NoError(t, err)
+		blobTxs, err := test.GenerateBlobTxs(2, 1, 1024)
+		require.NoError(t, err)
+		txs = append(txs, blobTxs...)
 		txs = append(txs, newFibreTxBytes(t, ns1))
 		builder, err := square.NewBuilder(64, 64, txs...)
 		require.NoError(t, err)
@@ -177,14 +185,17 @@ func TestNewBuilderWithVariadicTxs(t *testing.T) {
 	})
 	t.Run("not enough space", func(t *testing.T) {
 		// 2x2 square is very small, large blob shouldn't fit
-		blobTxs := test.GenerateBlobTxs(1, 1, 1_000_000)
-		_, err := square.NewBuilder(2, 64, blobTxs...)
+		blobTxs, err := test.GenerateBlobTxs(1, 1, 1_000_000)
+		require.NoError(t, err)
+		_, err = square.NewBuilder(2, 64, blobTxs...)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "not enough space")
 	})
 	t.Run("equivalent to manual append", func(t *testing.T) {
-		normalTxs := test.GenerateTxs(200, 400, 2)
-		blobTxs := test.GenerateBlobTxs(2, 1, 1024)
+		normalTxs, err := test.GenerateTxs(200, 400, 2)
+		require.NoError(t, err)
+		blobTxs, err := test.GenerateBlobTxs(2, 1, 1024)
+		require.NoError(t, err)
 		fibreTxBytes := newFibreTxBytes(t, ns1)
 		txs := make([][]byte, 0, len(normalTxs)+len(blobTxs)+1)
 		txs = append(txs, normalTxs...)
@@ -229,7 +240,7 @@ func newTx(length int) []byte {
 }
 
 func TestBuilderFindTxShareRange(t *testing.T) {
-	blockTxs := generateOrderedTxs(5, 5, 1000, 10)
+	blockTxs := generateOrderedTxs(t, 5, 5, 1000, 10)
 	require.Len(t, blockTxs, 10)
 
 	builder, err := square.NewBuilder(128, 64, blockTxs...)
@@ -280,7 +291,8 @@ func TestBuilderFindTxShareRangeWithPayForFibre(t *testing.T) {
 	ns1 := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
 	blob1, err := share.NewBlob(ns1, []byte("blob data"), share.ShareVersionZero, nil)
 	require.NoError(t, err)
-	blobTxBytes := test.GenerateBlobTxWithNamespace([]share.Namespace{ns1}, []int{len(blob1.Data())}, share.ShareVersionZero)
+	blobTxBytes, err := test.GenerateBlobTxWithNamespace([]share.Namespace{ns1}, []int{len(blob1.Data())}, share.ShareVersionZero)
+	require.NoError(t, err)
 	blobTx, isBlobTx, err := tx.UnmarshalBlobTx(blobTxBytes)
 	require.NoError(t, err)
 	require.True(t, isBlobTx)
@@ -380,7 +392,7 @@ func TestSquareBlobPostions(t *testing.T) {
 	tests := []testCase{
 		{
 			squareSize: 4,
-			blobTxs: generateBlobTxsWithNamespaces(
+			blobTxs: generateBlobTxsWithNamespaces(t,
 				[]share.Namespace{ns1},
 				[][]int{{1}},
 			),
@@ -388,7 +400,7 @@ func TestSquareBlobPostions(t *testing.T) {
 		},
 		{
 			squareSize: 4,
-			blobTxs: generateBlobTxsWithNamespaces(
+			blobTxs: generateBlobTxsWithNamespaces(t,
 				[]share.Namespace{ns1, ns1},
 				test.Repeat([]int{100}, 2),
 			),
@@ -396,7 +408,7 @@ func TestSquareBlobPostions(t *testing.T) {
 		},
 		{
 			squareSize: 4,
-			blobTxs: generateBlobTxsWithNamespaces(
+			blobTxs: generateBlobTxsWithNamespaces(t,
 				[]share.Namespace{ns1, ns1, ns1, ns1, ns1, ns1, ns1, ns1, ns1},
 				test.Repeat([]int{100}, 9),
 			),
@@ -404,7 +416,7 @@ func TestSquareBlobPostions(t *testing.T) {
 		},
 		{
 			squareSize: 4,
-			blobTxs: generateBlobTxsWithNamespaces(
+			blobTxs: generateBlobTxsWithNamespaces(t,
 				[]share.Namespace{ns1, ns1, ns1},
 				[][]int{{10000}, {10000}, {1000000}},
 			),
@@ -412,7 +424,7 @@ func TestSquareBlobPostions(t *testing.T) {
 		},
 		{
 			squareSize: 64,
-			blobTxs: generateBlobTxsWithNamespaces(
+			blobTxs: generateBlobTxsWithNamespaces(t,
 				[]share.Namespace{ns1, ns1, ns1},
 				[][]int{{1000}, {10000}, {10000}},
 			),
@@ -420,7 +432,7 @@ func TestSquareBlobPostions(t *testing.T) {
 		},
 		{
 			squareSize: 32,
-			blobTxs: generateBlobTxsWithNamespaces(
+			blobTxs: generateBlobTxsWithNamespaces(t,
 				[]share.Namespace{ns2, ns1, ns1},
 				[][]int{{100}, {100}, {100}},
 			),
@@ -428,7 +440,7 @@ func TestSquareBlobPostions(t *testing.T) {
 		},
 		{
 			squareSize: 16,
-			blobTxs: generateBlobTxsWithNamespaces(
+			blobTxs: generateBlobTxsWithNamespaces(t,
 				[]share.Namespace{ns1, ns2, ns1},
 				[][]int{{100}, {900}, {900}}, // 1, 2, 2 shares respectively
 			),
@@ -436,7 +448,7 @@ func TestSquareBlobPostions(t *testing.T) {
 		},
 		{
 			squareSize: 4,
-			blobTxs: generateBlobTxsWithNamespaces(
+			blobTxs: generateBlobTxsWithNamespaces(t,
 				[]share.Namespace{ns1, ns3, ns3, ns2},
 				[][]int{{100}, {1000, 1000}, {420}},
 			),
@@ -445,7 +457,7 @@ func TestSquareBlobPostions(t *testing.T) {
 		{
 			// no blob txs should make it in the square
 			squareSize: 1,
-			blobTxs: generateBlobTxsWithNamespaces(
+			blobTxs: generateBlobTxsWithNamespaces(t,
 				[]share.Namespace{ns1, ns2, ns3},
 				[][]int{{1000}, {1000}, {1000}},
 			),
@@ -454,7 +466,7 @@ func TestSquareBlobPostions(t *testing.T) {
 		{
 			// only two blob txs should make it in the square (after reordering)
 			squareSize: 4,
-			blobTxs: generateBlobTxsWithNamespaces(
+			blobTxs: generateBlobTxsWithNamespaces(t,
 				[]share.Namespace{ns3, ns2, ns1},
 				[][]int{{2000}, {2000}, {5000}},
 			),
@@ -462,7 +474,7 @@ func TestSquareBlobPostions(t *testing.T) {
 		},
 		{
 			squareSize: 4,
-			blobTxs: generateBlobTxsWithNamespaces(
+			blobTxs: generateBlobTxsWithNamespaces(t,
 				[]share.Namespace{ns3, ns3, ns2, ns1},
 				[][]int{{1800, 1000}, {22000}, {1800}},
 			),
@@ -471,7 +483,7 @@ func TestSquareBlobPostions(t *testing.T) {
 		},
 		{
 			squareSize: 4,
-			blobTxs: generateBlobTxsWithNamespaces(
+			blobTxs: generateBlobTxsWithNamespaces(t,
 				[]share.Namespace{ns1, ns3, ns3, ns1, ns2, ns2},
 				[][]int{{100}, {1400, 900, 200, 200}, {420}},
 			),
@@ -479,7 +491,7 @@ func TestSquareBlobPostions(t *testing.T) {
 		},
 		{
 			squareSize: 4,
-			blobTxs: generateBlobTxsWithNamespaces(
+			blobTxs: generateBlobTxsWithNamespaces(t,
 				[]share.Namespace{ns1, ns3, ns3, ns1, ns2, ns2},
 				[][]int{{100}, {900, 1400, 200, 200}, {420}},
 			),
@@ -487,7 +499,7 @@ func TestSquareBlobPostions(t *testing.T) {
 		},
 		{
 			squareSize: 16,
-			blobTxs: generateBlobTxsWithNamespaces(
+			blobTxs: generateBlobTxsWithNamespaces(t,
 				[]share.Namespace{ns1, ns1},
 				[][]int{{100}, {share.AvailableBytesFromSparseShares(64)}},
 			),
@@ -496,7 +508,7 @@ func TestSquareBlobPostions(t *testing.T) {
 		},
 		{
 			squareSize: 16,
-			blobTxs: generateBlobTxsWithNamespaces(
+			blobTxs: generateBlobTxsWithNamespaces(t,
 				[]share.Namespace{ns1, ns1},
 				[][]int{{100}, {share.AvailableBytesFromSparseShares(64) + 1}},
 			),
@@ -528,13 +540,17 @@ func TestSquareBlobPostions(t *testing.T) {
 	}
 }
 
-func generateMixedTxs(normalTxCount, pfbCount, blobsPerPfb, blobSize int) [][]byte {
-	return shuffle(generateOrderedTxs(normalTxCount, pfbCount, blobsPerPfb, blobSize))
+func generateMixedTxs(tb testing.TB, normalTxCount, pfbCount, blobsPerPfb, blobSize int) [][]byte {
+	tb.Helper()
+	return shuffle(generateOrderedTxs(tb, normalTxCount, pfbCount, blobsPerPfb, blobSize))
 }
 
-func generateOrderedTxs(normalTxCount, pfbCount, blobsPerPfb, blobSize int) [][]byte {
-	pfbTxs := test.GenerateBlobTxs(pfbCount, blobsPerPfb, blobSize)
-	normieTxs := test.GenerateTxs(200, 400, normalTxCount)
+func generateOrderedTxs(tb testing.TB, normalTxCount, pfbCount, blobsPerPfb, blobSize int) [][]byte {
+	tb.Helper()
+	pfbTxs, err := test.GenerateBlobTxs(pfbCount, blobsPerPfb, blobSize)
+	require.NoError(tb, err)
+	normieTxs, err := test.GenerateTxs(200, 400, normalTxCount)
+	require.NoError(tb, err)
 	return append(normieTxs, pfbTxs...)
 }
 
@@ -546,12 +562,15 @@ func shuffle(slice [][]byte) [][]byte {
 	return slice
 }
 
-func generateBlobTxsWithNamespaces(namespaces []share.Namespace, blobSizes [][]int) [][]byte {
+func generateBlobTxsWithNamespaces(t *testing.T, namespaces []share.Namespace, blobSizes [][]int) [][]byte {
+	t.Helper()
 	txs := make([][]byte, len(blobSizes))
 	counter := 0
 	for i := 0; i < len(txs); i++ {
 		n := namespaces[counter : counter+len(blobSizes[i])]
-		txs[i] = test.GenerateBlobTxWithNamespace(n, blobSizes[i], share.ShareVersionZero)
+		var err error
+		txs[i], err = test.GenerateBlobTxWithNamespace(n, blobSizes[i], share.ShareVersionZero)
+		require.NoError(t, err)
 		counter += len(blobSizes[i])
 	}
 	return txs
@@ -667,7 +686,7 @@ func TestBuilderRevertLastBlobTx(t *testing.T) {
 
 	// Add a blob transaction and verify it was added
 	ns1 := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
-	blobTxs := generateBlobTxsWithNamespaces([]share.Namespace{ns1}, [][]int{{100}})
+	blobTxs := generateBlobTxsWithNamespaces(t, []share.Namespace{ns1}, [][]int{{100}})
 	require.Len(t, blobTxs, 1)
 
 	blobTx, isBlobTx, err := tx.UnmarshalBlobTx(blobTxs[0])
@@ -702,7 +721,7 @@ func TestBuilderRevertLastBlobTxWithMultipleBlobs(t *testing.T) {
 	// Create a blob transaction with multiple blobs
 	ns1 := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
 	ns2 := share.MustNewV0Namespace(bytes.Repeat([]byte{2}, share.NamespaceVersionZeroIDSize))
-	blobTxs := generateBlobTxsWithNamespaces([]share.Namespace{ns1, ns2}, [][]int{{100, 150}})
+	blobTxs := generateBlobTxsWithNamespaces(t, []share.Namespace{ns1, ns2}, [][]int{{100, 150}})
 	require.Len(t, blobTxs, 1)
 
 	blobTx, isBlobTx, err := tx.UnmarshalBlobTx(blobTxs[0])
@@ -717,7 +736,7 @@ func TestBuilderRevertLastBlobTxWithMultipleBlobs(t *testing.T) {
 	require.Len(t, builder.Blobs, 2) // Should have 2 blobs
 
 	// Add another single blob transaction
-	blobTxs2 := generateBlobTxsWithNamespaces([]share.Namespace{ns1}, [][]int{{200}})
+	blobTxs2 := generateBlobTxsWithNamespaces(t, []share.Namespace{ns1}, [][]int{{200}})
 	blobTx2, isBlobTx2, err := tx.UnmarshalBlobTx(blobTxs2[0])
 	require.NoError(t, err)
 	require.True(t, isBlobTx2)
@@ -753,7 +772,7 @@ func TestBuilderRevertMixed(t *testing.T) {
 
 	// Add a blob transaction
 	ns1 := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
-	blobTxs := generateBlobTxsWithNamespaces([]share.Namespace{ns1}, [][]int{{100}})
+	blobTxs := generateBlobTxsWithNamespaces(t, []share.Namespace{ns1}, [][]int{{100}})
 	blobTx, isBlobTx, err := tx.UnmarshalBlobTx(blobTxs[0])
 	require.NoError(t, err)
 	require.True(t, isBlobTx)
@@ -836,11 +855,11 @@ func TestMultipleRevertBlobTxs(t *testing.T) {
 	ns1 := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
 	ns2 := share.MustNewV0Namespace(bytes.Repeat([]byte{2}, share.NamespaceVersionZeroIDSize))
 
-	blobTxs1 := generateBlobTxsWithNamespaces([]share.Namespace{ns1}, [][]int{{100}})
+	blobTxs1 := generateBlobTxsWithNamespaces(t, []share.Namespace{ns1}, [][]int{{100}})
 	blobTx1, _, err := tx.UnmarshalBlobTx(blobTxs1[0])
 	require.NoError(t, err)
 
-	blobTxs2 := generateBlobTxsWithNamespaces([]share.Namespace{ns2}, [][]int{{100}})
+	blobTxs2 := generateBlobTxsWithNamespaces(t, []share.Namespace{ns2}, [][]int{{100}})
 	blobTx2, _, err := tx.UnmarshalBlobTx(blobTxs2[0])
 	require.NoError(t, err)
 
@@ -907,7 +926,7 @@ func TestRevertAfterNewAdd(t *testing.T) {
 
 	// Same test for blob transactions
 	ns1 := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
-	blobTxs1 := generateBlobTxsWithNamespaces([]share.Namespace{ns1}, [][]int{{100}})
+	blobTxs1 := generateBlobTxsWithNamespaces(t, []share.Namespace{ns1}, [][]int{{100}})
 	blobTx1, _, err := tx.UnmarshalBlobTx(blobTxs1[0])
 	require.NoError(t, err)
 
@@ -924,7 +943,7 @@ func TestRevertAfterNewAdd(t *testing.T) {
 	require.Contains(t, err.Error(), "no blob transactions to revert")
 
 	// Add a new blob transaction
-	blobTxs2 := generateBlobTxsWithNamespaces([]share.Namespace{ns1}, [][]int{{200}})
+	blobTxs2 := generateBlobTxsWithNamespaces(t, []share.Namespace{ns1}, [][]int{{200}})
 	blobTx2, _, err := tx.UnmarshalBlobTx(blobTxs2[0])
 	require.NoError(t, err)
 
@@ -1094,7 +1113,7 @@ func TestBuilderRevertPayForFibreTx(t *testing.T) {
 		{
 			name: "does not affect blob txs",
 			setup: func(t *testing.T, b *square.Builder) {
-				blobTxs := generateBlobTxsWithNamespaces(
+				blobTxs := generateBlobTxsWithNamespaces(t,
 					[]share.Namespace{ns1}, [][]int{{100}},
 				)
 				blobTx, isBlobTx, err := tx.UnmarshalBlobTx(blobTxs[0])
@@ -1111,7 +1130,7 @@ func TestBuilderRevertPayForFibreTx(t *testing.T) {
 			setup: func(t *testing.T, b *square.Builder) {
 				// Add two blob txs, then a fibre tx
 				for i := 0; i < 2; i++ {
-					blobTxs := generateBlobTxsWithNamespaces(
+					blobTxs := generateBlobTxsWithNamespaces(t,
 						[]share.Namespace{ns1}, [][]int{{100}},
 					)
 					blobTx, isBlobTx, err := tx.UnmarshalBlobTx(blobTxs[0])
@@ -1190,7 +1209,7 @@ func TestBuilderNumTxsWithPayForFibreTx(t *testing.T) {
 	require.True(t, added)
 	require.Equal(t, 2, builder.NumTxs())
 
-	blobTxs := generateBlobTxsWithNamespaces([]share.Namespace{ns1}, [][]int{{100}})
+	blobTxs := generateBlobTxsWithNamespaces(t, []share.Namespace{ns1}, [][]int{{100}})
 	blobTx, isBlobTx, err := tx.UnmarshalBlobTx(blobTxs[0])
 	require.NoError(t, err)
 	require.True(t, isBlobTx)
@@ -1223,7 +1242,7 @@ func TestBuilderExportWithMixedTransactions(t *testing.T) {
 	require.True(t, added)
 
 	// Add a blob transaction
-	blobTxs := generateBlobTxsWithNamespaces([]share.Namespace{ns1}, [][]int{{100}})
+	blobTxs := generateBlobTxsWithNamespaces(t, []share.Namespace{ns1}, [][]int{{100}})
 	blobTx, isBlobTx, err := tx.UnmarshalBlobTx(blobTxs[0])
 	require.NoError(t, err)
 	require.True(t, isBlobTx)
@@ -1279,7 +1298,7 @@ func TestBuilderRevertMixedWithPayForFibreTx(t *testing.T) {
 	require.True(t, added)
 
 	// Add a blob transaction
-	blobTxs := generateBlobTxsWithNamespaces([]share.Namespace{ns1}, [][]int{{100}})
+	blobTxs := generateBlobTxsWithNamespaces(t, []share.Namespace{ns1}, [][]int{{100}})
 	blobTx, isBlobTx, err := tx.UnmarshalBlobTx(blobTxs[0])
 	require.NoError(t, err)
 	require.True(t, isBlobTx)
@@ -1436,7 +1455,7 @@ func TestBuilderExportWithSystemBlobs(t *testing.T) {
 		require.True(t, added)
 
 		ns2 := share.MustNewV0Namespace(bytes.Repeat([]byte{2}, share.NamespaceVersionZeroIDSize))
-		blobTxs := generateBlobTxsWithNamespaces([]share.Namespace{ns2}, [][]int{{100}})
+		blobTxs := generateBlobTxsWithNamespaces(t, []share.Namespace{ns2}, [][]int{{100}})
 		blobTx, isBlobTx, err := tx.UnmarshalBlobTx(blobTxs[0])
 		require.NoError(t, err)
 		require.True(t, isBlobTx)
@@ -1470,7 +1489,9 @@ func TestBlobShareRangeNotSupportedForSystemBlobs(t *testing.T) {
 	builder.AppendTx([]byte("normal-tx"))
 
 	// Add a PFB tx with one blob
-	blobTx := test.GenerateBlobTxs(1, 1, 200)[0]
+	blobTxs, err := test.GenerateBlobTxs(1, 1, 200)
+	require.NoError(t, err)
+	blobTx := blobTxs[0]
 	parsed, isBlobTx, err := tx.UnmarshalBlobTx(blobTx)
 	require.NoError(t, err)
 	require.True(t, isBlobTx)

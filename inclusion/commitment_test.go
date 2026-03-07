@@ -227,7 +227,8 @@ func TestCreateParallelCommitments(t *testing.T) {
 				}
 			}
 			t.Run(fmt.Sprintf("test_%d_blobs_%d_max_size_%d", numBlobs, i, maxSize), func(t *testing.T) {
-				blobs := test.GenerateBlobs(blobSizes...)
+				blobs, err := test.GenerateBlobs(blobSizes...)
+				require.NoError(t, err)
 
 				sequential, err := inclusion.CreateCommitments(blobs, hashConcatenatedData, defaultSubtreeRootThreshold)
 				require.NoError(t, err)
@@ -270,7 +271,8 @@ func TestCreateParallelCommitments(t *testing.T) {
 		workers := runtime.NumCPU()
 		for _, tc := range testCases {
 			t.Run(tc.name, func(t *testing.T) {
-				blobs := test.GenerateBlobs(tc.blobSizes...)
+				blobs, err := test.GenerateBlobs(tc.blobSizes...)
+				require.NoError(t, err)
 
 				sequential, err := inclusion.CreateCommitments(blobs, hashConcatenatedData, defaultSubtreeRootThreshold)
 				require.NoError(t, err)
@@ -285,9 +287,10 @@ func TestCreateParallelCommitments(t *testing.T) {
 	})
 
 	t.Run("invalid worker count", func(t *testing.T) {
-		blobs := test.GenerateBlobs(1024)
+		blobs, err := test.GenerateBlobs(1024)
+		require.NoError(t, err)
 
-		_, err := inclusion.CreateParallelCommitments(blobs, hashConcatenatedData, defaultSubtreeRootThreshold, 0)
+		_, err = inclusion.CreateParallelCommitments(blobs, hashConcatenatedData, defaultSubtreeRootThreshold, 0)
 		require.Error(t, err)
 
 		_, err = inclusion.CreateParallelCommitments(blobs, hashConcatenatedData, defaultSubtreeRootThreshold, -1)
@@ -318,7 +321,10 @@ func BenchmarkCommitmentsComparison(b *testing.B) {
 		for i := range blobSizes {
 			blobSizes[i] = scenario.bytesPerBlob
 		}
-		blobs := test.GenerateBlobs(blobSizes...)
+		blobs, err := test.GenerateBlobs(blobSizes...)
+		if err != nil {
+			b.Fatal(err)
+		}
 		b.Run(fmt.Sprintf("%s_Sequential", scenario.description), func(b *testing.B) {
 			b.ResetTimer()
 			b.ReportAllocs()
