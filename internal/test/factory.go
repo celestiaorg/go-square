@@ -6,8 +6,13 @@ import (
 	"fmt"
 	"math/rand"
 
+	fibrev1 "github.com/celestiaorg/go-square/v4/proto/celestia/fibre/v1"
+	cosmostx "github.com/celestiaorg/go-square/v4/proto/cosmos/tx/v1beta1"
 	"github.com/celestiaorg/go-square/v4/share"
 	"github.com/celestiaorg/go-square/v4/tx"
+	"github.com/cosmos/btcutil/bech32"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 var DefaultTestNamespace = share.MustNewV0Namespace([]byte("test"))
@@ -134,4 +139,46 @@ func Repeat[T any](s T, count int) []T {
 func DelimLen(size uint64) int {
 	lenBuf := make([]byte, binary.MaxVarintLen64)
 	return binary.PutUvarint(lenBuf, size)
+}
+
+// BuildMsgPayForFibreTxBytes constructs Cosmos SDK Tx proto bytes containing a
+// single MsgPayForFibre message using generated proto types.
+func BuildMsgPayForFibreTxBytes(signer string, ns, commitment []byte, blobVersion uint32) []byte {
+	msg := &fibrev1.MsgPayForFibre{
+		Signer: signer,
+		PaymentPromise: &fibrev1.PaymentPromise{
+			Namespace:   ns,
+			BlobVersion: blobVersion,
+			Commitment:  commitment,
+		},
+	}
+	msgBytes, err := proto.Marshal(msg)
+	if err != nil {
+		panic(err)
+	}
+	sdkTx := &cosmostx.Tx{
+		Body: &cosmostx.TxBody{
+			Messages: []*anypb.Any{
+				{
+					TypeUrl: tx.MsgPayForFibreTypeURL,
+					Value:   msgBytes,
+				},
+			},
+		},
+	}
+	txBytes, err := proto.Marshal(sdkTx)
+	if err != nil {
+		panic(err)
+	}
+	return txBytes
+}
+
+// EncodeBech32 encodes raw bytes as a bech32 string with the given
+// human-readable prefix (e.g. "celestia").
+func EncodeBech32(hrp string, data []byte) string {
+	encoded, err := bech32.EncodeFromBase256(hrp, data)
+	if err != nil {
+		panic(err)
+	}
+	return encoded
 }

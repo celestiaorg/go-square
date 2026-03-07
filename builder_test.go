@@ -211,7 +211,7 @@ func TestNewBuilderWithVariadicTxs(t *testing.T) {
 			require.NoError(t, err)
 			require.True(t, added)
 		}
-		fibreTx, isFibreTx, err := tx.UnmarshalFibreTx(fibreTxBytes)
+		fibreTx, isFibreTx, err := tx.TryParseFibreTx(fibreTxBytes)
 		require.NoError(t, err)
 		require.True(t, isFibreTx)
 		added, err := builderManual.AppendFibreTx(fibreTx)

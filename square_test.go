@@ -69,15 +69,15 @@ func TestSquareConstruction(t *testing.T) {
 	})
 }
 
+// newFibreTxBytes builds plain Cosmos SDK Tx bytes containing a MsgPayForFibre.
+// TryParseFibreTx (called by Construct/NewBuilder) will detect these and
+// synthesize the system blob internally.
 func newFibreTxBytes(t *testing.T, ns share.Namespace) []byte {
 	t.Helper()
-	signer := bytes.Repeat([]byte{0xAA}, share.SignerSize)
+	signerRaw := bytes.Repeat([]byte{0xAA}, share.SignerSize)
 	commitment := bytes.Repeat([]byte{0xFF}, share.FibreCommitmentSize)
-	systemBlob, err := share.NewV2Blob(ns, 1, commitment, signer)
-	require.NoError(t, err)
-	fibreTxBytes, err := tx.MarshalFibreTx([]byte("pay-for-fibre-sdk-tx"), systemBlob)
-	require.NoError(t, err)
-	return fibreTxBytes
+	signer := test.EncodeBech32("celestia", signerRaw)
+	return test.BuildMsgPayForFibreTxBytes(signer, ns.Bytes(), commitment, 1)
 }
 
 func TestValidateTxOrdering(t *testing.T) {
@@ -614,13 +614,10 @@ func TestWriteSquare(t *testing.T) {
 // mechanism.
 func TestBlobShareRangeWithPayForFibre(t *testing.T) {
 	ns := share.MustNewV0Namespace(bytes.Repeat([]byte{0x1}, share.NamespaceVersionZeroIDSize))
-	signer := bytes.Repeat([]byte{0xAA}, share.SignerSize)
+	signerRaw := bytes.Repeat([]byte{0xAA}, share.SignerSize)
 	commitment := bytes.Repeat([]byte{0xBB}, share.FibreCommitmentSize)
-	systemBlob, err := share.NewV2Blob(ns, 1, commitment, signer)
-	require.NoError(t, err)
-
-	fibreTxBytes, err := tx.MarshalFibreTx([]byte("pay-for-fibre-sdk-tx"), systemBlob)
-	require.NoError(t, err)
+	signer := test.EncodeBech32("celestia", signerRaw)
+	fibreTxBytes := test.BuildMsgPayForFibreTxBytes(signer, ns.Bytes(), commitment, 1)
 
 	// Create a blob tx for testing
 	blobTxBytes := test.GenerateBlobTxs(1, 1, 200)
