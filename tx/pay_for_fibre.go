@@ -15,10 +15,16 @@ const MsgPayForFibreTypeURL = "/celestia.fibre.v1.MsgPayForFibre"
 
 // TryParseFibreTx attempts to detect a MsgPayForFibre message inside plain
 // Cosmos SDK Tx bytes and synthesize the corresponding FibreTx.
+//
+// Returns:
+//   - (nil, false, err): txBytes failed to unmarshal as a Cosmos SDK Tx.
+//   - (nil, false, nil): txBytes are a valid Tx but do not contain a MsgPayForFibre.
+//   - (nil, true, err): txBytes contain a MsgPayForFibre but it is malformed.
+//   - (ft, true, nil): successfully parsed and synthesized a FibreTx.
 func TryParseFibreTx(txBytes []byte) (*FibreTx, bool, error) {
 	var sdkTx cosmostx.Tx
 	if err := proto.Unmarshal(txBytes, &sdkTx); err != nil {
-		return nil, false, nil
+		return nil, false, fmt.Errorf("unmarshalling Tx: %w", err)
 	}
 	if sdkTx.Body == nil || len(sdkTx.Body.Messages) == 0 {
 		return nil, false, nil

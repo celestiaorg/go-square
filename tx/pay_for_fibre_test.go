@@ -27,14 +27,20 @@ func TestTryParseFibreTx(t *testing.T) {
 		wantErr     bool
 	}{
 		{
-			name:        "non-fibre tx (random bytes)",
+			name:        "random bytes returns error",
 			txBytes:     []byte("not-a-cosmos-tx"),
+			wantFibreTx: false,
+			wantErr:     true,
+		},
+		{
+			name:        "empty bytes",
+			txBytes:     []byte{},
 			wantFibreTx: false,
 			wantErr:     false,
 		},
 		{
-			name:        "empty tx",
-			txBytes:     []byte{},
+			name:        "nil bytes",
+			txBytes:     nil,
 			wantFibreTx: false,
 			wantErr:     false,
 		},
@@ -70,7 +76,7 @@ func TestTryParseFibreTx(t *testing.T) {
 			wantErr:     true,
 		},
 		{
-			name: "tx with different message type",
+			name: "plain SDK tx with different message type",
 			txBytes: func() []byte {
 				sdkTx := &cosmostx.Tx{
 					Body: &cosmostx.TxBody{
@@ -88,6 +94,86 @@ func TestTryParseFibreTx(t *testing.T) {
 			}(),
 			wantFibreTx: false,
 			wantErr:     false,
+		},
+		{
+			name: "SDK tx with empty body",
+			txBytes: func() []byte {
+				sdkTx := &cosmostx.Tx{
+					Body: &cosmostx.TxBody{},
+				}
+				txBytes, err := proto.Marshal(sdkTx)
+				require.NoError(t, err)
+				return txBytes
+			}(),
+			wantFibreTx: false,
+			wantErr:     false,
+		},
+		{
+			name: "SDK tx with nil body",
+			txBytes: func() []byte {
+				sdkTx := &cosmostx.Tx{}
+				txBytes, err := proto.Marshal(sdkTx)
+				require.NoError(t, err)
+				return txBytes
+			}(),
+			wantFibreTx: false,
+			wantErr:     false,
+		},
+		{
+			name:        "BlobTx bytes returns error",
+			txBytes:     test.GenerateBlobTx([]int{256}),
+			wantFibreTx: false,
+			wantErr:     true,
+		},
+		{
+			name: "MsgPayForFibre with corrupted inner message",
+			txBytes: func() []byte {
+				sdkTx := &cosmostx.Tx{
+					Body: &cosmostx.TxBody{
+						Messages: []*anypb.Any{
+							{
+								TypeUrl: tx.MsgPayForFibreTypeURL,
+								Value:   []byte{0xFF, 0xFF, 0xFF},
+							},
+						},
+					},
+				}
+				txBytes, err := proto.Marshal(sdkTx)
+				require.NoError(t, err)
+				return txBytes
+			}(),
+			wantFibreTx: true,
+			wantErr:     true,
+		},
+		{
+			name: "MsgPayForFibre with invalid signer address",
+			txBytes: func() []byte {
+				msg := &fibrev1.MsgPayForFibre{
+					Signer: "not-a-bech32-address",
+					PaymentPromise: &fibrev1.PaymentPromise{
+						Namespace:   ns.Bytes(),
+						BlobVersion: 1,
+						Commitment:  commitment,
+					},
+				}
+				msgBytes, err := proto.Marshal(msg)
+				require.NoError(t, err)
+				sdkTx := &cosmostx.Tx{
+					Body: &cosmostx.TxBody{
+						Messages: []*anypb.Any{
+							{
+								TypeUrl: tx.MsgPayForFibreTypeURL,
+								Value:   msgBytes,
+							},
+						},
+					},
+				}
+				txBytes, err := proto.Marshal(sdkTx)
+				require.NoError(t, err)
+				return txBytes
+			}(),
+			wantFibreTx: true,
+			wantErr:     true,
 		},
 	}
 
