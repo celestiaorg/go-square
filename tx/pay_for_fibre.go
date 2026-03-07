@@ -13,13 +13,9 @@ import (
 // MsgPayForFibreTypeURL is the Cosmos SDK message type URL for MsgPayForFibre.
 const MsgPayForFibreTypeURL = "/celestia.fibre.v1.MsgPayForFibre"
 
-// SynthesizeFibreTx attempts to detect a MsgPayForFibre message inside plain
+// TryParseFibreTx attempts to detect a MsgPayForFibre message inside plain
 // Cosmos SDK Tx bytes and synthesize the corresponding FibreTx.
-//
-// Returns (fibreTx, true, nil) when the tx contains MsgPayForFibre.
-// Returns (nil, false, nil) when the tx does not contain MsgPayForFibre.
-// Returns (nil, true, err) when the tx contains MsgPayForFibre but parsing fails.
-func SynthesizeFibreTx(txBytes []byte) (*FibreTx, bool, error) {
+func TryParseFibreTx(txBytes []byte) (*FibreTx, bool, error) {
 	var sdkTx cosmostx.Tx
 	if err := proto.Unmarshal(txBytes, &sdkTx); err != nil {
 		return nil, false, nil

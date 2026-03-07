@@ -70,7 +70,7 @@ func TestSquareConstruction(t *testing.T) {
 }
 
 // newFibreTxBytes builds plain Cosmos SDK Tx bytes containing a MsgPayForFibre.
-// SynthesizeFibreTx (called by Construct/NewBuilder) will detect these and
+// TryParseFibreTx (called by Construct/NewBuilder) will detect these and
 // synthesize the system blob internally.
 func newFibreTxBytes(t *testing.T, ns share.Namespace) []byte {
 	t.Helper()

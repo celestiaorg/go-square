@@ -73,9 +73,9 @@ func validateTxOrdering(txs [][]byte) error {
 			continue
 		}
 
-		_, isFibreTx, err := tx.SynthesizeFibreTx(txBytes)
+		_, isFibreTx, err := tx.TryParseFibreTx(txBytes)
 		if err != nil && isFibreTx {
-			return fmt.Errorf("synthesizing fibre tx at index %d: %w", idx, err)
+			return fmt.Errorf("parsing fibre tx at index %d: %w", idx, err)
 		}
 		if isFibreTx {
 			seenFibreTx = true
@@ -133,9 +133,9 @@ func populateBuilder(builder *Builder, txs [][]byte) error {
 			continue
 		}
 
-		fibreTx, isFibreTx, err := tx.SynthesizeFibreTx(txBytes)
+		fibreTx, isFibreTx, err := tx.TryParseFibreTx(txBytes)
 		if err != nil && isFibreTx {
-			return fmt.Errorf("synthesizing fibre tx at index %d: %w", idx, err)
+			return fmt.Errorf("parsing fibre tx at index %d: %w", idx, err)
 		}
 		if isFibreTx {
 			added, err := builder.AppendFibreTx(fibreTx)

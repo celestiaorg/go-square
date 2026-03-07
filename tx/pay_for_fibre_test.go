@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/celestiaorg/go-square/v4/internal/test"
+	fibrev1 "github.com/celestiaorg/go-square/v4/proto/celestia/fibre/v1"
 	cosmostx "github.com/celestiaorg/go-square/v4/proto/cosmos/tx/v1beta1"
 	"github.com/celestiaorg/go-square/v4/share"
 	"github.com/celestiaorg/go-square/v4/tx"
@@ -13,7 +14,7 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
-func TestSynthesizeFibreTx(t *testing.T) {
+func TestTryParseFibreTx(t *testing.T) {
 	ns := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
 	commitment := bytes.Repeat([]byte{0xFF}, share.FibreCommitmentSize)
 	signerBytes := bytes.Repeat([]byte{0xAB}, share.SignerSize)
@@ -44,6 +45,31 @@ func TestSynthesizeFibreTx(t *testing.T) {
 			wantErr:     false,
 		},
 		{
+			name: "MsgPayForFibre with nil payment promise",
+			txBytes: func() []byte {
+				msg := &fibrev1.MsgPayForFibre{
+					Signer: signer,
+				}
+				msgBytes, err := proto.Marshal(msg)
+				require.NoError(t, err)
+				sdkTx := &cosmostx.Tx{
+					Body: &cosmostx.TxBody{
+						Messages: []*anypb.Any{
+							{
+								TypeUrl: tx.MsgPayForFibreTypeURL,
+								Value:   msgBytes,
+							},
+						},
+					},
+				}
+				txBytes, err := proto.Marshal(sdkTx)
+				require.NoError(t, err)
+				return txBytes
+			}(),
+			wantFibreTx: true,
+			wantErr:     true,
+		},
+		{
 			name: "tx with different message type",
 			txBytes: func() []byte {
 				sdkTx := &cosmostx.Tx{
@@ -67,7 +93,7 @@ func TestSynthesizeFibreTx(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			fibreTx, isFibreTx, err := tx.SynthesizeFibreTx(tc.txBytes)
+			fibreTx, isFibreTx, err := tx.TryParseFibreTx(tc.txBytes)
 			if tc.wantErr {
 				require.Error(t, err)
 				return
@@ -87,10 +113,10 @@ func TestSynthesizeFibreTx(t *testing.T) {
 	}
 }
 
-// TestSynthesizeFibreTxMatchesManualConstruction verifies that SynthesizeFibreTx
+// TestTryParseFibreTxMatchesManualConstruction verifies that TryParseFibreTx
 // produces a FibreTx whose system blob matches one constructed manually from the
 // same namespace, blobVersion, commitment, and signer bytes.
-func TestSynthesizeFibreTxMatchesManualConstruction(t *testing.T) {
+func TestTryParseFibreTxMatchesManualConstruction(t *testing.T) {
 	ns := share.MustNewV0Namespace(bytes.Repeat([]byte{2}, share.NamespaceVersionZeroIDSize))
 	commitment := bytes.Repeat([]byte{0xCC}, share.FibreCommitmentSize)
 	signerBytes := bytes.Repeat([]byte{0x12}, share.SignerSize)
@@ -98,7 +124,7 @@ func TestSynthesizeFibreTxMatchesManualConstruction(t *testing.T) {
 
 	txBytes := test.BuildMsgPayForFibreTxBytes(signer, ns.Bytes(), commitment, 2)
 
-	fibreTx, isFibreTx, err := tx.SynthesizeFibreTx(txBytes)
+	fibreTx, isFibreTx, err := tx.TryParseFibreTx(txBytes)
 	require.NoError(t, err)
 	require.True(t, isFibreTx)
 	require.NotNil(t, fibreTx)
