@@ -19,3 +19,4 @@ func TestPFBParity(t *testing.T) {
 	_, err = test.DecodeMockPFB(test.RandomBytes(20))
 	require.Error(t, err)
 }
+

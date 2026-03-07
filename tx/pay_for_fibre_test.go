@@ -21,34 +21,34 @@ func TestTryParseFibreTx(t *testing.T) {
 	signer := test.EncodeBech32("celestia", signerBytes)
 
 	tests := []struct {
-		name        string
-		txBytes     []byte
-		wantFibreTx bool
-		wantErr     bool
+		name    string
+		txBytes []byte
+		wantNil bool
+		wantErr bool
 	}{
 		{
-			name:        "random bytes returns error",
-			txBytes:     []byte("not-a-cosmos-tx"),
-			wantFibreTx: false,
-			wantErr:     true,
+			name:    "random bytes",
+			txBytes: []byte("not-a-cosmos-tx"),
+			wantNil: true,
+			wantErr: false,
 		},
 		{
-			name:        "empty bytes",
-			txBytes:     []byte{},
-			wantFibreTx: false,
-			wantErr:     false,
+			name:    "empty bytes",
+			txBytes: []byte{},
+			wantNil: true,
+			wantErr: false,
 		},
 		{
-			name:        "nil bytes",
-			txBytes:     nil,
-			wantFibreTx: false,
-			wantErr:     false,
+			name:    "nil bytes",
+			txBytes: nil,
+			wantNil: true,
+			wantErr: false,
 		},
 		{
-			name:        "valid MsgPayForFibre tx",
-			txBytes:     test.BuildMsgPayForFibreTxBytes(signer, ns.Bytes(), commitment, 1),
-			wantFibreTx: true,
-			wantErr:     false,
+			name:    "valid MsgPayForFibre tx",
+			txBytes: test.BuildMsgPayForFibreTxBytes(signer, ns.Bytes(), commitment, 1),
+			wantNil: false,
+			wantErr: false,
 		},
 		{
 			name: "MsgPayForFibre with nil payment promise",
@@ -72,8 +72,8 @@ func TestTryParseFibreTx(t *testing.T) {
 				require.NoError(t, err)
 				return txBytes
 			}(),
-			wantFibreTx: true,
-			wantErr:     true,
+			wantNil: true,
+			wantErr: true,
 		},
 		{
 			name: "plain SDK tx with different message type",
@@ -92,8 +92,8 @@ func TestTryParseFibreTx(t *testing.T) {
 				require.NoError(t, err)
 				return txBytes
 			}(),
-			wantFibreTx: false,
-			wantErr:     false,
+			wantNil: true,
+			wantErr: false,
 		},
 		{
 			name: "SDK tx with empty body",
@@ -105,8 +105,8 @@ func TestTryParseFibreTx(t *testing.T) {
 				require.NoError(t, err)
 				return txBytes
 			}(),
-			wantFibreTx: false,
-			wantErr:     false,
+			wantNil: true,
+			wantErr: false,
 		},
 		{
 			name: "SDK tx with nil body",
@@ -116,14 +116,14 @@ func TestTryParseFibreTx(t *testing.T) {
 				require.NoError(t, err)
 				return txBytes
 			}(),
-			wantFibreTx: false,
-			wantErr:     false,
+			wantNil: true,
+			wantErr: false,
 		},
 		{
-			name:        "BlobTx bytes returns error",
-			txBytes:     test.GenerateBlobTx([]int{256}),
-			wantFibreTx: false,
-			wantErr:     true,
+			name:    "BlobTx bytes",
+			txBytes: test.GenerateBlobTx([]int{256}),
+			wantNil: true,
+			wantErr: false,
 		},
 		{
 			name: "MsgPayForFibre with corrupted inner message",
@@ -142,8 +142,8 @@ func TestTryParseFibreTx(t *testing.T) {
 				require.NoError(t, err)
 				return txBytes
 			}(),
-			wantFibreTx: true,
-			wantErr:     true,
+			wantNil: true,
+			wantErr: true,
 		},
 		{
 			name: "MsgPayForFibre with invalid signer address",
@@ -172,21 +172,21 @@ func TestTryParseFibreTx(t *testing.T) {
 				require.NoError(t, err)
 				return txBytes
 			}(),
-			wantFibreTx: true,
-			wantErr:     true,
+			wantNil: true,
+			wantErr: true,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			fibreTx, isFibreTx, err := tx.TryParseFibreTx(tc.txBytes)
+			fibreTx, err := tx.TryParseFibreTx(tc.txBytes)
 			if tc.wantErr {
 				require.Error(t, err)
+				require.Nil(t, fibreTx)
 				return
 			}
 			require.NoError(t, err)
-			require.Equal(t, tc.wantFibreTx, isFibreTx)
-			if !tc.wantFibreTx {
+			if tc.wantNil {
 				require.Nil(t, fibreTx)
 				return
 			}
@@ -210,9 +210,8 @@ func TestTryParseFibreTxMatchesManualConstruction(t *testing.T) {
 
 	txBytes := test.BuildMsgPayForFibreTxBytes(signer, ns.Bytes(), commitment, 2)
 
-	fibreTx, isFibreTx, err := tx.TryParseFibreTx(txBytes)
+	fibreTx, err := tx.TryParseFibreTx(txBytes)
 	require.NoError(t, err)
-	require.True(t, isFibreTx)
 	require.NotNil(t, fibreTx)
 
 	expected, err := share.NewV2Blob(ns, 2, commitment, signerBytes)
