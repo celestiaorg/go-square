@@ -18,7 +18,8 @@ func TestTryParseFibreTx(t *testing.T) {
 	ns := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
 	commitment := bytes.Repeat([]byte{0xFF}, share.FibreCommitmentSize)
 	signerBytes := bytes.Repeat([]byte{0xAB}, share.SignerSize)
-	signer := test.EncodeBech32("celestia", signerBytes)
+	signer, err := test.EncodeBech32("celestia", signerBytes)
+	require.NoError(t, err)
 
 	tests := []struct {
 		name    string
@@ -45,8 +46,12 @@ func TestTryParseFibreTx(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:    "valid MsgPayForFibre tx",
-			txBytes: test.BuildMsgPayForFibreTxBytes(signer, ns.Bytes(), commitment, 1),
+			name: "valid MsgPayForFibre tx",
+			txBytes: func() []byte {
+				b, err := test.BuildMsgPayForFibreTxBytes(signer, ns.Bytes(), commitment, 1)
+				require.NoError(t, err)
+				return b
+			}(),
 			wantNil: false,
 			wantErr: false,
 		},
@@ -120,8 +125,12 @@ func TestTryParseFibreTx(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:    "BlobTx bytes",
-			txBytes: test.GenerateBlobTx([]int{256}),
+			name: "BlobTx bytes",
+			txBytes: func() []byte {
+				b, err := test.GenerateBlobTx([]int{256})
+				require.NoError(t, err)
+				return b
+			}(),
 			wantNil: true,
 			wantErr: false,
 		},
@@ -206,9 +215,11 @@ func TestTryParseFibreTxMatchesManualConstruction(t *testing.T) {
 	ns := share.MustNewV0Namespace(bytes.Repeat([]byte{2}, share.NamespaceVersionZeroIDSize))
 	commitment := bytes.Repeat([]byte{0xCC}, share.FibreCommitmentSize)
 	signerBytes := bytes.Repeat([]byte{0x12}, share.SignerSize)
-	signer := test.EncodeBech32("celestia", signerBytes)
+	signer, err := test.EncodeBech32("celestia", signerBytes)
+	require.NoError(t, err)
 
-	txBytes := test.BuildMsgPayForFibreTxBytes(signer, ns.Bytes(), commitment, 2)
+	txBytes, err := test.BuildMsgPayForFibreTxBytes(signer, ns.Bytes(), commitment, 2)
+	require.NoError(t, err)
 
 	fibreTx, err := tx.TryParseFibreTx(txBytes)
 	require.NoError(t, err)

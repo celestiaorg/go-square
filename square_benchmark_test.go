@@ -12,7 +12,7 @@ func BenchmarkSquareConstruct(b *testing.B) {
 	for _, txCount := range []int{10, 100, 1000} {
 		b.Run(fmt.Sprintf("txCount=%d", txCount), func(b *testing.B) {
 			b.ReportAllocs()
-			txs := generateOrderedTxs(txCount/2, txCount/2, 1, 1024)
+			txs := generateOrderedTxs(b, txCount/2, txCount/2, 1, 1024)
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				_, err := square.Construct(txs, defaultMaxSquareSize, defaultSubtreeRootThreshold)
@@ -26,7 +26,7 @@ func BenchmarkSquareBuild(b *testing.B) {
 	for _, txCount := range []int{10, 100, 1000, 10000} {
 		b.Run(fmt.Sprintf("txCount=%d", txCount), func(b *testing.B) {
 			b.ReportAllocs()
-			txs := generateMixedTxs(txCount/2, txCount/2, 1, 1024)
+			txs := generateMixedTxs(b, txCount/2, txCount/2, 1, 1024)
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				_, _, err := square.Build(txs, defaultMaxSquareSize, defaultSubtreeRootThreshold)
@@ -38,7 +38,7 @@ func BenchmarkSquareBuild(b *testing.B) {
 	for _, blobSize := range []int{10, 100, 1000, 10000} {
 		b.Run(fmt.Sprintf("blobSize=%d", blobSize), func(b *testing.B) {
 			b.ReportAllocs()
-			txs := generateMixedTxs(0, txCount, 1, blobSize)
+			txs := generateMixedTxs(b, 0, txCount, 1, blobSize)
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				_, _, err := square.Build(txs, defaultMaxSquareSize, defaultSubtreeRootThreshold)
