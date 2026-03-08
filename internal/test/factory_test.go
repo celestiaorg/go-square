@@ -9,13 +9,17 @@ import (
 
 func TestPFBParity(t *testing.T) {
 	blobSizes := []uint32{20, 30, 10}
-	pfb := test.MockPFB(blobSizes)
+	pfb, err := test.MockPFB(blobSizes)
+	require.NoError(t, err)
 	output, err := test.DecodeMockPFB(pfb)
 	require.NoError(t, err)
 	require.Equal(t, blobSizes, output)
 
-	require.Panics(t, func() { test.MockPFB(nil) })
+	_, err = test.MockPFB(nil)
+	require.Error(t, err)
 
-	_, err = test.DecodeMockPFB(test.RandomBytes(20))
+	randomBytes, err := test.RandomBytes(20)
+	require.NoError(t, err)
+	_, err = test.DecodeMockPFB(randomBytes)
 	require.Error(t, err)
 }

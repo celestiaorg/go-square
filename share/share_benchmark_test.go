@@ -15,7 +15,10 @@ func BenchmarkBlobsToShares(b *testing.B) {
 		for _, numBlobs := range numBlobs {
 			b.Run(fmt.Sprintf("ShareEncoding%dBlobs%dBytes", numBlobs, size), func(b *testing.B) {
 				b.ReportAllocs()
-				blobs := test.GenerateBlobs(test.Repeat(size, numBlobs)...)
+				blobs, err := test.GenerateBlobs(test.Repeat(size, numBlobs)...)
+				if err != nil {
+					b.Fatal(err)
+				}
 				b.ResetTimer()
 				for i := 0; i < b.N; i++ {
 					// Convert blob to shares
@@ -39,7 +42,10 @@ func BenchmarkSharesToBlobs(b *testing.B) {
 		for _, numBlobs := range numBlobs {
 			b.Run(fmt.Sprintf("ShareDecoding%dBlobs%dBytes", numBlobs, size), func(b *testing.B) {
 				b.ReportAllocs()
-				blobs := test.GenerateBlobs(test.Repeat(size, numBlobs)...)
+				blobs, err := test.GenerateBlobs(test.Repeat(size, numBlobs)...)
+				if err != nil {
+					b.Fatal(err)
+				}
 				writer := share.NewSparseShareSplitter()
 				for _, blob := range blobs {
 					if err := writer.Write(blob); err != nil {

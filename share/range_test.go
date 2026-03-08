@@ -11,7 +11,8 @@ import (
 )
 
 func TestGetShareRangeForNamespace(t *testing.T) {
-	blobs := test.GenerateBlobs(100, 200, 300, 400)
+	blobs, err := test.GenerateBlobs(100, 200, 300, 400)
+	require.NoError(t, err)
 	share.SortBlobs(blobs)
 	writer := share.NewSparseShareSplitter()
 	for _, blob := range blobs {

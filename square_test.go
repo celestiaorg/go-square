@@ -19,8 +19,10 @@ const (
 )
 
 func TestSquareConstruction(t *testing.T) {
-	sendTxs := test.GenerateTxs(250, 250, 250)
-	pfbTxs := test.GenerateBlobTxs(10_000, 1, 1024)
+	sendTxs, err := test.GenerateTxs(250, 250, 250)
+	require.NoError(t, err)
+	pfbTxs, err := test.GenerateBlobTxs(10_000, 1, 1024)
+	require.NoError(t, err)
 	t.Run("normal transactions after PFB transactions", func(t *testing.T) {
 		txs := sendTxs[:5]
 		txs = append(txs, append(pfbTxs, txs...)...)
@@ -34,8 +36,9 @@ func TestSquareConstruction(t *testing.T) {
 		require.Error(t, err)
 	})
 	t.Run("construction should fail if a single PFB tx contains a blob that is too large to fit in the square", func(t *testing.T) {
-		pfbTxs := test.GenerateBlobTxs(1, 1, 2*mebibyte)
-		_, err := square.Construct(pfbTxs, 64, defaultSubtreeRootThreshold)
+		pfbTxs, err := test.GenerateBlobTxs(1, 1, 2*mebibyte)
+		require.NoError(t, err)
+		_, err = square.Construct(pfbTxs, 64, defaultSubtreeRootThreshold)
 		require.Error(t, err)
 	})
 	t.Run("validates transaction ordering: normal -> blob -> pay-for-fibre", func(t *testing.T) {
@@ -76,16 +79,23 @@ func newFibreTxBytes(t *testing.T, ns share.Namespace) []byte {
 	t.Helper()
 	signerRaw := bytes.Repeat([]byte{0xAA}, share.SignerSize)
 	commitment := bytes.Repeat([]byte{0xFF}, share.FibreCommitmentSize)
-	signer := test.EncodeBech32("celestia", signerRaw)
-	return test.BuildMsgPayForFibreTxBytes(signer, ns.Bytes(), commitment, 1)
+	signer, err := test.EncodeBech32("celestia", signerRaw)
+	require.NoError(t, err)
+	txBytes, err := test.BuildMsgPayForFibreTxBytes(signer, ns.Bytes(), commitment, 1)
+	require.NoError(t, err)
+	return txBytes
 }
 
 func TestValidateTxOrdering(t *testing.T) {
 	// Create test transactions
 	normalTx1 := newTx(100)
 	normalTx2 := newTx(100)
-	blobTx1 := test.GenerateBlobTxs(1, 1, 1024)[0]
-	blobTx2 := test.GenerateBlobTxs(1, 1, 1024)[0]
+	blobTxs1, err := test.GenerateBlobTxs(1, 1, 1024)
+	require.NoError(t, err)
+	blobTx1 := blobTxs1[0]
+	blobTxs2, err := test.GenerateBlobTxs(1, 1, 1024)
+	require.NoError(t, err)
+	blobTx2 := blobTxs2[0]
 	ns := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
 	payForFibreTx1 := newFibreTxBytes(t, ns)
 	payForFibreTx2 := newFibreTxBytes(t, ns)
@@ -339,7 +349,8 @@ func TestSquareTxShareRangeWithPayForFibre(t *testing.T) {
 }
 
 func TestSquareBlobShareRange(t *testing.T) {
-	txs := test.GenerateBlobTxs(10, 1, 1024)
+	txs, err := test.GenerateBlobTxs(10, 1, 1024)
+	require.NoError(t, err)
 
 	builder, err := square.NewBuilder(defaultMaxSquareSize, defaultSubtreeRootThreshold, txs...)
 	require.NoError(t, err)
@@ -616,11 +627,14 @@ func TestBlobShareRangeWithPayForFibre(t *testing.T) {
 	ns := share.MustNewV0Namespace(bytes.Repeat([]byte{0x1}, share.NamespaceVersionZeroIDSize))
 	signerRaw := bytes.Repeat([]byte{0xAA}, share.SignerSize)
 	commitment := bytes.Repeat([]byte{0xBB}, share.FibreCommitmentSize)
-	signer := test.EncodeBech32("celestia", signerRaw)
-	fibreTxBytes := test.BuildMsgPayForFibreTxBytes(signer, ns.Bytes(), commitment, 1)
+	signer, err := test.EncodeBech32("celestia", signerRaw)
+	require.NoError(t, err)
+	fibreTxBytes, err := test.BuildMsgPayForFibreTxBytes(signer, ns.Bytes(), commitment, 1)
+	require.NoError(t, err)
 
 	// Create a blob tx for testing
-	blobTxBytes := test.GenerateBlobTxs(1, 1, 200)
+	blobTxBytes, err := test.GenerateBlobTxs(1, 1, 200)
+	require.NoError(t, err)
 
 	// Ordered txs: normal tx, blob tx, fibre tx
 	txs := [][]byte{

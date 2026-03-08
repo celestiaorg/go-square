@@ -17,15 +17,19 @@ import (
 
 var DefaultTestNamespace = share.MustNewV0Namespace([]byte("test"))
 
-func GenerateTxs(minSize, maxSize, numTxs int) [][]byte {
+func GenerateTxs(minSize, maxSize, numTxs int) ([][]byte, error) {
 	txs := make([][]byte, numTxs)
 	for i := 0; i < numTxs; i++ {
-		txs[i] = GenerateRandomTx(minSize, maxSize)
+		var err error
+		txs[i], err = GenerateRandomTx(minSize, maxSize)
+		if err != nil {
+			return nil, err
+		}
 	}
-	return txs
+	return txs, nil
 }
 
-func GenerateRandomTx(minSize, maxSize int) []byte {
+func GenerateRandomTx(minSize, maxSize int) ([]byte, error) {
 	size := minSize
 	if maxSize > minSize {
 		size = rand.Intn(maxSize-minSize) + minSize
@@ -33,78 +37,100 @@ func GenerateRandomTx(minSize, maxSize int) []byte {
 	return RandomBytes(size)
 }
 
-func RandomBytes(size int) []byte {
+func RandomBytes(size int) ([]byte, error) {
 	b := make([]byte, size)
 	_, err := crand.Read(b)
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("failed to read random bytes: %w", err)
 	}
-	return b
+	return b, nil
 }
 
-func GenerateBlobTxWithNamespace(namespaces []share.Namespace, blobSizes []int, version uint8) []byte {
+func GenerateBlobTxWithNamespace(namespaces []share.Namespace, blobSizes []int, version uint8) ([]byte, error) {
 	blobs := make([]*share.Blob, len(blobSizes))
 	if len(namespaces) != len(blobSizes) {
-		panic("number of namespaces should match number of blob sizes")
+		return nil, fmt.Errorf("number of namespaces should match number of blob sizes")
 	}
-	var err error
 	var signer []byte
 	if version == share.ShareVersionOne {
-		signer = RandomBytes(share.SignerSize)
-	}
-	for i, size := range blobSizes {
-		blobs[i], err = share.NewBlob(namespaces[i], RandomBytes(size), version, signer)
+		var err error
+		signer, err = RandomBytes(share.SignerSize)
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 	}
-	blobTx, err := tx.MarshalBlobTx(MockPFB(toUint32(blobSizes)), blobs...)
-	if err != nil {
-		panic(err)
+	for i, size := range blobSizes {
+		data, err := RandomBytes(size)
+		if err != nil {
+			return nil, err
+		}
+		blobs[i], err = share.NewBlob(namespaces[i], data, version, signer)
+		if err != nil {
+			return nil, err
+		}
 	}
-	return blobTx
+	mockPFB, err := MockPFB(toUint32(blobSizes))
+	if err != nil {
+		return nil, err
+	}
+	blobTx, err := tx.MarshalBlobTx(mockPFB, blobs...)
+	if err != nil {
+		return nil, err
+	}
+	return blobTx, nil
 }
 
-func GenerateBlobTx(blobSizes []int) []byte {
+func GenerateBlobTx(blobSizes []int) ([]byte, error) {
 	return GenerateBlobTxWithNamespace(Repeat(DefaultTestNamespace, len(blobSizes)), blobSizes, share.DefaultShareVersion)
 }
 
-func GenerateBlobTxs(numTxs, blobsPerPfb, blobSize int) [][]byte {
+func GenerateBlobTxs(numTxs, blobsPerPfb, blobSize int) ([][]byte, error) {
 	blobSizes := make([]int, blobsPerPfb)
 	for i := range blobSizes {
 		blobSizes[i] = blobSize
 	}
 	txs := make([][]byte, numTxs)
 	for i := 0; i < numTxs; i++ {
-		txs[i] = GenerateBlobTx(blobSizes)
-	}
-	return txs
-}
-
-func GenerateBlobs(blobSizes ...int) []*share.Blob {
-	blobs := make([]*share.Blob, len(blobSizes))
-	var err error
-	for i, size := range blobSizes {
-		blobs[i], err = share.NewBlob(share.RandomBlobNamespace(), RandomBytes(size), share.ShareVersionZero, nil)
+		var err error
+		txs[i], err = GenerateBlobTx(blobSizes)
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 	}
-	return blobs
+	return txs, nil
+}
+
+func GenerateBlobs(blobSizes ...int) ([]*share.Blob, error) {
+	blobs := make([]*share.Blob, len(blobSizes))
+	for i, size := range blobSizes {
+		data, err := RandomBytes(size)
+		if err != nil {
+			return nil, err
+		}
+		blobs[i], err = share.NewBlob(share.RandomBlobNamespace(), data, share.ShareVersionZero, nil)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return blobs, nil
 }
 
 const mockPFBExtraBytes = 329
 
-func MockPFB(blobSizes []uint32) []byte {
+func MockPFB(blobSizes []uint32) ([]byte, error) {
 	if len(blobSizes) == 0 {
-		panic("must have at least one blob")
+		return nil, fmt.Errorf("must have at least one blob")
 	}
 	tx := make([]byte, len(blobSizes)*4)
 	for i, size := range blobSizes {
 		binary.BigEndian.PutUint32(tx[i*4:], uint32(size))
 	}
 
-	return append(RandomBytes(mockPFBExtraBytes), tx...)
+	randomPrefix, err := RandomBytes(mockPFBExtraBytes)
+	if err != nil {
+		return nil, err
+	}
+	return append(randomPrefix, tx...), nil
 }
 
 func DecodeMockPFB(pfb []byte) ([]uint32, error) {
@@ -143,7 +169,7 @@ func DelimLen(size uint64) int {
 
 // BuildMsgPayForFibreTxBytes constructs Cosmos SDK Tx proto bytes containing a
 // single MsgPayForFibre message using generated proto types.
-func BuildMsgPayForFibreTxBytes(signer string, ns, commitment []byte, blobVersion uint32) []byte {
+func BuildMsgPayForFibreTxBytes(signer string, ns, commitment []byte, blobVersion uint32) ([]byte, error) {
 	msg := &fibrev1.MsgPayForFibre{
 		Signer: signer,
 		PaymentPromise: &fibrev1.PaymentPromise{
@@ -154,7 +180,7 @@ func BuildMsgPayForFibreTxBytes(signer string, ns, commitment []byte, blobVersio
 	}
 	msgBytes, err := proto.Marshal(msg)
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("failed to marshal MsgPayForFibre: %w", err)
 	}
 	sdkTx := &cosmostx.Tx{
 		Body: &cosmostx.TxBody{
@@ -168,17 +194,17 @@ func BuildMsgPayForFibreTxBytes(signer string, ns, commitment []byte, blobVersio
 	}
 	txBytes, err := proto.Marshal(sdkTx)
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("failed to marshal Tx: %w", err)
 	}
-	return txBytes
+	return txBytes, nil
 }
 
 // EncodeBech32 encodes raw bytes as a bech32 string with the given
 // human-readable prefix (e.g. "celestia").
-func EncodeBech32(hrp string, data []byte) string {
+func EncodeBech32(hrp string, data []byte) (string, error) {
 	encoded, err := bech32.EncodeFromBase256(hrp, data)
 	if err != nil {
-		panic(err)
+		return "", fmt.Errorf("failed to encode bech32: %w", err)
 	}
-	return encoded
+	return encoded, nil
 }
