@@ -22,6 +22,8 @@ const MsgPayForFibreTypeURL = "/celestia.fibre.v1.MsgPayForFibre"
 //   - (ft, nil): successfully parsed and synthesized a FibreTx.
 func TryParseFibreTx(txBytes []byte) (*FibreTx, error) {
 	var sdkTx cosmostx.Tx
+	// Not returning an error here because BlobTx bytes fail proto.Unmarshal
+	// into cosmos.tx.v1beta1.Tx and callers pass BlobTx bytes through here.
 	if err := proto.Unmarshal(txBytes, &sdkTx); err != nil {
 		return nil, nil
 	}
