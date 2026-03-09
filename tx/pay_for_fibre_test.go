@@ -22,22 +22,28 @@ func TestTryParseFibreTx(t *testing.T) {
 	require.NoError(t, err)
 
 	tests := []struct {
-		name        string
-		txBytes     []byte
-		wantFibreTx bool
-		wantErr     bool
+		name    string
+		txBytes []byte
+		wantNil bool
+		wantErr bool
 	}{
 		{
-			name:        "non-fibre tx (random bytes)",
-			txBytes:     []byte("not-a-cosmos-tx"),
-			wantFibreTx: false,
-			wantErr:     false,
+			name:    "random bytes",
+			txBytes: []byte("not-a-cosmos-tx"),
+			wantNil: true,
+			wantErr: false,
 		},
 		{
-			name:        "empty tx",
-			txBytes:     []byte{},
-			wantFibreTx: false,
-			wantErr:     false,
+			name:    "empty bytes",
+			txBytes: []byte{},
+			wantNil: true,
+			wantErr: false,
+		},
+		{
+			name:    "nil bytes",
+			txBytes: nil,
+			wantNil: true,
+			wantErr: false,
 		},
 		{
 			name: "valid MsgPayForFibre tx",
@@ -46,8 +52,8 @@ func TestTryParseFibreTx(t *testing.T) {
 				require.NoError(t, err)
 				return b
 			}(),
-			wantFibreTx: true,
-			wantErr:     false,
+			wantNil: false,
+			wantErr: false,
 		},
 		{
 			name: "MsgPayForFibre with nil payment promise",
@@ -71,11 +77,11 @@ func TestTryParseFibreTx(t *testing.T) {
 				require.NoError(t, err)
 				return txBytes
 			}(),
-			wantFibreTx: true,
-			wantErr:     true,
+			wantNil: true,
+			wantErr: true,
 		},
 		{
-			name: "tx with different message type",
+			name: "plain SDK tx with different message type",
 			txBytes: func() []byte {
 				sdkTx := &cosmostx.Tx{
 					Body: &cosmostx.TxBody{
@@ -91,21 +97,105 @@ func TestTryParseFibreTx(t *testing.T) {
 				require.NoError(t, err)
 				return txBytes
 			}(),
-			wantFibreTx: false,
-			wantErr:     false,
+			wantNil: true,
+			wantErr: false,
+		},
+		{
+			name: "SDK tx with empty body",
+			txBytes: func() []byte {
+				sdkTx := &cosmostx.Tx{
+					Body: &cosmostx.TxBody{},
+				}
+				txBytes, err := proto.Marshal(sdkTx)
+				require.NoError(t, err)
+				return txBytes
+			}(),
+			wantNil: true,
+			wantErr: false,
+		},
+		{
+			name: "SDK tx with nil body",
+			txBytes: func() []byte {
+				sdkTx := &cosmostx.Tx{}
+				txBytes, err := proto.Marshal(sdkTx)
+				require.NoError(t, err)
+				return txBytes
+			}(),
+			wantNil: true,
+			wantErr: false,
+		},
+		{
+			name: "BlobTx bytes",
+			txBytes: func() []byte {
+				b, err := test.GenerateBlobTx([]int{256})
+				require.NoError(t, err)
+				return b
+			}(),
+			wantNil: true,
+			wantErr: false,
+		},
+		{
+			name: "MsgPayForFibre with corrupted inner message",
+			txBytes: func() []byte {
+				sdkTx := &cosmostx.Tx{
+					Body: &cosmostx.TxBody{
+						Messages: []*anypb.Any{
+							{
+								TypeUrl: tx.MsgPayForFibreTypeURL,
+								Value:   []byte{0xFF, 0xFF, 0xFF},
+							},
+						},
+					},
+				}
+				txBytes, err := proto.Marshal(sdkTx)
+				require.NoError(t, err)
+				return txBytes
+			}(),
+			wantNil: true,
+			wantErr: true,
+		},
+		{
+			name: "MsgPayForFibre with invalid signer address",
+			txBytes: func() []byte {
+				msg := &fibrev1.MsgPayForFibre{
+					Signer: "not-a-bech32-address",
+					PaymentPromise: &fibrev1.PaymentPromise{
+						Namespace:   ns.Bytes(),
+						BlobVersion: 1,
+						Commitment:  commitment,
+					},
+				}
+				msgBytes, err := proto.Marshal(msg)
+				require.NoError(t, err)
+				sdkTx := &cosmostx.Tx{
+					Body: &cosmostx.TxBody{
+						Messages: []*anypb.Any{
+							{
+								TypeUrl: tx.MsgPayForFibreTypeURL,
+								Value:   msgBytes,
+							},
+						},
+					},
+				}
+				txBytes, err := proto.Marshal(sdkTx)
+				require.NoError(t, err)
+				return txBytes
+			}(),
+			wantNil: true,
+			wantErr: true,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			fibreTx, isFibreTx, err := tx.TryParseFibreTx(tc.txBytes)
+			fibreTx, err := tx.TryParseFibreTx(tc.txBytes)
 			if tc.wantErr {
 				require.Error(t, err)
+				require.Nil(t, fibreTx)
 				return
 			}
 			require.NoError(t, err)
-			require.Equal(t, tc.wantFibreTx, isFibreTx)
-			if !tc.wantFibreTx {
+			if tc.wantNil {
 				require.Nil(t, fibreTx)
 				return
 			}
@@ -131,9 +221,8 @@ func TestTryParseFibreTxMatchesManualConstruction(t *testing.T) {
 	txBytes, err := test.BuildMsgPayForFibreTxBytes(signer, ns.Bytes(), commitment, 2)
 	require.NoError(t, err)
 
-	fibreTx, isFibreTx, err := tx.TryParseFibreTx(txBytes)
+	fibreTx, err := tx.TryParseFibreTx(txBytes)
 	require.NoError(t, err)
-	require.True(t, isFibreTx)
 	require.NotNil(t, fibreTx)
 
 	expected, err := share.NewV2Blob(ns, 2, commitment, signerBytes)
