@@ -121,7 +121,7 @@ func TestFrom(t *testing.T) {
 		wantErr bool
 		want    Namespace
 	}
-	validNamespace := make([]byte, 0)
+	validNamespace := make([]byte, 0, NamespaceSize)
 	validNamespace = append(validNamespace, NamespaceVersionZero)
 	validNamespace = append(validNamespace, NamespaceVersionZeroPrefix...)
 	validNamespace = append(validNamespace, bytes.Repeat([]byte{0x1}, NamespaceVersionZeroIDSize)...)
@@ -285,7 +285,7 @@ func Test_compareMethods(t *testing.T) {
 	ids := [][]byte{append(NamespaceVersionZeroPrefix, minID...), append(NamespaceVersionZeroPrefix, maxID...)}
 
 	// collect all possible pairs: (ver1 ?? ver2) x (id1 ?? id2)
-	testPairs := make([][2]Namespace, 0)
+	testPairs := make([][2]Namespace, 0, len(ids)*len(ids)*len(vers)*len(vers))
 	for _, ver1 := range vers {
 		for _, ver2 := range vers {
 			for _, id1 := range ids {
