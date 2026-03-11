@@ -41,6 +41,7 @@ const (
 
 	// CompactShareReservedBytes is the number of bytes reserved for the location of
 	// the first unit (transaction, ISR) in a compact share.
+	//
 	// Deprecated: use ShareReservedBytes instead.
 	CompactShareReservedBytes = ShareReservedBytes
 

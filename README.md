@@ -219,7 +219,7 @@ This repo attempts to conform to [conventional commits](https://www.conventional
 
 ### Tools
 
-1. Install [Go](https://golang.org/doc/install) 1.23.6
+1. Install [Go](https://golang.org/doc/install) 1.25.8
 1. Install [golangci-lint](https://golangci-lint.run/usage/install/)
 1. Fork this repo
 1. Make your changes

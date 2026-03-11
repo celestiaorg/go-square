@@ -320,7 +320,7 @@ func leftPad(b []byte, size int) []byte {
 	if len(b) >= size {
 		return b
 	}
-	pad := make([]byte, size-len(b))
+	pad := make([]byte, size-len(b), size)
 	return append(pad, b...)
 }
 
