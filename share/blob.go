@@ -194,6 +194,11 @@ func (b *Blob) Data() []byte {
 	return b.data
 }
 
+// IsFibreBlob returns true if the blob is a Fibre system-level blob (share version 2).
+func (b *Blob) IsFibreBlob() bool {
+	return b.shareVersion == ShareVersionTwo
+}
+
 // FibreBlobVersion returns the Fibre blob version from a v2 blob's data.
 func (b *Blob) FibreBlobVersion() (uint32, error) {
 	if b.shareVersion != ShareVersionTwo {
