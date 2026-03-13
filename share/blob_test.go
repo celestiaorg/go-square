@@ -375,6 +375,30 @@ func TestV2BlobProtoRoundTrip(t *testing.T) {
 	require.Equal(t, blob, newBlob)
 }
 
+func TestIsFibreBlob(t *testing.T) {
+	ns := MustNewV0Namespace(bytes.Repeat([]byte{1}, NamespaceVersionZeroIDSize))
+	signer := bytes.Repeat([]byte{0xAA}, SignerSize)
+	commitment := bytes.Repeat([]byte{0xBB}, FibreCommitmentSize)
+
+	t.Run("v0 blob is not a fibre blob", func(t *testing.T) {
+		blob, err := NewV0Blob(ns, []byte("data"))
+		require.NoError(t, err)
+		assert.False(t, blob.IsFibreBlob())
+	})
+
+	t.Run("v1 blob is not a fibre blob", func(t *testing.T) {
+		blob, err := NewV1Blob(ns, []byte("data"), signer)
+		require.NoError(t, err)
+		assert.False(t, blob.IsFibreBlob())
+	})
+
+	t.Run("v2 blob is a fibre blob", func(t *testing.T) {
+		blob, err := NewV2Blob(ns, 1, commitment, signer)
+		require.NoError(t, err)
+		assert.True(t, blob.IsFibreBlob())
+	})
+}
+
 // makeV2Data creates v2 blob data from a fibre blob version and commitment.
 func makeV2Data(fibreBlobVersion uint32, commitment []byte) []byte {
 	data := make([]byte, FibreBlobVersionSize+FibreCommitmentSize)
