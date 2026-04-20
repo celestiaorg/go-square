@@ -14,7 +14,8 @@ on:
       - "v[0-9]+.[0-9]+.[0-9]+-rc[0-9]+"
   pull_request:
 
-permissions: {}
+permissions:
+  contents: read
 
 jobs:
   lint:
