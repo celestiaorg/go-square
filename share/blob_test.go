@@ -117,11 +117,18 @@ func TestBlobHash(t *testing.T) {
 		blob, err := NewV1Blob(ns, data, signer)
 		require.NoError(t, err)
 
+		lengthPrefixed := func(b []byte) []byte {
+			var prefix [4]byte
+			binary.BigEndian.PutUint32(prefix[:], uint32(len(b)))
+			return append(prefix[:], b...)
+		}
+
 		h := sha256.New()
-		h.Write(ns.Bytes())
-		h.Write(data)
+		h.Write([]byte(blobHashDomain))
+		h.Write(lengthPrefixed(ns.Bytes()))
+		h.Write(lengthPrefixed(data))
 		h.Write([]byte{ShareVersionOne})
-		h.Write(signer)
+		h.Write(lengthPrefixed(signer))
 		expected := h.Sum(nil)
 
 		assert.Equal(t, expected, blob.Hash())
@@ -168,6 +175,32 @@ func TestBlobHash(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.NotEqual(t, blob1.Hash(), blob2.Hash())
+	})
+
+	t.Run("cross-version collision is not possible", func(t *testing.T) {
+		// A v1 blob's signer is appended to the hash preimage without any
+		// length prefix or domain separation. Because a v0 blob has no signer
+		// (and is terminated by its version byte 0x00), an attacker can craft a
+		// v0 blob whose data embeds the v1 version byte and signer so that both
+		// preimages are byte-for-byte identical. The only prerequisite is that
+		// the victim v1 signer ends in 0x00.
+		//
+		// v1 blob: (ns, D, signer = [S0..S18, 0x00])
+		// v0 blob: (ns, D || 0x01 || S0..S18, nil)
+		victimData := []byte("victim payload")
+		victimSigner := append(bytes.Repeat([]byte{0xAA}, SignerSize-1), 0x00)
+
+		v1Blob, err := NewV1Blob(ns, victimData, victimSigner)
+		require.NoError(t, err)
+
+		attackerData := append([]byte{}, victimData...)
+		attackerData = append(attackerData, ShareVersionOne)
+		attackerData = append(attackerData, victimSigner[:SignerSize-1]...)
+		v0Blob, err := NewV0Blob(ns, attackerData)
+		require.NoError(t, err)
+
+		assert.NotEqual(t, v1Blob.Hash(), v0Blob.Hash(),
+			"a v0 blob must not be able to collide with a v1 blob's hash")
 	})
 }
 
