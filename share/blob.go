@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash"
 	"sort"
 
 	v4 "github.com/celestiaorg/go-square/v4/proto/blob/v4"
@@ -159,14 +160,32 @@ func NewBlobFromProto(pb *v4.BlobProto) (*Blob, error) {
 	)
 }
 
-// Hash returns a SHA-256 hash of all the blob's fields.
+// blobHashDomain is a domain separation tag prefixed to the Hash preimage so
+// that the hash can not be confused with hashes computed over other data.
+const blobHashDomain = "celestia.blob.v1\x00"
+
+// Hash returns a SHA-256 hash of all the blob's fields. Each variable-length
+// field is length-prefixed so that distinct blobs can not be made to produce
+// the same preimage (e.g. a v0 blob whose data embeds a v1 signer).
 func (b *Blob) Hash() []byte {
 	h := sha256.New()
-	h.Write(b.Namespace().Bytes())
-	h.Write(b.Data())
+	h.Write([]byte(blobHashDomain))
+	writeLengthPrefixed(h, b.Namespace().Bytes())
+	writeLengthPrefixed(h, b.Data())
 	h.Write([]byte{b.ShareVersion()})
-	h.Write(b.Signer())
+	writeLengthPrefixed(h, b.Signer())
 	return h.Sum(nil)
+}
+
+// writeLengthPrefixed writes a 4-byte big-endian length prefix followed by the
+// data itself to h. Length prefixes are used instead of separators because
+// fields contain arbitrary bytes, so any separator could also appear inside a
+// field and make the encoding ambiguous.
+func writeLengthPrefixed(h hash.Hash, data []byte) {
+	var prefix [4]byte
+	binary.BigEndian.PutUint32(prefix[:], uint32(len(data)))
+	h.Write(prefix[:])
+	h.Write(data)
 }
 
 // Namespace returns the namespace of the blob
