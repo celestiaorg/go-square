@@ -178,7 +178,9 @@ func (b *Blob) Hash() []byte {
 }
 
 // writeLengthPrefixed writes a 4-byte big-endian length prefix followed by the
-// data itself to h.
+// data itself to h. Length prefixes are used instead of separators because
+// fields contain arbitrary bytes, so any separator could also appear inside a
+// field and make the encoding ambiguous.
 func writeLengthPrefixed(h hash.Hash, data []byte) {
 	var prefix [4]byte
 	binary.BigEndian.PutUint32(prefix[:], uint32(len(data)))
