@@ -6,13 +6,10 @@ import (
 	"fmt"
 	"math/rand"
 
-	fibrev1 "github.com/celestiaorg/go-square/v4/proto/celestia/fibre/v1"
-	cosmostx "github.com/celestiaorg/go-square/v4/proto/cosmos/tx/v1beta1"
+	square "github.com/celestiaorg/go-square/v4"
 	"github.com/celestiaorg/go-square/v4/share"
 	"github.com/celestiaorg/go-square/v4/tx"
 	"github.com/cosmos/btcutil/bech32"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/anypb"
 )
 
 var DefaultTestNamespace = share.MustNewV0Namespace([]byte("test"))
@@ -167,36 +164,27 @@ func DelimLen(size uint64) int {
 	return binary.PutUvarint(lenBuf, size)
 }
 
-// BuildMsgPayForFibreTxBytes constructs Cosmos SDK Tx proto bytes containing a
-// single MsgPayForFibre message using generated proto types.
-func BuildMsgPayForFibreTxBytes(signer string, ns, commitment []byte, blobVersion uint32) ([]byte, error) {
-	msg := &fibrev1.MsgPayForFibre{
-		Signer: signer,
-		PaymentPromise: &fibrev1.PaymentPromise{
-			Namespace:   ns,
-			BlobVersion: blobVersion,
-			Commitment:  commitment,
-		},
-	}
-	msgBytes, err := proto.Marshal(msg)
+// BuildFibreClassifiedTx returns a ClassifiedTx for a pay-for-fibre
+// transaction. The transaction bytes are opaque to go-square: classification is
+// the caller's job, so tests need not encode a Cosmos SDK transaction to
+// exercise the fibre path.
+func BuildFibreClassifiedTx(txBytes []byte, ns share.Namespace, commitment, signer []byte, blobVersion uint32) (square.ClassifiedTx, error) {
+	systemBlob, err := share.NewV2Blob(ns, blobVersion, commitment, signer)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal MsgPayForFibre: %w", err)
+		return square.ClassifiedTx{}, fmt.Errorf("creating system blob: %w", err)
 	}
-	sdkTx := &cosmostx.Tx{
-		Body: &cosmostx.TxBody{
-			Messages: []*anypb.Any{
-				{
-					TypeUrl: tx.MsgPayForFibreTypeURL,
-					Value:   msgBytes,
-				},
-			},
-		},
+	return square.NewClassifiedFibreTx(&tx.FibreTx{Tx: txBytes, SystemBlob: systemBlob})
+}
+
+// ClassifyNormalTxs wraps raw transactions as ClassifiedTx values that are not
+// pay-for-fibre transactions. Blob txs may be passed here: go-square recognises
+// its own BlobTx format without help.
+func ClassifyNormalTxs(txs [][]byte) []square.ClassifiedTx {
+	classified := make([]square.ClassifiedTx, len(txs))
+	for i, txBytes := range txs {
+		classified[i] = square.NewClassifiedTx(txBytes)
 	}
-	txBytes, err := proto.Marshal(sdkTx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal Tx: %w", err)
-	}
-	return txBytes, nil
+	return classified
 }
 
 // EncodeBech32 encodes raw bytes as a bech32 string with the given

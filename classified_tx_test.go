@@ -72,6 +72,47 @@ func TestClassifiedTxValidate(t *testing.T) {
 	}
 }
 
+func TestConstructRejectsInvalidClassification(t *testing.T) {
+	raw := []byte("raw tx bytes")
+	blob := systemBlob(t)
+
+	testCases := []struct {
+		name    string
+		txs     []square.ClassifiedTx
+		wantErr string
+	}{
+		{
+			name:    "fibre tx bytes do not match",
+			txs:     []square.ClassifiedTx{{Bytes: raw, FibreTx: &tx.FibreTx{Tx: []byte("other"), SystemBlob: blob}}},
+			wantErr: "differ from classified tx bytes",
+		},
+		{
+			name:    "fibre tx without system blob",
+			txs:     []square.ClassifiedTx{{Bytes: raw, FibreTx: &tx.FibreTx{Tx: raw}}},
+			wantErr: "system blob",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := square.Construct(tc.txs, 64, 64)
+			require.ErrorContains(t, err, tc.wantErr)
+		})
+	}
+}
+
+func TestConstructOrdersNormalThenFibre(t *testing.T) {
+	normal := square.NewClassifiedTx([]byte("normal tx"))
+	fibre, err := square.NewClassifiedFibreTx(&tx.FibreTx{Tx: []byte("fibre tx"), SystemBlob: systemBlob(t)})
+	require.NoError(t, err)
+
+	_, err = square.Construct([]square.ClassifiedTx{normal, fibre}, 64, 64)
+	require.NoError(t, err)
+
+	_, err = square.Construct([]square.ClassifiedTx{fibre, normal}, 64, 64)
+	require.ErrorContains(t, err, "cannot be appended after pay-for-fibre tx")
+}
+
 func TestNewClassifiedTx(t *testing.T) {
 	raw := []byte("raw tx bytes")
 	ctx := square.NewClassifiedTx(raw)

@@ -19,3 +19,22 @@ This document describes version compatibility between go-square, celestia-app, a
 - **v0**: Original format (blobs without signer).
 - **v1**: Adds signer field (authored blobs). Introduced in go-square v2.
 - **v2**: Adds Fibre blob version and commitment (Fibre system blobs). Introduced in go-square v4.
+
+## Breaking Changes
+
+### v4.0.0
+
+Callers now classify transactions themselves. `Construct`, `NewBuilder`,
+`TxShareRange`, and `BlobShareRange` take `[]ClassifiedTx` instead of
+`[][]byte`, where a `ClassifiedTx` carries the raw transaction and, for
+pay-for-fibre transactions, the system blob the caller synthesized.
+
+`tx.TryParseFibreTx` and the `proto/cosmos/tx/v1beta1` and
+`proto/celestia/fibre/v1` packages are removed. go-square decodes formats it
+owns — `BlobTx`, `IndexWrapper`, `Blob` — and no longer decodes formats the
+Cosmos SDK owns. Deciding whether a transaction is a pay-for-fibre transaction
+requires the SDK's schema and the application's rules, so the application makes
+that decision; a second classifier here could only agree with it by coincidence.
+
+The deprecated `Build` is also removed. Use `NewBuilder` with `AppendTx`,
+`AppendBlobTx`, and `Export`.

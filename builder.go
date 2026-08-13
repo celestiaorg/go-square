@@ -54,7 +54,7 @@ type Builder struct {
 	subtreeRootThreshold int
 }
 
-func NewBuilder(maxSquareSize int, subtreeRootThreshold int, txs ...[]byte) (*Builder, error) {
+func NewBuilder(maxSquareSize int, subtreeRootThreshold int, txs ...ClassifiedTx) (*Builder, error) {
 	if maxSquareSize <= 0 {
 		return nil, errors.New("max square size must be strictly positive")
 	}
