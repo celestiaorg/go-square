@@ -7,6 +7,7 @@ import (
 	cosmostx "github.com/celestiaorg/go-square/v4/proto/cosmos/tx/v1beta1"
 	"github.com/celestiaorg/go-square/v4/share"
 	"github.com/cosmos/btcutil/bech32"
+	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -27,11 +28,15 @@ func TryParseFibreTx(txBytes []byte) (*FibreTx, error) {
 	if err := proto.Unmarshal(txBytes, &sdkTx); err != nil {
 		return nil, nil
 	}
-	if sdkTx.Body == nil || len(sdkTx.Body.Messages) == 0 {
+	body, err := authoritativeBody(txBytes, &sdkTx)
+	if err != nil {
+		return nil, nil
+	}
+	if body == nil || len(body.Messages) == 0 {
 		return nil, nil
 	}
 
-	anyMsg := sdkTx.Body.Messages[0]
+	anyMsg := body.Messages[0]
 	if anyMsg.TypeUrl != MsgPayForFibreTypeURL {
 		return nil, nil
 	}
@@ -64,6 +69,63 @@ func TryParseFibreTx(txBytes []byte) (*FibreTx, error) {
 		Tx:         txBytes,
 		SystemBlob: systemBlob,
 	}, nil
+}
+
+// txBodyFieldNumber is the wire field number of the body field in
+// cosmos.tx.v1beta1.Tx, and of body_bytes in cosmos.tx.v1beta1.TxRaw. Both
+// describe the same wire field of the same transaction bytes.
+const txBodyFieldNumber = protowire.Number(1)
+
+// authoritativeBody returns the TxBody that the Cosmos SDK would decode from
+// txBytes.
+//
+// This package models the body field as a singular message, so protobuf-go
+// merges every occurrence of it and concatenates the repeated `messages` inside.
+// The SDK models the same wire field as TxRaw.body_bytes, a scalar `bytes`
+// field, so it keeps only the last occurrence. For bytes carrying the field more
+// than once the two disagree about which messages the transaction contains, and
+// a classifier that disagrees with the SDK about a transaction it shares is a
+// consensus hazard. Follow the SDK: the last occurrence wins.
+//
+// merged is the already-unmarshalled Tx and is returned as-is in the ordinary
+// single-occurrence case, so honest transactions decode exactly as before.
+func authoritativeBody(txBytes []byte, merged *cosmostx.Tx) (*cosmostx.TxBody, error) {
+	var last []byte
+	seen := 0
+	for rest := txBytes; len(rest) > 0; {
+		num, typ, n := protowire.ConsumeTag(rest)
+		if n < 0 {
+			return nil, protowire.ParseError(n)
+		}
+		rest = rest[n:]
+
+		if num == txBodyFieldNumber && typ == protowire.BytesType {
+			value, m := protowire.ConsumeBytes(rest)
+			if m < 0 {
+				return nil, protowire.ParseError(m)
+			}
+			last = value
+			seen++
+			rest = rest[m:]
+			continue
+		}
+
+		m := protowire.ConsumeFieldValue(num, typ, rest)
+		if m < 0 {
+			return nil, protowire.ParseError(m)
+		}
+		rest = rest[m:]
+	}
+
+	if seen <= 1 {
+		return merged.Body, nil
+	}
+
+	var body cosmostx.TxBody
+	if err := proto.Unmarshal(last, &body); err != nil {
+		return nil, err
+	}
+	return &body, nil
 }
 
 // decodeBech32Address decodes a bech32 address string (e.g. "celestia1...") and

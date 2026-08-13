@@ -10,6 +10,7 @@ import (
 	"github.com/celestiaorg/go-square/v4/share"
 	"github.com/celestiaorg/go-square/v4/tx"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 )
@@ -232,4 +233,98 @@ func TestTryParseFibreTxMatchesManualConstruction(t *testing.T) {
 	require.Equal(t, expected.Data(), fibreTx.SystemBlob.Data())
 	require.Equal(t, expected.ShareVersion(), fibreTx.SystemBlob.ShareVersion())
 	require.Equal(t, expected.Signer(), fibreTx.SystemBlob.Signer())
+}
+
+// appendBodyField appends a top-level field 1 (body) carrying body to txBytes.
+func appendBodyField(txBytes, body []byte) []byte {
+	out := append([]byte(nil), txBytes...)
+	out = protowire.AppendTag(out, 1, protowire.BytesType)
+	return protowire.AppendBytes(out, body)
+}
+
+// bodyOf returns the single top-level field 1 value of a marshalled Tx.
+func bodyOf(t *testing.T, txBytes []byte) []byte {
+	t.Helper()
+	num, typ, n := protowire.ConsumeTag(txBytes)
+	require.GreaterOrEqual(t, n, 0)
+	require.Equal(t, protowire.Number(1), num)
+	require.Equal(t, protowire.BytesType, typ)
+	body, m := protowire.ConsumeBytes(txBytes[n:])
+	require.GreaterOrEqual(t, m, 0)
+	require.Len(t, txBytes, n+m, "expected exactly one top-level field")
+	return body
+}
+
+// TestTryParseFibreTxDuplicateBody pins the semantics of a Tx carrying more than
+// one top-level body field. protobuf-go merges repeated occurrences of a
+// singular message field, whereas the Cosmos SDK reads the same wire field as a
+// scalar `bytes` (TxRaw.body_bytes) and keeps only the last occurrence. The two
+// must agree on which body is authoritative, so TryParseFibreTx follows the
+// SDK's last-one-wins rule.
+func TestTryParseFibreTxDuplicateBody(t *testing.T) {
+	ns := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
+	commitment := bytes.Repeat([]byte{0xFF}, share.FibreCommitmentSize)
+	signerBytes := bytes.Repeat([]byte{0xAB}, share.SignerSize)
+	signer, err := test.EncodeBech32("celestia", signerBytes)
+	require.NoError(t, err)
+
+	fibreTxBytes, err := test.BuildMsgPayForFibreTxBytes(signer, ns.Bytes(), commitment, 1)
+	require.NoError(t, err)
+	fibreBody := bodyOf(t, fibreTxBytes)
+
+	normalTxBytes, err := proto.Marshal(&cosmostx.Tx{
+		Body: &cosmostx.TxBody{
+			Messages: []*anypb.Any{{TypeUrl: "/cosmos.bank.v1beta1.MsgSend", Value: []byte("v")}},
+		},
+	})
+	require.NoError(t, err)
+	normalBody := bodyOf(t, normalTxBytes)
+
+	tests := []struct {
+		name string
+		// bodies are appended in order; the last one is authoritative.
+		bodies    [][]byte
+		wantFibre bool
+	}{
+		{
+			name:      "fibre body then normal body is not a fibre tx",
+			bodies:    [][]byte{fibreBody, normalBody},
+			wantFibre: false,
+		},
+		{
+			name:      "normal body then fibre body is a fibre tx",
+			bodies:    [][]byte{normalBody, fibreBody},
+			wantFibre: true,
+		},
+		{
+			name:      "trailing fibre body wins over several normal bodies",
+			bodies:    [][]byte{normalBody, normalBody, fibreBody},
+			wantFibre: true,
+		},
+		{
+			name:      "trailing normal body wins over several fibre bodies",
+			bodies:    [][]byte{fibreBody, fibreBody, normalBody},
+			wantFibre: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var txBytes []byte
+			for _, body := range tc.bodies {
+				txBytes = appendBodyField(txBytes, body)
+			}
+
+			fibreTx, err := tx.TryParseFibreTx(txBytes)
+			require.NoError(t, err)
+			if !tc.wantFibre {
+				require.Nil(t, fibreTx)
+				return
+			}
+			require.NotNil(t, fibreTx)
+			require.Equal(t, txBytes, fibreTx.Tx)
+			require.Equal(t, ns, fibreTx.SystemBlob.Namespace())
+			require.Equal(t, signerBytes, fibreTx.SystemBlob.Signer())
+		})
+	}
 }
