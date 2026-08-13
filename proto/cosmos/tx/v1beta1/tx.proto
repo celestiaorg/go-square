@@ -37,3 +37,16 @@ message TxRaw {
 message TxBody {
   repeated google.protobuf.Any messages = 1;
 }
+
+// Tx models the body as an embedded message, which does NOT match how the
+// Cosmos SDK reads the same wire field. Decoding transaction bytes through this
+// message can reach a different answer than the SDK does about which messages a
+// transaction contains. Decode through TxRaw instead.
+//
+// Retained only so that removing it is not a breaking change for the published
+// module; nothing in go-square uses it.
+message Tx {
+  option deprecated = true;
+
+  TxBody body = 1;
+}

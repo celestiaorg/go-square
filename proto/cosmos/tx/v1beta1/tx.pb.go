@@ -147,6 +147,59 @@ func (x *TxBody) GetMessages() []*anypb.Any {
 	return nil
 }
 
+// Tx models the body as an embedded message, which does NOT match how the
+// Cosmos SDK reads the same wire field. Decoding transaction bytes through this
+// message can reach a different answer than the SDK does about which messages a
+// transaction contains. Decode through TxRaw instead.
+//
+// Retained only so that removing it is not a breaking change for the published
+// module; nothing in go-square uses it.
+//
+// Deprecated: Marked as deprecated in proto/cosmos/tx/v1beta1/tx.proto.
+type Tx struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Body          *TxBody                `protobuf:"bytes,1,opt,name=body,proto3" json:"body,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Tx) Reset() {
+	*x = Tx{}
+	mi := &file_proto_cosmos_tx_v1beta1_tx_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Tx) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Tx) ProtoMessage() {}
+
+func (x *Tx) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_cosmos_tx_v1beta1_tx_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Tx.ProtoReflect.Descriptor instead.
+func (*Tx) Descriptor() ([]byte, []int) {
+	return file_proto_cosmos_tx_v1beta1_tx_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *Tx) GetBody() *TxBody {
+	if x != nil {
+		return x.Body
+	}
+	return nil
+}
+
 var File_proto_cosmos_tx_v1beta1_tx_proto protoreflect.FileDescriptor
 
 const file_proto_cosmos_tx_v1beta1_tx_proto_rawDesc = "" +
@@ -160,7 +213,9 @@ const file_proto_cosmos_tx_v1beta1_tx_proto_rawDesc = "" +
 	"signatures\x18\x03 \x03(\fR\n" +
 	"signatures\":\n" +
 	"\x06TxBody\x120\n" +
-	"\bmessages\x18\x01 \x03(\v2\x14.google.protobuf.AnyR\bmessagesB=Z;github.com/celestiaorg/go-square/v4/proto/cosmos/tx/v1beta1b\x06proto3"
+	"\bmessages\x18\x01 \x03(\v2\x14.google.protobuf.AnyR\bmessages\"=\n" +
+	"\x02Tx\x123\n" +
+	"\x04body\x18\x01 \x01(\v2\x1f.proto.cosmos.tx.v1beta1.TxBodyR\x04body:\x02\x18\x01B=Z;github.com/celestiaorg/go-square/v4/proto/cosmos/tx/v1beta1b\x06proto3"
 
 var (
 	file_proto_cosmos_tx_v1beta1_tx_proto_rawDescOnce sync.Once
@@ -174,19 +229,21 @@ func file_proto_cosmos_tx_v1beta1_tx_proto_rawDescGZIP() []byte {
 	return file_proto_cosmos_tx_v1beta1_tx_proto_rawDescData
 }
 
-var file_proto_cosmos_tx_v1beta1_tx_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_proto_cosmos_tx_v1beta1_tx_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_proto_cosmos_tx_v1beta1_tx_proto_goTypes = []any{
 	(*TxRaw)(nil),     // 0: proto.cosmos.tx.v1beta1.TxRaw
 	(*TxBody)(nil),    // 1: proto.cosmos.tx.v1beta1.TxBody
-	(*anypb.Any)(nil), // 2: google.protobuf.Any
+	(*Tx)(nil),        // 2: proto.cosmos.tx.v1beta1.Tx
+	(*anypb.Any)(nil), // 3: google.protobuf.Any
 }
 var file_proto_cosmos_tx_v1beta1_tx_proto_depIdxs = []int32{
-	2, // 0: proto.cosmos.tx.v1beta1.TxBody.messages:type_name -> google.protobuf.Any
-	1, // [1:1] is the sub-list for method output_type
-	1, // [1:1] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	3, // 0: proto.cosmos.tx.v1beta1.TxBody.messages:type_name -> google.protobuf.Any
+	1, // 1: proto.cosmos.tx.v1beta1.Tx.body:type_name -> proto.cosmos.tx.v1beta1.TxBody
+	2, // [2:2] is the sub-list for method output_type
+	2, // [2:2] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_proto_cosmos_tx_v1beta1_tx_proto_init() }
@@ -200,7 +257,7 @@ func file_proto_cosmos_tx_v1beta1_tx_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_cosmos_tx_v1beta1_tx_proto_rawDesc), len(file_proto_cosmos_tx_v1beta1_tx_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
