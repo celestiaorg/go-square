@@ -7,6 +7,7 @@ import (
 	cosmostx "github.com/celestiaorg/go-square/v4/proto/cosmos/tx/v1beta1"
 	"github.com/celestiaorg/go-square/v4/share"
 	"github.com/cosmos/btcutil/bech32"
+	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -27,11 +28,12 @@ func TryParseFibreTx(txBytes []byte) (*FibreTx, error) {
 	if err := proto.Unmarshal(txBytes, &sdkTx); err != nil {
 		return nil, nil
 	}
-	if sdkTx.Body == nil || len(sdkTx.Body.Messages) == 0 {
+	body := resolveTxBody(txBytes, sdkTx.Body)
+	if body == nil || len(body.Messages) == 0 {
 		return nil, nil
 	}
 
-	anyMsg := sdkTx.Body.Messages[0]
+	anyMsg := body.Messages[0]
 	if anyMsg.TypeUrl != MsgPayForFibreTypeURL {
 		return nil, nil
 	}
@@ -64,6 +66,66 @@ func TryParseFibreTx(txBytes []byte) (*FibreTx, error) {
 		Tx:         txBytes,
 		SystemBlob: systemBlob,
 	}, nil
+}
+
+// resolveTxBody returns the transaction body that the Cosmos SDK's decoder reads
+// out of txBytes, which is not always the body protobuf-go produces.
+//
+// The SDK decodes these bytes as TxRaw, whose field 1 (body_bytes) is a scalar
+// bytes field, so gogoproto keeps only the last occurrence when field 1 is
+// repeated. go-square models field 1 as the singular message Tx.body, and
+// protobuf-go merges repeated occurrences of a message field, concatenating the
+// inner repeated messages. On a repeated field 1 the two therefore disagree about
+// which message comes first, and go-square must follow the SDK because the SDK is
+// what validated and signed over the transaction.
+//
+// parsed is the already-merged body from proto.Unmarshal. Every transaction a
+// standard signer produces encodes field 1 exactly once, in which case the two
+// interpretations coincide and parsed is returned untouched. A repeated field 1
+// whose last occurrence is not a valid TxBody yields nil: the SDK's decoder
+// rejects those bytes outright, so they are not a fibre tx here either.
+func resolveTxBody(txBytes []byte, parsed *cosmostx.TxBody) *cosmostx.TxBody {
+	lastBody, count := lastTopLevelField1(txBytes)
+	if count < 2 {
+		return parsed
+	}
+	var body cosmostx.TxBody
+	if err := proto.Unmarshal(lastBody, &body); err != nil {
+		return nil
+	}
+	return &body
+}
+
+// lastTopLevelField1 returns the value of the last top-level wire field 1 in
+// txBytes along with the number of times field 1 occurs. A malformed wire
+// encoding stops the scan and returns what was found so far; txBytes has already
+// been accepted by proto.Unmarshal before this is reached.
+func lastTopLevelField1(txBytes []byte) (lastBody []byte, count int) {
+	for len(txBytes) > 0 {
+		num, typ, tagLen := protowire.ConsumeTag(txBytes)
+		if tagLen < 0 {
+			return lastBody, count
+		}
+		txBytes = txBytes[tagLen:]
+
+		if num == 1 && typ == protowire.BytesType {
+			value, valueLen := protowire.ConsumeBytes(txBytes)
+			if valueLen < 0 {
+				return lastBody, count
+			}
+			lastBody = value
+			count++
+			txBytes = txBytes[valueLen:]
+			continue
+		}
+
+		valueLen := protowire.ConsumeFieldValue(num, typ, txBytes)
+		if valueLen < 0 {
+			return lastBody, count
+		}
+		txBytes = txBytes[valueLen:]
+	}
+	return lastBody, count
 }
 
 // decodeBech32Address decodes a bech32 address string (e.g. "celestia1...") and

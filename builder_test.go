@@ -1561,3 +1561,16 @@ func TestBlobShareRangeNotSupportedForSystemBlobs(t *testing.T) {
 	ns2Range := share.GetShareRangeForNamespace(sq, ns2)
 	assert.False(t, ns2Range.IsEmpty(), "system blob namespace ns2 should be present in the square")
 }
+
+// TestBuilderAppendFibreTxNil is a regression test for HackenProof
+// CELESTIA-255: AppendFibreTx dereferenced fibreTx.SystemBlob without a nil
+// guard, so passing the (nil, nil) "not a fibre tx" result of
+// tx.TryParseFibreTx panicked instead of returning an error.
+func TestBuilderAppendFibreTxNil(t *testing.T) {
+	builder, err := square.NewBuilder(64, defaultSubtreeRootThreshold)
+	require.NoError(t, err)
+
+	added, err := builder.AppendFibreTx(nil)
+	require.Error(t, err)
+	require.False(t, added)
+}
