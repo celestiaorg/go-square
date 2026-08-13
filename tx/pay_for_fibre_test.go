@@ -306,6 +306,15 @@ func TestTryParseFibreTxDuplicateBody(t *testing.T) {
 			bodies:    [][]byte{fibreBody, fibreBody, normalBody},
 			wantFibre: false,
 		},
+		{
+			// protobuf-go cannot merge a body that is not valid wire format, so
+			// these bytes are rejected before the last-occurrence rule is reached.
+			// The SDK's decoder rejects them too, since body_bytes must parse as a
+			// TxBody, so the two still agree on this input.
+			name:      "trailing body that is not a valid TxBody is not a fibre tx",
+			bodies:    [][]byte{fibreBody, {0xFF}},
+			wantFibre: false,
+		},
 	}
 
 	for _, tc := range tests {
