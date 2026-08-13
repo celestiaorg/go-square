@@ -1561,3 +1561,16 @@ func TestBlobShareRangeNotSupportedForSystemBlobs(t *testing.T) {
 	ns2Range := share.GetShareRangeForNamespace(sq, ns2)
 	assert.False(t, ns2Range.IsEmpty(), "system blob namespace ns2 should be present in the square")
 }
+
+// TestBuilderAppendFibreTxNil asserts AppendFibreTx reports an error rather than
+// panicking when handed a nil fibre tx.
+func TestBuilderAppendFibreTxNil(t *testing.T) {
+	builder, err := square.NewBuilder(8, 64)
+	require.NoError(t, err)
+
+	added, err := builder.AppendFibreTx(nil)
+	require.Error(t, err)
+	require.False(t, added)
+	require.Empty(t, builder.PayForFibreTxs)
+	require.Empty(t, builder.Blobs)
+}

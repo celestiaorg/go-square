@@ -63,61 +63,41 @@ func TestTryParseFibreTx(t *testing.T) {
 				}
 				msgBytes, err := proto.Marshal(msg)
 				require.NoError(t, err)
-				sdkTx := &cosmostx.Tx{
-					Body: &cosmostx.TxBody{
-						Messages: []*anypb.Any{
-							{
-								TypeUrl: tx.MsgPayForFibreTypeURL,
-								Value:   msgBytes,
-							},
+				return marshalTxWithBodies(t, &cosmostx.TxBody{
+					Messages: []*anypb.Any{
+						{
+							TypeUrl: tx.MsgPayForFibreTypeURL,
+							Value:   msgBytes,
 						},
 					},
-				}
-				txBytes, err := proto.Marshal(sdkTx)
-				require.NoError(t, err)
-				return txBytes
+				})
 			}(),
 			wantNil: true,
 			wantErr: true,
 		},
 		{
 			name: "plain SDK tx with different message type",
-			txBytes: func() []byte {
-				sdkTx := &cosmostx.Tx{
-					Body: &cosmostx.TxBody{
-						Messages: []*anypb.Any{
-							{
-								TypeUrl: "/cosmos.bank.v1beta1.MsgSend",
-								Value:   []byte("some-value"),
-							},
-						},
+			txBytes: marshalTxWithBodies(t, &cosmostx.TxBody{
+				Messages: []*anypb.Any{
+					{
+						TypeUrl: "/cosmos.bank.v1beta1.MsgSend",
+						Value:   []byte("some-value"),
 					},
-				}
-				txBytes, err := proto.Marshal(sdkTx)
-				require.NoError(t, err)
-				return txBytes
-			}(),
+				},
+			}),
 			wantNil: true,
 			wantErr: false,
 		},
 		{
-			name: "SDK tx with empty body",
-			txBytes: func() []byte {
-				sdkTx := &cosmostx.Tx{
-					Body: &cosmostx.TxBody{},
-				}
-				txBytes, err := proto.Marshal(sdkTx)
-				require.NoError(t, err)
-				return txBytes
-			}(),
+			name:    "SDK tx with empty body",
+			txBytes: marshalTxWithBodies(t, &cosmostx.TxBody{}),
 			wantNil: true,
 			wantErr: false,
 		},
 		{
-			name: "SDK tx with nil body",
+			name: "SDK tx with no body field",
 			txBytes: func() []byte {
-				sdkTx := &cosmostx.Tx{}
-				txBytes, err := proto.Marshal(sdkTx)
+				txBytes, err := proto.Marshal(&cosmostx.TxRaw{})
 				require.NoError(t, err)
 				return txBytes
 			}(),
@@ -136,21 +116,14 @@ func TestTryParseFibreTx(t *testing.T) {
 		},
 		{
 			name: "MsgPayForFibre with corrupted inner message",
-			txBytes: func() []byte {
-				sdkTx := &cosmostx.Tx{
-					Body: &cosmostx.TxBody{
-						Messages: []*anypb.Any{
-							{
-								TypeUrl: tx.MsgPayForFibreTypeURL,
-								Value:   []byte{0xFF, 0xFF, 0xFF},
-							},
-						},
+			txBytes: marshalTxWithBodies(t, &cosmostx.TxBody{
+				Messages: []*anypb.Any{
+					{
+						TypeUrl: tx.MsgPayForFibreTypeURL,
+						Value:   []byte{0xFF, 0xFF, 0xFF},
 					},
-				}
-				txBytes, err := proto.Marshal(sdkTx)
-				require.NoError(t, err)
-				return txBytes
-			}(),
+				},
+			}),
 			wantNil: true,
 			wantErr: true,
 		},
@@ -167,19 +140,14 @@ func TestTryParseFibreTx(t *testing.T) {
 				}
 				msgBytes, err := proto.Marshal(msg)
 				require.NoError(t, err)
-				sdkTx := &cosmostx.Tx{
-					Body: &cosmostx.TxBody{
-						Messages: []*anypb.Any{
-							{
-								TypeUrl: tx.MsgPayForFibreTypeURL,
-								Value:   msgBytes,
-							},
+				return marshalTxWithBodies(t, &cosmostx.TxBody{
+					Messages: []*anypb.Any{
+						{
+							TypeUrl: tx.MsgPayForFibreTypeURL,
+							Value:   msgBytes,
 						},
 					},
-				}
-				txBytes, err := proto.Marshal(sdkTx)
-				require.NoError(t, err)
-				return txBytes
+				})
 			}(),
 			wantNil: true,
 			wantErr: true,
@@ -232,4 +200,101 @@ func TestTryParseFibreTxMatchesManualConstruction(t *testing.T) {
 	require.Equal(t, expected.Data(), fibreTx.SystemBlob.Data())
 	require.Equal(t, expected.ShareVersion(), fibreTx.SystemBlob.ShareVersion())
 	require.Equal(t, expected.Signer(), fibreTx.SystemBlob.Signer())
+}
+
+// marshalTxWithBodies encodes a transaction carrying one top-level body field
+// per entry in bodies. Concatenating separately marshalled transactions is
+// exactly how a repeated occurrence of the field is encoded on the wire.
+func marshalTxWithBodies(t *testing.T, bodies ...*cosmostx.TxBody) []byte {
+	t.Helper()
+	out := make([]byte, 0, len(bodies))
+	for _, body := range bodies {
+		bodyBytes, err := proto.Marshal(body)
+		require.NoError(t, err)
+		txBytes, err := proto.Marshal(&cosmostx.TxRaw{BodyBytes: bodyBytes})
+		require.NoError(t, err)
+		out = append(out, txBytes...)
+	}
+	return out
+}
+
+// TestTryParseFibreTxDuplicateBody pins which body wins when a transaction
+// carries the body field more than once. The Cosmos SDK reads that wire field as
+// TxRaw.body_bytes, a scalar `bytes`, so it keeps the last occurrence. A
+// classifier that disagrees with the SDK about a transaction they both see is a
+// consensus hazard, so this package must reach the same answer.
+func TestTryParseFibreTxDuplicateBody(t *testing.T) {
+	ns := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
+	commitment := bytes.Repeat([]byte{0xFF}, share.FibreCommitmentSize)
+	signerBytes := bytes.Repeat([]byte{0xAB}, share.SignerSize)
+	signer, err := test.EncodeBech32("celestia", signerBytes)
+	require.NoError(t, err)
+
+	msg := &fibrev1.MsgPayForFibre{
+		Signer: signer,
+		PaymentPromise: &fibrev1.PaymentPromise{
+			Namespace:   ns.Bytes(),
+			BlobVersion: 1,
+			Commitment:  commitment,
+		},
+	}
+	msgBytes, err := proto.Marshal(msg)
+	require.NoError(t, err)
+
+	fibreBody := &cosmostx.TxBody{
+		Messages: []*anypb.Any{{TypeUrl: tx.MsgPayForFibreTypeURL, Value: msgBytes}},
+	}
+	normalBody := &cosmostx.TxBody{
+		Messages: []*anypb.Any{{TypeUrl: "/cosmos.bank.v1beta1.MsgSend", Value: []byte("v")}},
+	}
+
+	tests := []struct {
+		name string
+		// bodies are encoded in order; the last one is authoritative.
+		bodies    []*cosmostx.TxBody
+		wantFibre bool
+	}{
+		{
+			name:      "fibre body followed by normal body is not a fibre tx",
+			bodies:    []*cosmostx.TxBody{fibreBody, normalBody},
+			wantFibre: false,
+		},
+		{
+			name:      "normal body followed by fibre body is a fibre tx",
+			bodies:    []*cosmostx.TxBody{normalBody, fibreBody},
+			wantFibre: true,
+		},
+		{
+			name:      "duplicated fibre body is a fibre tx",
+			bodies:    []*cosmostx.TxBody{fibreBody, fibreBody},
+			wantFibre: true,
+		},
+		{
+			name:      "duplicated normal body is not a fibre tx",
+			bodies:    []*cosmostx.TxBody{normalBody, normalBody},
+			wantFibre: false,
+		},
+		{
+			name:      "three bodies resolve to the last",
+			bodies:    []*cosmostx.TxBody{fibreBody, fibreBody, normalBody},
+			wantFibre: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			txBytes := marshalTxWithBodies(t, tc.bodies...)
+
+			fibreTx, err := tx.TryParseFibreTx(txBytes)
+			require.NoError(t, err)
+			if !tc.wantFibre {
+				require.Nil(t, fibreTx)
+				return
+			}
+			require.NotNil(t, fibreTx)
+			require.Equal(t, txBytes, fibreTx.Tx)
+			require.Equal(t, ns, fibreTx.SystemBlob.Namespace())
+			require.Equal(t, signerBytes, fibreTx.SystemBlob.Signer())
+		})
+	}
 }
