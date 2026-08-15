@@ -182,19 +182,20 @@ func BuildMsgPayForFibreTxBytes(signer string, ns, commitment []byte, blobVersio
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal MsgPayForFibre: %w", err)
 	}
-	sdkTx := &cosmostx.Tx{
-		Body: &cosmostx.TxBody{
-			Messages: []*anypb.Any{
-				{
-					TypeUrl: tx.MsgPayForFibreTypeURL,
-					Value:   msgBytes,
-				},
+	bodyBytes, err := proto.Marshal(&cosmostx.TxBody{
+		Messages: []*anypb.Any{
+			{
+				TypeUrl: tx.MsgPayForFibreTypeURL,
+				Value:   msgBytes,
 			},
 		},
-	}
-	txBytes, err := proto.Marshal(sdkTx)
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal Tx: %w", err)
+		return nil, fmt.Errorf("failed to marshal TxBody: %w", err)
+	}
+	txBytes, err := proto.Marshal(&cosmostx.TxRaw{BodyBytes: bodyBytes})
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal TxRaw: %w", err)
 	}
 	return txBytes, nil
 }

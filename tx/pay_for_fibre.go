@@ -21,17 +21,32 @@ const MsgPayForFibreTypeURL = "/celestia.fibre.v1.MsgPayForFibre"
 //   - (nil, err): txBytes contain a MsgPayForFibre but it is malformed.
 //   - (ft, nil): successfully parsed and synthesized a FibreTx.
 func TryParseFibreTx(txBytes []byte) (*FibreTx, error) {
-	var sdkTx cosmostx.Tx
-	// Not returning an error here because BlobTx bytes fail proto.Unmarshal
-	// into cosmos.tx.v1beta1.Tx and callers pass BlobTx bytes through here.
-	if err := proto.Unmarshal(txBytes, &sdkTx); err != nil {
+	// Decode in two steps, the way the Cosmos SDK's decoder does: the outer
+	// TxRaw carries body_bytes as an opaque scalar, which is then unmarshalled
+	// into a TxBody. Going through TxRaw rather than modelling the body as an
+	// embedded message is what makes duplicate occurrences of the field resolve
+	// to the last one here as well as in the SDK.
+	//
+	// Not returning an error on a failed unmarshal because BlobTx bytes and
+	// other non-SDK transactions are passed through here by callers, and they
+	// are simply not fibre txs.
+	var raw cosmostx.TxRaw
+	if err := proto.Unmarshal(txBytes, &raw); err != nil {
 		return nil, nil
 	}
-	if sdkTx.Body == nil || len(sdkTx.Body.Messages) == 0 {
+	if len(raw.BodyBytes) == 0 {
 		return nil, nil
 	}
 
-	anyMsg := sdkTx.Body.Messages[0]
+	var body cosmostx.TxBody
+	if err := proto.Unmarshal(raw.BodyBytes, &body); err != nil {
+		return nil, nil
+	}
+	if len(body.Messages) == 0 {
+		return nil, nil
+	}
+
+	anyMsg := body.Messages[0]
 	if anyMsg.TypeUrl != MsgPayForFibreTypeURL {
 		return nil, nil
 	}
