@@ -4,7 +4,6 @@ go 1.25.8
 
 require (
 	github.com/celestiaorg/nmt v0.24.3
-	github.com/cosmos/btcutil v1.0.5
 	github.com/stretchr/testify v1.12.0
 	golang.org/x/exp v0.0.0-20250911091902-df9299821621
 	golang.org/x/sync v0.22.0

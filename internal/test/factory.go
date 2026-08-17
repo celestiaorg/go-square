@@ -9,7 +9,6 @@ import (
 	square "github.com/celestiaorg/go-square/v4"
 	"github.com/celestiaorg/go-square/v4/share"
 	"github.com/celestiaorg/go-square/v4/tx"
-	"github.com/cosmos/btcutil/bech32"
 )
 
 var DefaultTestNamespace = share.MustNewV0Namespace([]byte("test"))
@@ -181,14 +180,4 @@ func ClassifyNormalTxs(txs [][]byte) []square.ClassifiedTx {
 		classified[i] = square.NewClassifiedTx(txBytes)
 	}
 	return classified
-}
-
-// EncodeBech32 encodes raw bytes as a bech32 string with the given
-// human-readable prefix (e.g. "celestia").
-func EncodeBech32(hrp string, data []byte) (string, error) {
-	encoded, err := bech32.EncodeFromBase256(hrp, data)
-	if err != nil {
-		return "", fmt.Errorf("failed to encode bech32: %w", err)
-	}
-	return encoded, nil
 }
