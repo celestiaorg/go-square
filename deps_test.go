@@ -16,8 +16,8 @@ func TestNoSDKTransactionSchemaDependency(t *testing.T) {
 	require.NoError(t, err)
 
 	forbidden := []string{
-		"go-square/v4/proto/cosmos",
-		"go-square/v4/proto/celestia",
+		"/proto/cosmos",
+		"/proto/celestia/fibre",
 	}
 	for _, dep := range strings.Split(string(out), "\n") {
 		for _, bad := range forbidden {
