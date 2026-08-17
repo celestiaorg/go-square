@@ -165,9 +165,7 @@ func DelimLen(size uint64) int {
 }
 
 // BuildFibreClassifiedTx returns a ClassifiedTx for a pay-for-fibre
-// transaction. The transaction bytes are opaque to go-square: classification is
-// the caller's job, so tests need not encode a Cosmos SDK transaction to
-// exercise the fibre path.
+// transaction with a synthesized system blob.
 func BuildFibreClassifiedTx(txBytes []byte, ns share.Namespace, commitment, signer []byte, blobVersion uint32) (square.ClassifiedTx, error) {
 	systemBlob, err := share.NewV2Blob(ns, blobVersion, commitment, signer)
 	if err != nil {
@@ -176,9 +174,7 @@ func BuildFibreClassifiedTx(txBytes []byte, ns share.Namespace, commitment, sign
 	return square.NewClassifiedFibreTx(&tx.FibreTx{Tx: txBytes, SystemBlob: systemBlob})
 }
 
-// ClassifyNormalTxs wraps raw transactions as ClassifiedTx values that are not
-// pay-for-fibre transactions. Blob txs may be passed here: go-square recognises
-// its own BlobTx format without help.
+// ClassifyNormalTxs wraps raw transactions as non-fibre ClassifiedTx values.
 func ClassifyNormalTxs(txs [][]byte) []square.ClassifiedTx {
 	classified := make([]square.ClassifiedTx, len(txs))
 	for i, txBytes := range txs {

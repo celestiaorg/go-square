@@ -11,18 +11,9 @@ import (
 
 // ClassifiedTx is a transaction whose kind the caller has already determined.
 //
-// go-square decodes formats it owns -- BlobTx, IndexWrapper, Blob -- and never
-// decodes formats the Cosmos SDK owns -- Tx, TxBody, Any. Deciding whether a
-// transaction is a MsgPayForFibre transaction requires the SDK's schema and the
-// application's rules, so the caller makes that decision and passes the result
-// in.
-//
-// This is not a stylistic preference. When go-square classified transactions
-// itself it used a different protobuf schema than the SDK, and the two reached
-// different answers about the same bytes: one square from the proposer, another
-// from every validator re-deriving it. A library that re-derives a
-// consensus-critical decision its caller has already made can only agree with
-// the caller by coincidence.
+// go-square only decodes formats it owns (BlobTx, IndexWrapper, Blob).
+// Recognizing a MsgPayForFibre transaction requires the Cosmos SDK's schema,
+// so the caller classifies the transaction and passes the result in.
 type ClassifiedTx struct {
 	// Bytes is the raw transaction exactly as it appears in the block.
 	Bytes []byte
@@ -34,8 +25,7 @@ type ClassifiedTx struct {
 }
 
 // NewClassifiedTx returns a ClassifiedTx for a transaction that is not a
-// MsgPayForFibre transaction. Blob transactions belong here too: go-square
-// recognises those itself from its own BlobTx wire format.
+// MsgPayForFibre transaction (blob transactions belong here too).
 func NewClassifiedTx(txBytes []byte) ClassifiedTx {
 	return ClassifiedTx{Bytes: txBytes}
 }
@@ -53,10 +43,7 @@ func NewClassifiedFibreTx(fibreTx *tx.FibreTx) (ClassifiedTx, error) {
 	return classified, nil
 }
 
-// Validate reports whether the classification is self-consistent. Construct and
-// NewBuilder call it on every element so that a caller mistake fails loudly at
-// the boundary instead of silently producing a square that disagrees with the
-// caller's own view of the block.
+// Validate returns an error if the classification is not self-consistent.
 func (c ClassifiedTx) Validate() error {
 	if len(c.Bytes) == 0 {
 		return errors.New("classified tx has no bytes")

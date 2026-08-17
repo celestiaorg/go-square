@@ -72,9 +72,8 @@ func TestSquareConstruction(t *testing.T) {
 	})
 }
 
-// newFibreClassifiedTx builds a pay-for-fibre ClassifiedTx. The transaction
-// bytes are opaque: go-square no longer inspects them, so the caller states the
-// classification and supplies the system blob.
+// newFibreClassifiedTx builds a pay-for-fibre ClassifiedTx with a synthesized
+// system blob.
 func newFibreClassifiedTx(t *testing.T, ns share.Namespace) square.ClassifiedTx {
 	t.Helper()
 	signer := bytes.Repeat([]byte{0xAA}, share.SignerSize)

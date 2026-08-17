@@ -8,12 +8,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestNoSDKTransactionSchemaDependency guards the property that closed the
-// classification divergence: go-square must not carry its own copy of a Cosmos
-// SDK transaction schema. Two schemas over the same bytes is how this library
-// and celestia-app came to disagree about what a transaction says, and a
-// disagreement there means the proposer and its validators build different
-// squares from the same block.
+// TestNoSDKTransactionSchemaDependency verifies that the root square package
+// does not depend on a Cosmos SDK transaction schema: classification belongs
+// to the caller.
 func TestNoSDKTransactionSchemaDependency(t *testing.T) {
 	out, err := exec.Command("go", "list", "-deps", ".").Output()
 	require.NoError(t, err)
