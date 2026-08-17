@@ -72,6 +72,30 @@ func TestClassifiedTxValidate(t *testing.T) {
 	}
 }
 
+func TestValidateRejectsBlobTxClassifiedAsFibre(t *testing.T) {
+	v0Blob, err := share.NewV0Blob(share.MustNewV0Namespace([]byte("blobns")), []byte("data"))
+	require.NoError(t, err)
+	blobTxBytes, err := tx.MarshalBlobTx([]byte("inner tx"), v0Blob)
+	require.NoError(t, err)
+
+	classified := square.ClassifiedTx{
+		Bytes:   blobTxBytes,
+		FibreTx: &tx.FibreTx{Tx: blobTxBytes, SystemBlob: systemBlob(t)},
+	}
+	require.ErrorContains(t, classified.Validate(), "blob tx")
+}
+
+func TestConstructReportsClassificationErrorBeforeOrderingError(t *testing.T) {
+	v0Blob, err := share.NewV0Blob(share.MustNewV0Namespace([]byte("blobns")), []byte("data"))
+	require.NoError(t, err)
+	blobTxBytes, err := tx.MarshalBlobTx([]byte("inner tx"), v0Blob)
+	require.NoError(t, err)
+
+	txs := []square.ClassifiedTx{square.NewClassifiedTx(blobTxBytes), {}}
+	_, err = square.Construct(txs, 64, 64)
+	require.ErrorContains(t, err, "classified tx at index 1: classified tx has no bytes")
+}
+
 func TestConstructRejectsInvalidClassification(t *testing.T) {
 	raw := []byte("raw tx bytes")
 	blob := systemBlob(t)

@@ -25,6 +25,10 @@ func validateTxOrdering(txs []ClassifiedTx) error {
 	seenFibreTx := false
 
 	for idx, classified := range txs {
+		if err := classified.Validate(); err != nil {
+			return fmt.Errorf("classified tx at index %d: %w", idx, err)
+		}
+
 		if classified.FibreTx != nil {
 			seenFibreTx = true
 			continue

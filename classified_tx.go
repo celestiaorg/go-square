@@ -60,5 +60,8 @@ func (c ClassifiedTx) Validate() error {
 	if got := c.FibreTx.SystemBlob.ShareVersion(); got != share.ShareVersionTwo {
 		return fmt.Errorf("system blobs must use share version %d, got %d", share.ShareVersionTwo, got)
 	}
+	if _, isBlobTx, _ := tx.UnmarshalBlobTx(c.Bytes); isBlobTx {
+		return errors.New("tx classified as fibre is a blob tx")
+	}
 	return nil
 }
