@@ -4,6 +4,13 @@ modules:
 breaking:
   use:
     - FILE
+  # The SDK transaction schemas (and the google/protobuf/any.proto they
+  # imported) were intentionally removed in v4: go-square no longer decodes
+  # formats the Cosmos SDK owns. See COMPATIBILITY.md.
+  ignore:
+    - google/protobuf
+    - proto/celestia/fibre
+    - proto/cosmos
 lint:
   use:
     - BASIC
