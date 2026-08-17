@@ -320,6 +320,18 @@ func TestSquareTxShareRange(t *testing.T) {
 	}
 }
 
+func TestShareRangeRejectsMisorderedTxs(t *testing.T) {
+	blobTxs, err := test.GenerateBlobTxs(1, 1, 100)
+	require.NoError(t, err)
+	txs := [][]byte{blobTxs[0], newTx(100)}
+
+	_, err = square.TxShareRange(txs, 0, 128, 64)
+	require.ErrorContains(t, err, "cannot be appended after blob tx")
+
+	_, err = square.BlobShareRange(txs, 0, 0, 128, 64)
+	require.ErrorContains(t, err, "cannot be appended after blob tx")
+}
+
 func TestSquareTxShareRangeWithPayForFibre(t *testing.T) {
 	ns := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
 	normalTx := newTx(100)

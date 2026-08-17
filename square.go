@@ -158,6 +158,10 @@ func populateBuilder(builder *Builder, txs [][]byte) error {
 // TxShareRange returns the range of share indexes that the tx, specified by txIndex, occupies.
 // The range is end exclusive.
 func TxShareRange(txs [][]byte, txIndex, maxSquareSize, subtreeRootThreshold int) (share.Range, error) {
+	if err := validateTxOrdering(txs); err != nil {
+		return share.Range{}, err
+	}
+
 	builder, err := NewBuilder(maxSquareSize, subtreeRootThreshold, txs...)
 	if err != nil {
 		return share.Range{}, err
@@ -174,6 +178,10 @@ func TxShareRange(txs [][]byte, txIndex, maxSquareSize, subtreeRootThreshold int
 // Callers needing system blob positions can use GetShareRangeForNamespace on
 // the constructed square instead.
 func BlobShareRange(txs [][]byte, txIndex, blobIndex, maxSquareSize, subtreeRootThreshold int) (share.Range, error) {
+	if err := validateTxOrdering(txs); err != nil {
+		return share.Range{}, err
+	}
+
 	builder, err := NewBuilder(maxSquareSize, subtreeRootThreshold, txs...)
 	if err != nil {
 		return share.Range{}, err
