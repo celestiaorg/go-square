@@ -148,10 +148,9 @@ The `Builder` processes a list of transactions and produces a data square:
 
 ```mermaid
 flowchart TD
-    Input["Input Transactions"] --> Classify{"Classify"}
-    Classify -->|"Regular Tx"| TxW["CompactShareSplitter<br>(TxNamespace)"]
-    Classify -->|"BlobTx"| Unwrap["Unwrap BlobTx"]
-    Classify -->|"PayForFibreTx"| PffW["CompactShareSplitter<br>(PayForFibreNamespace)"]
+    Input["Input ClassifiedTxs<br>(classified by the caller)"] -->|"Regular Tx"| TxW["CompactShareSplitter<br>(TxNamespace)"]
+    Input -->|"BlobTx"| Unwrap["Unwrap BlobTx"]
+    Input -->|"PayForFibreTx"| PffW["CompactShareSplitter<br>(PayForFibreNamespace)"]
     Unwrap --> PfbW["CompactShareSplitter<br>(PayForBlobNamespace)"]
     Unwrap --> Blobs["Collect Blobs"]
     Blobs --> Sort["Sort by Namespace"]
@@ -166,7 +165,7 @@ flowchart TD
 
 Key steps:
 
-1. **Classify** — each transaction is decoded as a regular transaction, `BlobTx`, or `PayForFibreTx`. A `BlobTx` is split into its inner transaction (wrapped as an `IndexWrapper`) and its blobs.
+1. **Classify** — the caller classifies each transaction as a `ClassifiedTx`, marking pay-for-fibre transactions and supplying their system blobs. go-square recognises only its own `BlobTx` format, splitting a `BlobTx` into its inner transaction (wrapped as an `IndexWrapper`) and its blobs.
 2. **Compact splitting** — regular txs, PFBs, and PFFs are packed into compact shares by namespace.
 3. **Blob placement** — blobs are sorted by namespace, then each blob's starting index is aligned to a multiple of its `SubTreeWidth`. Namespace padding fills any gaps.
 4. **Assembly** — `WriteSquare` concatenates: tx shares, PFB shares, PFF shares, reserved padding, blob shares, and tail padding. The square size is the smallest power of 2 that fits all shares.

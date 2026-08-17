@@ -36,5 +36,11 @@ Cosmos SDK owns. Deciding whether a transaction is a pay-for-fibre transaction
 requires the SDK's schema and the application's rules, so the application makes
 that decision; a second classifier here could only agree with it by coincidence.
 
+Classifications are validated: `Construct`, `NewBuilder`, `TxShareRange`, and
+`BlobShareRange` return an error for a `ClassifiedTx` with empty bytes, a
+fibre classification missing its system blob or whose bytes disagree, or a
+`BlobTx` classified as a fibre transaction. Note that zero-length transactions
+were previously accepted as normal transactions and are now rejected.
+
 The deprecated `Build` is also removed. Use `NewBuilder` with `AppendTx`,
-`AppendBlobTx`, and `Export`.
+`AppendBlobTx`, `AppendFibreTx`, and `Export`.
