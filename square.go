@@ -243,7 +243,7 @@ func (s Square) IsEmpty() bool {
 // ToBytes returns all the shares in the square flattened into a single byte
 // slice.
 func (s Square) ToBytes() []byte {
-	result := []byte{}
+	result := make([]byte, 0, len(s)*share.ShareSize)
 	for _, share := range s {
 		result = append(result, share.ToBytes()...)
 	}
