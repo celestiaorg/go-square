@@ -26,207 +26,204 @@ func TestSquareConstruction(t *testing.T) {
 	t.Run("normal transactions after PFB transactions", func(t *testing.T) {
 		txs := sendTxs[:5]
 		txs = append(txs, append(pfbTxs, txs...)...)
-		_, err := square.Construct(txs, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+		_, err := square.Construct(test.ClassifyNormalTxs(txs), defaultMaxSquareSize, defaultSubtreeRootThreshold)
 		require.Error(t, err)
 	})
 	t.Run("not enough space to append transactions", func(t *testing.T) {
-		_, err := square.Construct(sendTxs, 2, defaultSubtreeRootThreshold)
+		_, err := square.Construct(test.ClassifyNormalTxs(sendTxs), 2, defaultSubtreeRootThreshold)
 		require.Error(t, err)
-		_, err = square.Construct(pfbTxs, 2, defaultSubtreeRootThreshold)
+		_, err = square.Construct(test.ClassifyNormalTxs(pfbTxs), 2, defaultSubtreeRootThreshold)
 		require.Error(t, err)
 	})
 	t.Run("construction should fail if a single PFB tx contains a blob that is too large to fit in the square", func(t *testing.T) {
 		pfbTxs, err := test.GenerateBlobTxs(1, 1, 2*mebibyte)
 		require.NoError(t, err)
-		_, err = square.Construct(pfbTxs, 64, defaultSubtreeRootThreshold)
+		_, err = square.Construct(test.ClassifyNormalTxs(pfbTxs), 64, defaultSubtreeRootThreshold)
 		require.Error(t, err)
 	})
 	t.Run("validates transaction ordering: normal -> blob -> pay-for-fibre", func(t *testing.T) {
 		ns := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
-		normalTx := sendTxs[0]
-		blobTx := pfbTxs[0]
-		payForFibreTx := newFibreTxBytes(t, ns)
+		normalTx := square.NewClassifiedTx(sendTxs[0])
+		blobTx := square.NewClassifiedTx(pfbTxs[0])
+		payForFibreTx := newFibreClassifiedTx(t, ns)
 
 		// Valid ordering: normal -> blob -> pay-for-fibre
-		validTxs := [][]byte{normalTx, blobTx, payForFibreTx}
+		validTxs := []square.ClassifiedTx{normalTx, blobTx, payForFibreTx}
 		_, err := square.Construct(validTxs, defaultMaxSquareSize, defaultSubtreeRootThreshold)
 		require.NoError(t, err)
 
 		// Invalid: blob after pay-for-fibre (blob must come before pay-for-fibre if both exist)
-		invalidTxs1 := [][]byte{normalTx, payForFibreTx, blobTx}
+		invalidTxs1 := []square.ClassifiedTx{normalTx, payForFibreTx, blobTx}
 		_, err = square.Construct(invalidTxs1, defaultMaxSquareSize, defaultSubtreeRootThreshold)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "cannot be appended after pay-for-fibre tx")
 
 		// Invalid: blob before normal
-		invalidTxs2 := [][]byte{blobTx, normalTx}
+		invalidTxs2 := []square.ClassifiedTx{blobTx, normalTx}
 		_, err = square.Construct(invalidTxs2, defaultMaxSquareSize, defaultSubtreeRootThreshold)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "cannot be appended after blob tx")
 
 		// Invalid: normal after pay-for-fibre (will report blob tx error first since normal tx comes after blob tx)
-		invalidTxs3 := [][]byte{blobTx, payForFibreTx, normalTx}
+		invalidTxs3 := []square.ClassifiedTx{blobTx, payForFibreTx, normalTx}
 		_, err = square.Construct(invalidTxs3, defaultMaxSquareSize, defaultSubtreeRootThreshold)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "cannot be appended after blob tx")
 	})
 }
 
-// newFibreTxBytes builds plain Cosmos SDK Tx bytes containing a MsgPayForFibre.
-// TryParseFibreTx (called by Construct/NewBuilder) will detect these and
-// synthesize the system blob internally.
-func newFibreTxBytes(t *testing.T, ns share.Namespace) []byte {
+// newFibreClassifiedTx builds a pay-for-fibre ClassifiedTx with a synthesized
+// system blob.
+func newFibreClassifiedTx(t *testing.T, ns share.Namespace) square.ClassifiedTx {
 	t.Helper()
-	signerRaw := bytes.Repeat([]byte{0xAA}, share.SignerSize)
+	signer := bytes.Repeat([]byte{0xAA}, share.SignerSize)
 	commitment := bytes.Repeat([]byte{0xFF}, share.FibreCommitmentSize)
-	signer, err := test.EncodeBech32("celestia", signerRaw)
+	classified, err := test.BuildFibreClassifiedTx(newTx(100), ns, commitment, signer, 1)
 	require.NoError(t, err)
-	txBytes, err := test.BuildMsgPayForFibreTxBytes(signer, ns.Bytes(), commitment, 1)
-	require.NoError(t, err)
-	return txBytes
+	return classified
 }
 
 func TestValidateTxOrdering(t *testing.T) {
 	// Create test transactions
-	normalTx1 := newTx(100)
-	normalTx2 := newTx(100)
+	normalTx1 := square.NewClassifiedTx(newTx(100))
+	normalTx2 := square.NewClassifiedTx(newTx(100))
 	blobTxs1, err := test.GenerateBlobTxs(1, 1, 1024)
 	require.NoError(t, err)
-	blobTx1 := blobTxs1[0]
+	blobTx1 := square.NewClassifiedTx(blobTxs1[0])
 	blobTxs2, err := test.GenerateBlobTxs(1, 1, 1024)
 	require.NoError(t, err)
-	blobTx2 := blobTxs2[0]
+	blobTx2 := square.NewClassifiedTx(blobTxs2[0])
 	ns := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
-	payForFibreTx1 := newFibreTxBytes(t, ns)
-	payForFibreTx2 := newFibreTxBytes(t, ns)
+	payForFibreTx1 := newFibreClassifiedTx(t, ns)
+	payForFibreTx2 := newFibreClassifiedTx(t, ns)
 
 	tests := []struct {
 		name          string
-		txs           [][]byte
+		txs           []square.ClassifiedTx
 		wantError     bool
 		errorContains string
 	}{
 		{
 			name:      "empty list - valid",
-			txs:       [][]byte{},
+			txs:       []square.ClassifiedTx{},
 			wantError: false,
 		},
 		{
 			name:      "only normal txs - valid",
-			txs:       [][]byte{normalTx1, normalTx2},
+			txs:       []square.ClassifiedTx{normalTx1, normalTx2},
 			wantError: false,
 		},
 		{
 			name:      "only blob txs - valid",
-			txs:       [][]byte{blobTx1, blobTx2},
+			txs:       []square.ClassifiedTx{blobTx1, blobTx2},
 			wantError: false,
 		},
 		{
 			name:      "only pay-for-fibre txs - valid",
-			txs:       [][]byte{payForFibreTx1, payForFibreTx2},
+			txs:       []square.ClassifiedTx{payForFibreTx1, payForFibreTx2},
 			wantError: false,
 		},
 		{
 			name:      "normal -> blob - valid",
-			txs:       [][]byte{normalTx1, normalTx2, blobTx1, blobTx2},
+			txs:       []square.ClassifiedTx{normalTx1, normalTx2, blobTx1, blobTx2},
 			wantError: false,
 		},
 		{
 			name:      "normal -> blob -> pay-for-fibre - valid",
-			txs:       [][]byte{normalTx1, blobTx1, payForFibreTx1},
+			txs:       []square.ClassifiedTx{normalTx1, blobTx1, payForFibreTx1},
 			wantError: false,
 		},
 		{
 			name:      "blob -> pay-for-fibre - valid",
-			txs:       [][]byte{blobTx1, payForFibreTx1},
+			txs:       []square.ClassifiedTx{blobTx1, payForFibreTx1},
 			wantError: false,
 		},
 		{
 			name:      "normal -> pay-for-fibre (no blob) - valid",
-			txs:       [][]byte{normalTx1, payForFibreTx1},
+			txs:       []square.ClassifiedTx{normalTx1, payForFibreTx1},
 			wantError: false,
 		},
 		{
 			name:          "pay-for-fibre -> blob - invalid (blob must come before pay-for-fibre)",
-			txs:           [][]byte{payForFibreTx1, blobTx1},
+			txs:           []square.ClassifiedTx{payForFibreTx1, blobTx1},
 			wantError:     true,
 			errorContains: "cannot be appended after pay-for-fibre tx",
 		},
 		{
 			name:          "blob -> normal - invalid",
-			txs:           [][]byte{blobTx1, normalTx1},
+			txs:           []square.ClassifiedTx{blobTx1, normalTx1},
 			wantError:     true,
 			errorContains: "cannot be appended after blob tx",
 		},
 		{
 			name:          "blob -> pay-for-fibre -> normal - invalid",
-			txs:           [][]byte{blobTx1, payForFibreTx1, normalTx1},
+			txs:           []square.ClassifiedTx{blobTx1, payForFibreTx1, normalTx1},
 			wantError:     true,
 			errorContains: "cannot be appended after",
 		},
 		{
 			name:          "normal -> blob -> pay-for-fibre -> normal - invalid",
-			txs:           [][]byte{normalTx1, blobTx1, payForFibreTx1, normalTx2},
+			txs:           []square.ClassifiedTx{normalTx1, blobTx1, payForFibreTx1, normalTx2},
 			wantError:     true,
 			errorContains: "cannot be appended after",
 		},
 		{
 			name:          "blob -> blob -> pay-for-fibre -> blob - invalid",
-			txs:           [][]byte{blobTx1, blobTx2, payForFibreTx1, blobTx1},
+			txs:           []square.ClassifiedTx{blobTx1, blobTx2, payForFibreTx1, blobTx1},
 			wantError:     true,
 			errorContains: "cannot be appended after pay-for-fibre tx",
 		},
 		{
 			name:      "normal -> normal -> blob -> blob -> pay-for-fibre -> pay-for-fibre - valid",
-			txs:       [][]byte{normalTx1, normalTx2, blobTx1, blobTx2, payForFibreTx1, payForFibreTx2},
+			txs:       []square.ClassifiedTx{normalTx1, normalTx2, blobTx1, blobTx2, payForFibreTx1, payForFibreTx2},
 			wantError: false,
 		},
 		{
 			name:          "normal -> pay-for-fibre -> blob - invalid (blob after pay-for-fibre)",
-			txs:           [][]byte{normalTx1, payForFibreTx1, blobTx1},
+			txs:           []square.ClassifiedTx{normalTx1, payForFibreTx1, blobTx1},
 			wantError:     true,
 			errorContains: "cannot be appended after pay-for-fibre tx",
 		},
 		{
 			name:          "pay-for-fibre -> normal - invalid (normal after pay-for-fibre)",
-			txs:           [][]byte{payForFibreTx1, normalTx1},
+			txs:           []square.ClassifiedTx{payForFibreTx1, normalTx1},
 			wantError:     true,
 			errorContains: "cannot be appended after pay-for-fibre tx",
 		},
 		{
 			name:          "multiple sequences mixed - invalid (normal after blob)",
-			txs:           [][]byte{normalTx1, blobTx1, payForFibreTx1, normalTx2, blobTx2, payForFibreTx2},
+			txs:           []square.ClassifiedTx{normalTx1, blobTx1, payForFibreTx1, normalTx2, blobTx2, payForFibreTx2},
 			wantError:     true,
 			errorContains: "cannot be appended after blob tx",
 		},
 		{
 			name:      "normal -> pay-for-fibre (no blob) with multiple pay-for-fibre - valid",
-			txs:       [][]byte{normalTx1, payForFibreTx1, payForFibreTx2},
+			txs:       []square.ClassifiedTx{normalTx1, payForFibreTx1, payForFibreTx2},
 			wantError: false,
 		},
 		{
 			name:      "single normal tx - valid",
-			txs:       [][]byte{normalTx1},
+			txs:       []square.ClassifiedTx{normalTx1},
 			wantError: false,
 		},
 		{
 			name:      "single blob tx - valid",
-			txs:       [][]byte{blobTx1},
+			txs:       []square.ClassifiedTx{blobTx1},
 			wantError: false,
 		},
 		{
 			name:      "single pay-for-fibre tx (no blob) - valid",
-			txs:       [][]byte{payForFibreTx1},
+			txs:       []square.ClassifiedTx{payForFibreTx1},
 			wantError: false,
 		},
 		{
 			name:      "normal -> pay-for-fibre -> pay-for-fibre (no blob) - valid",
-			txs:       [][]byte{normalTx1, payForFibreTx1, payForFibreTx2},
+			txs:       []square.ClassifiedTx{normalTx1, payForFibreTx1, payForFibreTx2},
 			wantError: false,
 		},
 		{
 			name:      "blob -> pay-for-fibre -> pay-for-fibre - valid",
-			txs:       [][]byte{blobTx1, payForFibreTx1, payForFibreTx2},
+			txs:       []square.ClassifiedTx{blobTx1, payForFibreTx1, payForFibreTx2},
 			wantError: false,
 		},
 	}
@@ -250,23 +247,23 @@ func TestValidateTxOrdering(t *testing.T) {
 }
 
 func TestSquareTxShareRange(t *testing.T) {
-	type test struct {
+	type testCase struct {
 		name      string
-		txs       [][]byte
+		txs       []square.ClassifiedTx
 		index     int
 		wantStart int
 		wantEnd   int
 		expectErr bool
 	}
 
-	txOne := []byte{0x1}
-	txTwo := bytes.Repeat([]byte{2}, 600)
-	txThree := bytes.Repeat([]byte{3}, 1000)
+	txOne := square.NewClassifiedTx([]byte{0x1})
+	txTwo := square.NewClassifiedTx(bytes.Repeat([]byte{2}, 600))
+	txThree := square.NewClassifiedTx(bytes.Repeat([]byte{3}, 1000))
 
-	testCases := []test{
+	testCases := []testCase{
 		{
 			name:      "txOne occupies shares 0 to 0",
-			txs:       [][]byte{txOne},
+			txs:       []square.ClassifiedTx{txOne},
 			index:     0,
 			wantStart: 0,
 			wantEnd:   1,
@@ -274,7 +271,7 @@ func TestSquareTxShareRange(t *testing.T) {
 		},
 		{
 			name:      "txTwo occupies shares 0 to 1",
-			txs:       [][]byte{txTwo},
+			txs:       []square.ClassifiedTx{txTwo},
 			index:     0,
 			wantStart: 0,
 			wantEnd:   2,
@@ -282,7 +279,7 @@ func TestSquareTxShareRange(t *testing.T) {
 		},
 		{
 			name:      "txThree occupies shares 0 to 2",
-			txs:       [][]byte{txThree},
+			txs:       []square.ClassifiedTx{txThree},
 			index:     0,
 			wantStart: 0,
 			wantEnd:   3,
@@ -290,7 +287,7 @@ func TestSquareTxShareRange(t *testing.T) {
 		},
 		{
 			name:      "txThree occupies shares 1 to 3",
-			txs:       [][]byte{txOne, txTwo, txThree},
+			txs:       []square.ClassifiedTx{txOne, txTwo, txThree},
 			index:     2,
 			wantStart: 1,
 			wantEnd:   4,
@@ -298,7 +295,7 @@ func TestSquareTxShareRange(t *testing.T) {
 		},
 		{
 			name:      "invalid index",
-			txs:       [][]byte{txOne, txTwo, txThree},
+			txs:       []square.ClassifiedTx{txOne, txTwo, txThree},
 			index:     3,
 			wantStart: 0,
 			wantEnd:   0,
@@ -323,7 +320,7 @@ func TestSquareTxShareRange(t *testing.T) {
 func TestShareRangeRejectsMisorderedTxs(t *testing.T) {
 	blobTxs, err := test.GenerateBlobTxs(1, 1, 100)
 	require.NoError(t, err)
-	txs := [][]byte{blobTxs[0], newTx(100)}
+	txs := test.ClassifyNormalTxs([][]byte{blobTxs[0], newTx(100)})
 
 	_, err = square.TxShareRange(txs, 0, 128, 64)
 	require.ErrorContains(t, err, "cannot be appended after blob tx")
@@ -334,11 +331,11 @@ func TestShareRangeRejectsMisorderedTxs(t *testing.T) {
 
 func TestSquareTxShareRangeWithPayForFibre(t *testing.T) {
 	ns := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
-	normalTx := newTx(100)
-	payForFibreTx := newFibreTxBytes(t, ns)
+	normalTx := square.NewClassifiedTx(newTx(100))
+	payForFibreTx := newFibreClassifiedTx(t, ns)
 
 	// Build a tx list: normal tx, then PayForFibre tx
-	txs := [][]byte{normalTx, payForFibreTx}
+	txs := []square.ClassifiedTx{normalTx, payForFibreTx}
 
 	// Verify the normal tx share range is valid
 	normalRange, err := square.TxShareRange(txs, 0, 128, 64)
@@ -363,8 +360,9 @@ func TestSquareTxShareRangeWithPayForFibre(t *testing.T) {
 func TestSquareBlobShareRange(t *testing.T) {
 	txs, err := test.GenerateBlobTxs(10, 1, 1024)
 	require.NoError(t, err)
+	classified := test.ClassifyNormalTxs(txs)
 
-	builder, err := square.NewBuilder(defaultMaxSquareSize, defaultSubtreeRootThreshold, txs...)
+	builder, err := square.NewBuilder(defaultMaxSquareSize, defaultSubtreeRootThreshold, classified...)
 	require.NoError(t, err)
 
 	dataSquare, err := builder.Export()
@@ -375,7 +373,7 @@ func TestSquareBlobShareRange(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, isBlobTx)
 		for blobIdx := range blobTx.Blobs {
-			shareRange, err := square.BlobShareRange(txs, pfbIdx, blobIdx, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+			shareRange, err := square.BlobShareRange(classified, pfbIdx, blobIdx, defaultMaxSquareSize, defaultSubtreeRootThreshold)
 			require.NoError(t, err)
 			require.LessOrEqual(t, shareRange.End, len(dataSquare))
 			blobShares := dataSquare[shareRange.Start:shareRange.End]
@@ -386,16 +384,16 @@ func TestSquareBlobShareRange(t *testing.T) {
 	}
 
 	// error on out of bounds cases
-	_, err = square.BlobShareRange(txs, -1, 0, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+	_, err = square.BlobShareRange(classified, -1, 0, defaultMaxSquareSize, defaultSubtreeRootThreshold)
 	require.Error(t, err)
 
-	_, err = square.BlobShareRange(txs, 0, -1, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+	_, err = square.BlobShareRange(classified, 0, -1, defaultMaxSquareSize, defaultSubtreeRootThreshold)
 	require.Error(t, err)
 
-	_, err = square.BlobShareRange(txs, 10, 0, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+	_, err = square.BlobShareRange(classified, 10, 0, defaultMaxSquareSize, defaultSubtreeRootThreshold)
 	require.Error(t, err)
 
-	_, err = square.BlobShareRange(txs, 0, 10, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+	_, err = square.BlobShareRange(classified, 0, 10, defaultMaxSquareSize, defaultSubtreeRootThreshold)
 	require.Error(t, err)
 }
 
@@ -637,11 +635,9 @@ func TestWriteSquare(t *testing.T) {
 // mechanism.
 func TestBlobShareRangeWithPayForFibre(t *testing.T) {
 	ns := share.MustNewV0Namespace(bytes.Repeat([]byte{0x1}, share.NamespaceVersionZeroIDSize))
-	signerRaw := bytes.Repeat([]byte{0xAA}, share.SignerSize)
+	signer := bytes.Repeat([]byte{0xAA}, share.SignerSize)
 	commitment := bytes.Repeat([]byte{0xBB}, share.FibreCommitmentSize)
-	signer, err := test.EncodeBech32("celestia", signerRaw)
-	require.NoError(t, err)
-	fibreTxBytes, err := test.BuildMsgPayForFibreTxBytes(signer, ns.Bytes(), commitment, 1)
+	fibreTx, err := test.BuildFibreClassifiedTx([]byte("fibre-tx"), ns, commitment, signer, 1)
 	require.NoError(t, err)
 
 	// Create a blob tx for testing
@@ -649,10 +645,10 @@ func TestBlobShareRangeWithPayForFibre(t *testing.T) {
 	require.NoError(t, err)
 
 	// Ordered txs: normal tx, blob tx, fibre tx
-	txs := [][]byte{
-		[]byte("normal-tx"),
-		blobTxBytes[0],
-		fibreTxBytes,
+	txs := []square.ClassifiedTx{
+		square.NewClassifiedTx([]byte("normal-tx")),
+		square.NewClassifiedTx(blobTxBytes[0]),
+		fibreTx,
 	}
 
 	// TxShareRange should work for all three tx types

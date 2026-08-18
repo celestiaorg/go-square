@@ -6,13 +6,9 @@ import (
 	"fmt"
 	"math/rand"
 
-	fibrev1 "github.com/celestiaorg/go-square/v4/proto/celestia/fibre/v1"
-	cosmostx "github.com/celestiaorg/go-square/v4/proto/cosmos/tx/v1beta1"
+	square "github.com/celestiaorg/go-square/v4"
 	"github.com/celestiaorg/go-square/v4/share"
 	"github.com/celestiaorg/go-square/v4/tx"
-	"github.com/cosmos/btcutil/bech32"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/anypb"
 )
 
 var DefaultTestNamespace = share.MustNewV0Namespace([]byte("test"))
@@ -167,44 +163,21 @@ func DelimLen(size uint64) int {
 	return binary.PutUvarint(lenBuf, size)
 }
 
-// BuildMsgPayForFibreTxBytes constructs Cosmos SDK Tx proto bytes containing a
-// single MsgPayForFibre message using generated proto types.
-func BuildMsgPayForFibreTxBytes(signer string, ns, commitment []byte, blobVersion uint32) ([]byte, error) {
-	msg := &fibrev1.MsgPayForFibre{
-		Signer: signer,
-		PaymentPromise: &fibrev1.PaymentPromise{
-			Namespace:   ns,
-			BlobVersion: blobVersion,
-			Commitment:  commitment,
-		},
-	}
-	msgBytes, err := proto.Marshal(msg)
+// BuildFibreClassifiedTx returns a ClassifiedTx for a pay-for-fibre
+// transaction with a synthesized system blob.
+func BuildFibreClassifiedTx(txBytes []byte, ns share.Namespace, commitment, signer []byte, blobVersion uint32) (square.ClassifiedTx, error) {
+	systemBlob, err := share.NewV2Blob(ns, blobVersion, commitment, signer)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal MsgPayForFibre: %w", err)
+		return square.ClassifiedTx{}, fmt.Errorf("creating system blob: %w", err)
 	}
-	sdkTx := &cosmostx.Tx{
-		Body: &cosmostx.TxBody{
-			Messages: []*anypb.Any{
-				{
-					TypeUrl: tx.MsgPayForFibreTypeURL,
-					Value:   msgBytes,
-				},
-			},
-		},
-	}
-	txBytes, err := proto.Marshal(sdkTx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal Tx: %w", err)
-	}
-	return txBytes, nil
+	return square.NewClassifiedFibreTx(&tx.FibreTx{Tx: txBytes, SystemBlob: systemBlob})
 }
 
-// EncodeBech32 encodes raw bytes as a bech32 string with the given
-// human-readable prefix (e.g. "celestia").
-func EncodeBech32(hrp string, data []byte) (string, error) {
-	encoded, err := bech32.EncodeFromBase256(hrp, data)
-	if err != nil {
-		return "", fmt.Errorf("failed to encode bech32: %w", err)
+// ClassifyNormalTxs wraps raw transactions as non-fibre ClassifiedTx values.
+func ClassifyNormalTxs(txs [][]byte) []square.ClassifiedTx {
+	classified := make([]square.ClassifiedTx, len(txs))
+	for i, txBytes := range txs {
+		classified[i] = square.NewClassifiedTx(txBytes)
 	}
-	return encoded, nil
+	return classified
 }
