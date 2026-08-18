@@ -188,7 +188,7 @@ func twoLeafMerkleRoot(data [][]byte) []byte {
 }
 
 func hashConcatenatedData(data [][]byte) []byte {
-	var total []byte
+	total := make([]byte, 0, len(data)*len(data[0]))
 	for _, d := range data {
 		total = append(total, d...)
 	}

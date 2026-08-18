@@ -367,7 +367,7 @@ func TestBuilderFindTxShareRangeWithPayForFibre(t *testing.T) {
 }
 
 func rawData(shares []share.Share) ([]byte, error) {
-	var data []byte
+	data := make([]byte, 0, len(shares)*share.ShareSize)
 	for _, share := range shares {
 		data = append(data, share.RawData()...)
 	}

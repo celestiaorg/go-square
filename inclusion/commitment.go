@@ -68,7 +68,7 @@ func GenerateSubtreeRoots(blob *sh.Blob, subtreeRootThreshold int) ([][]byte, er
 			// the namespace in the share, and therefore the parity data, while
 			// also allowing for the manual addition of the parity namespace to
 			// the parity data.
-			nsLeaf := make([]byte, 0)
+			nsLeaf := make([]byte, 0, len(namespace.Bytes())+len(leaf))
 			nsLeaf = append(nsLeaf, namespace.Bytes()...)
 			nsLeaf = append(nsLeaf, leaf...)
 
