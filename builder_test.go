@@ -1044,6 +1044,19 @@ func TestBuilderAppendFibreTx(t *testing.T) {
 	require.Len(t, builder.Blobs, 2)
 }
 
+func TestBuilderAppendFibreTxNilGuards(t *testing.T) {
+	builder, err := square.NewBuilder(8, 64)
+	require.NoError(t, err)
+
+	added, err := builder.AppendFibreTx(nil)
+	require.ErrorContains(t, err, "nil")
+	require.False(t, added)
+
+	added, err = builder.AppendFibreTx(&tx.FibreTx{Tx: []byte("raw tx")})
+	require.ErrorContains(t, err, "system blob")
+	require.False(t, added)
+}
+
 func TestBuilderRevertPayForFibreTx(t *testing.T) {
 	ns1 := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, share.NamespaceVersionZeroIDSize))
 
