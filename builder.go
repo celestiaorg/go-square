@@ -185,6 +185,12 @@ func (b *Builder) RevertLastBlobTx() error {
 // adds the raw SDK tx bytes to PayForFibreTxs (compact shares) and the system
 // blob to Blobs (sparse shares). It returns false if there is not enough space.
 func (b *Builder) AppendFibreTx(fibreTx *tx.FibreTx) (bool, error) {
+	if fibreTx == nil {
+		return false, errors.New("fibre tx must not be nil")
+	}
+	if fibreTx.SystemBlob == nil {
+		return false, errors.New("fibre tx must have a system blob")
+	}
 	if fibreTx.SystemBlob.ShareVersion() != share.ShareVersionTwo {
 		return false, fmt.Errorf("system blobs must use ShareVersionTwo, got version %d", fibreTx.SystemBlob.ShareVersion())
 	}
