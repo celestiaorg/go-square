@@ -15,6 +15,13 @@ const (
 	ProtoBlobTxTypeID = "BLOB"
 )
 
+var (
+	// ErrNonCanonicalBlobTx indicates that a BlobTx contains unrecognized fields.
+	ErrNonCanonicalBlobTx = errors.New("non-canonical BlobTx encoding")
+	// ErrNestedBlobTx indicates that a BlobTx contains another BlobTx.
+	ErrNestedBlobTx = errors.New("nested BlobTx wrapper")
+)
+
 type BlobTx struct {
 	Tx    []byte
 	Blobs []*share.Blob
@@ -32,11 +39,20 @@ func UnmarshalBlobTx(tx []byte) (*BlobTx, bool, error) {
 	if bTx.TypeId != ProtoBlobTxTypeID {
 		return nil, false, errors.New("invalid type id")
 	}
+	if len(bTx.ProtoReflect().GetUnknown()) != 0 {
+		return nil, true, ErrNonCanonicalBlobTx
+	}
 	if len(bTx.Blobs) == 0 {
 		return nil, true, errors.New("no blobs provided")
 	}
+	if hasBlobTxTypeID(bTx.Tx) {
+		return nil, true, ErrNestedBlobTx
+	}
 	blobs := make([]*share.Blob, len(bTx.Blobs))
 	for i, b := range bTx.Blobs {
+		if len(b.ProtoReflect().GetUnknown()) != 0 {
+			return nil, true, fmt.Errorf("%w: blob %d", ErrNonCanonicalBlobTx, i)
+		}
 		blobs[i], err = share.NewBlobFromProto(b)
 		if err != nil {
 			return nil, true, err
@@ -46,6 +62,11 @@ func UnmarshalBlobTx(tx []byte) (*BlobTx, bool, error) {
 		Tx:    bTx.Tx,
 		Blobs: blobs,
 	}, true, nil
+}
+
+func hasBlobTxTypeID(txBytes []byte) bool {
+	var blobTx v4.BlobTx
+	return proto.Unmarshal(txBytes, &blobTx) == nil && blobTx.TypeId == ProtoBlobTxTypeID
 }
 
 // MarshalBlobTx creates a BlobTx using a normal transaction and some number of
