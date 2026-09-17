@@ -53,6 +53,40 @@ func TestUnmarshalBlobTxRejectsUnrecognizedFields(t *testing.T) {
 	}
 }
 
+func TestUnmarshalBlobTxRejectsNonCanonicalEncoding(t *testing.T) {
+	clean := cleanBlobTx(t)
+
+	tests := []struct {
+		name   string
+		mutate func([]byte) []byte
+	}{
+		{
+			name: "duplicate singular field",
+			mutate: func(blobTx []byte) []byte {
+				return append(blobTx, 0x1a, 0x04, 'B', 'L', 'O', 'B')
+			},
+		},
+		{
+			name: "fields out of order",
+			mutate: func(blobTx []byte) []byte {
+				const typeIDFieldLen = 6
+				typeID := blobTx[len(blobTx)-typeIDFieldLen:]
+				return append(append([]byte(nil), typeID...), blobTx[:len(blobTx)-typeIDFieldLen]...)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			blobTx, isBlobTx, err := tx.UnmarshalBlobTx(tt.mutate(append([]byte(nil), clean...)))
+
+			require.ErrorIs(t, err, tx.ErrNonCanonicalBlobTx)
+			require.True(t, isBlobTx)
+			require.Nil(t, blobTx)
+		})
+	}
+}
+
 func TestUnmarshalBlobTxRejectsNestedWrapper(t *testing.T) {
 	inner := cleanBlobTx(t)
 	blob := newBlob(t)
