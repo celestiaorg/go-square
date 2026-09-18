@@ -1,6 +1,7 @@
 package tx
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 
@@ -16,7 +17,7 @@ const (
 )
 
 var (
-	// ErrNonCanonicalBlobTx indicates that a BlobTx contains unrecognized fields.
+	// ErrNonCanonicalBlobTx indicates that a BlobTx is not canonically encoded.
 	ErrNonCanonicalBlobTx = errors.New("non-canonical BlobTx encoding")
 	// ErrNestedBlobTx indicates that a BlobTx contains another BlobTx.
 	ErrNestedBlobTx = errors.New("nested BlobTx wrapper")
@@ -58,10 +59,18 @@ func UnmarshalBlobTx(tx []byte) (*BlobTx, bool, error) {
 			return nil, true, err
 		}
 	}
-	return &BlobTx{
+	blobTx := &BlobTx{
 		Tx:    bTx.Tx,
 		Blobs: blobs,
-	}, true, nil
+	}
+	canonical, err := MarshalBlobTx(blobTx.Tx, blobTx.Blobs...)
+	if err != nil {
+		return nil, true, err
+	}
+	if !bytes.Equal(tx, canonical) {
+		return nil, true, ErrNonCanonicalBlobTx
+	}
+	return blobTx, true, nil
 }
 
 func hasBlobTxTypeID(txBytes []byte) bool {
