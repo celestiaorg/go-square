@@ -151,3 +151,114 @@ func TestGoldenPaddingShares(t *testing.T) {
 		})
 	}
 }
+
+// goldenTxs returns deterministic transactions. Transaction i is filled with
+// the byte i+1 so that transactions are distinguishable from each other and
+// from zero padding.
+func goldenTxs(sizes []int) [][]byte {
+	txs := make([][]byte, len(sizes))
+	for i, size := range sizes {
+		txs[i] = bytes.Repeat([]byte{byte(i + 1)}, size)
+	}
+	return txs
+}
+
+func splitGoldenTxs(t *testing.T, ns Namespace, txs [][]byte) []Share {
+	t.Helper()
+	splitter := NewCompactShareSplitter(ns, ShareVersionZero)
+	for _, tx := range txs {
+		require.NoError(t, splitter.WriteTx(tx))
+	}
+	shares, err := splitter.Export()
+	require.NoError(t, err)
+	return shares
+}
+
+// reservedBytesOf reads the 4-byte reserved field from each share. The
+// field follows the sequence length in the first share and the info byte in
+// continuation shares.
+func reservedBytesOf(t *testing.T, shares []Share) []uint32 {
+	t.Helper()
+	got := make([]uint32, len(shares))
+	for i, s := range shares {
+		start := NamespaceSize + ShareInfoBytes
+		if i == 0 {
+			start += SequenceLenBytes
+		}
+		var err error
+		got[i], err = ParseReservedBytes(s.ToBytes()[start : start+ShareReservedBytes])
+		require.NoError(t, err)
+	}
+	return got
+}
+
+func manySmallTxSizes(count, size int) []int {
+	sizes := make([]int, count)
+	for i := range sizes {
+		sizes[i] = size
+	}
+	return sizes
+}
+
+func TestGoldenTxShares(t *testing.T) {
+	// Length delimiters are varints: 1 byte for sizes < 128, 2 bytes for
+	// sizes < 16384. FirstCompactShareContentSize is 474 and
+	// ContinuationCompactShareContentSize is 478.
+	testCases := []struct {
+		name  string
+		ns    Namespace
+		sizes []int
+	}{
+		{"tx_single_100", TxNamespace, []int{100}},
+		{"tx_472_exact_first_share", TxNamespace, []int{472}}, // 2 + 472 = 474
+		{"tx_472_then_100_next_share_start", TxNamespace, []int{472, 100}},
+		{"tx_471_then_100_delimiter_on_last_byte", TxNamespace, []int{471, 100}}, // 2 + 471 = 473, delimiter of tx 2 lands on share byte 511
+		{"tx_1000_spanning_three_shares", TxNamespace, []int{1000}},
+		{"tx_1000_then_100_mid_third_share", TxNamespace, []int{1000, 100}},
+		{"tx_many_small_50x20", TxNamespace, manySmallTxSizes(50, 20)},
+		{"tx_varint_boundary_127_128", TxNamespace, []int{127, 128}},
+		{"pfb_single_100", PayForBlobNamespace, []int{100}},
+		{"pfb_many_small_50x20", PayForBlobNamespace, manySmallTxSizes(50, 20)},
+		{"pff_single_100", PayForFibreNamespace, []int{100}},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			txs := goldenTxs(tc.sizes)
+			shares := splitGoldenTxs(t, tc.ns, txs)
+			assertGoldenShares(t, tc.name, shares)
+
+			parsed, err := ParseTxs(shares)
+			require.NoError(t, err)
+			assert.Equal(t, txs, parsed)
+
+			total := 0
+			for _, tx := range txs {
+				total += delimLen(uint64(len(tx))) + len(tx)
+			}
+			assert.Equal(t, len(shares), CompactSharesNeeded(uint32(total)))
+			assert.Equal(t, uint32(total), shares[0].SequenceLen())
+		})
+	}
+}
+
+// TestGoldenReservedBytes pins the reserved-bytes value per share in
+// human-readable form so a fixture diff can be explained. Offsets: the first
+// compact share's data starts at byte 38 (29 namespace + 1 info + 4 sequence
+// length + 4 reserved); a continuation share's data starts at byte 34.
+func TestGoldenReservedBytes(t *testing.T) {
+	testCases := []struct {
+		sizes []int
+		want  []uint32
+	}{
+		{[]int{100}, []uint32{38}},
+		{[]int{472}, []uint32{38}},
+		{[]int{472, 100}, []uint32{38, 34}},
+		{[]int{471, 100}, []uint32{38, 0}},
+		{[]int{1000}, []uint32{38, 0, 0}},
+		{[]int{1000, 100}, []uint32{38, 0, 84}}, // 34 + (1002 - 474 - 478) = 84
+	}
+	for _, tc := range testCases {
+		shares := splitGoldenTxs(t, TxNamespace, goldenTxs(tc.sizes))
+		assert.Equal(t, tc.want, reservedBytesOf(t, shares), "sizes=%v", tc.sizes)
+	}
+}
