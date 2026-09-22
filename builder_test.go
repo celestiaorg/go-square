@@ -4,6 +4,7 @@ import (
 	"bytes"
 	_ "embed"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/rand"
@@ -598,6 +599,14 @@ func TestBigBlock(t *testing.T) {
 	index, err := builder.FindBlobStartingIndex(0, 0)
 	require.NoError(t, err)
 	assert.Equal(t, 2234, index)
+
+	// Pin the full square hash so any change to share encoding or layout
+	// shows up here as well as in the golden fixtures.
+	sq, err := builder.Export()
+	require.NoError(t, err)
+	got := sq.Hash()
+	want := [32]byte{0x33, 0x93, 0x8, 0xa0, 0x3e, 0x7a, 0xc3, 0x9c, 0x24, 0xcd, 0xa7, 0xef, 0x51, 0xc6, 0xe9, 0x96, 0xd5, 0xc7, 0x46, 0xfa, 0x25, 0xd1, 0x7a, 0x35, 0x96, 0x83, 0x52, 0x15, 0x20, 0x87, 0xd9, 0x54}
+	assert.Equal(t, want, got, "big block square hash changed: %s", hex.EncodeToString(got[:]))
 }
 
 //go:embed "internal/testdata/big_block.json"
