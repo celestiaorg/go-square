@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"flag"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -112,19 +113,30 @@ func TestGoldenBlobShares(t *testing.T) {
 }
 
 func TestGoldenFibreBlobShares(t *testing.T) {
-	commitment := repeatingBytes(FibreCommitmentSize)
-	blob, err := NewV2Blob(goldenNamespace, 7, commitment, goldenSigner)
-	require.NoError(t, err)
+	testCases := []struct {
+		name         string
+		fibreVersion uint32
+	}{
+		{"blob_v2_fibre", 7},
+		{"blob_v2_fibre_version_max", math.MaxUint32},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			commitment := repeatingBytes(FibreCommitmentSize)
+			blob, err := NewV2Blob(goldenNamespace, tc.fibreVersion, commitment, goldenSigner)
+			require.NoError(t, err)
 
-	shares, err := blob.ToShares()
-	require.NoError(t, err)
-	assertGoldenShares(t, "blob_v2_fibre", shares)
+			shares, err := blob.ToShares()
+			require.NoError(t, err)
+			assertGoldenShares(t, tc.name, shares)
 
-	parsed, err := ParseBlobs(shares)
-	require.NoError(t, err)
-	require.Len(t, parsed, 1)
-	assert.Equal(t, blob.Data(), parsed[0].Data())
-	assert.Equal(t, goldenSigner, parsed[0].Signer())
+			parsed, err := ParseBlobs(shares)
+			require.NoError(t, err)
+			require.Len(t, parsed, 1)
+			assert.Equal(t, blob.Data(), parsed[0].Data())
+			assert.Equal(t, goldenSigner, parsed[0].Signer())
+		})
+	}
 }
 
 func TestGoldenPaddingShares(t *testing.T) {
@@ -215,11 +227,14 @@ func TestGoldenTxShares(t *testing.T) {
 		{"tx_471_then_100_delimiter_on_last_byte", TxNamespace, []int{471, 100}}, // 2 + 471 = 473, delimiter of tx 2 lands on share byte 511
 		{"tx_1000_spanning_three_shares", TxNamespace, []int{1000}},
 		{"tx_1000_then_100_mid_third_share", TxNamespace, []int{1000, 100}},
+		{"tx_949_then_100_reserved_511", TxNamespace, []int{949, 100}}, // 2 + 949 = 951 = 474 + 477; tx 2's delimiter lands on byte 511 of share 2, the last byte
+		{"tx_950_exact_two_shares", TxNamespace, []int{950}},           // 2 + 950 = 952 = 474 + 478, no padding in the last share
 		{"tx_many_small_50x20", TxNamespace, manySmallTxSizes(50, 20)},
 		{"tx_varint_boundary_127_128", TxNamespace, []int{127, 128}},
 		{"pfb_single_100", PayForBlobNamespace, []int{100}},
 		{"pfb_many_small_50x20", PayForBlobNamespace, manySmallTxSizes(50, 20)},
 		{"pff_single_100", PayForFibreNamespace, []int{100}},
+		{"pff_many_small_50x20", PayForFibreNamespace, manySmallTxSizes(50, 20)},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -256,6 +271,7 @@ func TestGoldenReservedBytes(t *testing.T) {
 		{[]int{471, 100}, []uint32{38, 0}},
 		{[]int{1000}, []uint32{38, 0, 0}},
 		{[]int{1000, 100}, []uint32{38, 0, 84}}, // 34 + (1002 - 474 - 478) = 84
+		{[]int{949, 100}, []uint32{38, 511, 0}},
 	}
 	for _, tc := range testCases {
 		shares := splitGoldenTxs(t, TxNamespace, goldenTxs(tc.sizes))
