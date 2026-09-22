@@ -30,7 +30,7 @@ var updateSquareGolden = flag.Bool("update", false, "rewrite golden fixtures und
 func repeating(n int, seed byte) []byte {
 	data := make([]byte, n)
 	for i := range data {
-		data[i] = byte(int(seed)+i%251) + 1
+		data[i] = byte((int(seed)+i)%255) + 1
 	}
 	return data
 }
@@ -39,23 +39,27 @@ func repeating(n int, seed byte) []byte {
 // fixed forever; changing them invalidates the fixture.
 func buildMixedSquare(t *testing.T) square.Square {
 	t.Helper()
-	builder, err := square.NewBuilder(16, 64)
+	builder, err := square.NewBuilder(32, 8)
 	require.NoError(t, err)
 
 	// Two normal txs: one small, one spanning the first compact share boundary.
-	require.True(t, builder.AppendTx(repeating(100, 0x10)))
+	require.True(t, builder.AppendTx(repeating(350, 0x10)))
 	require.True(t, builder.AppendTx(repeating(600, 0x20)))
 
 	nsA := share.MustNewV0Namespace(bytes.Repeat([]byte{0xA}, share.NamespaceVersionZeroIDSize))
 	nsB := share.MustNewV0Namespace(bytes.Repeat([]byte{0xB}, share.NamespaceVersionZeroIDSize))
 	signer := repeating(share.SignerSize, 0x30)
 
-	// Blob tx 1: two v0 blobs in different namespaces; the second one spans shares.
+	// Blob tx 1: two v0 blobs in different namespaces; the second one spans
+	// shares. The wrapping tx is padded to 440 bytes so that the PFB compact
+	// share estimate (computed from worst-case share indexes) crosses a share
+	// boundary that the actual (small) indexes do not, producing a reserved
+	// padding share once the square is exported.
 	blobA, err := share.NewV0Blob(nsA, repeating(300, 0x40))
 	require.NoError(t, err)
-	blobB, err := share.NewV0Blob(nsB, repeating(1200, 0x50))
+	blobB, err := share.NewV0Blob(nsB, repeating(6000, 0x50))
 	require.NoError(t, err)
-	added, err := builder.AppendBlobTx(&tx.BlobTx{Tx: []byte("pfb-one"), Blobs: []*share.Blob{blobA, blobB}})
+	added, err := builder.AppendBlobTx(&tx.BlobTx{Tx: repeating(440, 0x21), Blobs: []*share.Blob{blobA, blobB}})
 	require.NoError(t, err)
 	require.True(t, added)
 
@@ -103,11 +107,29 @@ func TestGoldenMixedSquare(t *testing.T) {
 	// Structural sanity so a reader can see what the fixture contains.
 	size, err := sq.Size()
 	require.NoError(t, err)
-	assert.Equal(t, 4, size)
+	assert.Equal(t, 8, size) // 8x8 = 64 shares
 	assert.False(t, share.GetShareRangeForNamespace(sq, share.TxNamespace).IsEmpty())
 	assert.False(t, share.GetShareRangeForNamespace(sq, share.PayForBlobNamespace).IsEmpty())
 	assert.False(t, share.GetShareRangeForNamespace(sq, share.PayForFibreNamespace).IsEmpty())
 	assert.False(t, share.GetShareRangeForNamespace(sq, share.TailPaddingNamespace).IsEmpty())
+	assert.False(t, share.GetShareRangeForNamespace(sq, share.PrimaryReservedPaddingNamespace).IsEmpty(),
+		"expected a reserved padding share between the PayForFibre shares and the first blob")
+
+	// At least one share in a blob namespace must be namespace padding: a
+	// share with IsSequenceStart() true and SequenceLen() 0, inserted between
+	// two blobs when the second must start at an aligned index.
+	hasNamespacePadding := false
+	for _, s := range sq {
+		ns := s.Namespace()
+		if ns.Equals(share.PrimaryReservedPaddingNamespace) || ns.Equals(share.TailPaddingNamespace) {
+			continue
+		}
+		if s.IsPadding() {
+			hasNamespacePadding = true
+			break
+		}
+	}
+	assert.True(t, hasNamespacePadding, "expected at least one namespace padding share")
 
 	// The pinned bytes must also decode: 2 txs, 2 wrapped PFBs, 4 blobs.
 	txRange := share.GetShareRangeForNamespace(sq, share.TxNamespace)
