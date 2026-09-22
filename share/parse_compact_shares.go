@@ -58,12 +58,15 @@ func parseRawData(rawData []byte) (units [][]byte, err error) {
 
 // extractRawData returns the raw data representing complete transactions
 // contained in the shares. The raw data does not contain the namespace, info
-// byte, sequence length, or reserved bytes. Starts reading raw data based on
-// the reserved bytes in the first share.
+// byte, sequence length, or reserved bytes. Leading shares in which no unit
+// starts (reserved bytes are zero) are skipped because their data is the
+// continuation of a unit that started before the provided shares. Starts
+// reading raw data based on the reserved bytes in the first share in which a
+// unit starts.
 func extractRawData(shares []Share) (rawData []byte, err error) {
 	for i := 0; i < len(shares); i++ {
 		var raw []byte
-		if i == 0 {
+		if len(rawData) == 0 {
 			raw, err = shares[i].RawDataUsingReserved()
 			if err != nil {
 				return nil, err

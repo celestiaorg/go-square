@@ -236,3 +236,33 @@ func splitTxs(txs [][]byte) ([]Share, map[[sha256.Size]byte]Range, error) {
 	}
 	return shares, txWriter.ShareRanges(0), nil
 }
+
+// TestParseTxsFirstShareWithoutUnitStart verifies that ParseTxs skips leading
+// shares in which no unit starts (reserved bytes are zero) instead of parsing
+// the continuation of a prior unit as length-delimited data.
+func TestParseTxsFirstShareWithoutUnitStart(t *testing.T) {
+	txs := [][]byte{bytes.Repeat([]byte{1}, 1000), bytes.Repeat([]byte{2}, 100)}
+	txShares, _, err := splitTxs(txs)
+	require.NoError(t, err)
+	require.Len(t, txShares, 3)
+
+	reserved, err := txShares[1].rawDataStartIndexUsingReserved()
+	require.NoError(t, err)
+	require.Zero(t, reserved, "share 1 must be a continuation share in which no unit starts")
+
+	testCases := []struct {
+		name   string
+		shares []Share
+		want   [][]byte
+	}{
+		{"first share has no unit start", txShares[1:], txs[1:]},
+		{"only share has no unit start", txShares[1:2], [][]byte{}},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := ParseTxs(tc.shares)
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
