@@ -245,6 +245,7 @@ func TestGoldenTxShares(t *testing.T) {
 			parsed, err := ParseTxs(shares)
 			require.NoError(t, err)
 			assert.Equal(t, txs, parsed)
+			assertTxShareSuffixes(t, txs, shares)
 
 			total := 0
 			for _, tx := range txs {
