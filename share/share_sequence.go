@@ -81,63 +81,28 @@ func numberOfSharesNeeded(firstShare Share) (sharesUsed int, err error) {
 // sequence of length sequenceLen. The parameter sequenceLen is the number
 // of bytes of transactions or intermediate state roots in a sequence.
 func CompactSharesNeeded(sequenceLen uint32) (sharesNeeded int) {
-	if sequenceLen == 0 {
-		return 0
-	}
-
-	if sequenceLen < FirstCompactShareContentSize {
-		return 1
-	}
-
-	// Calculate remaining bytes after first share
-	remainingBytes := sequenceLen - FirstCompactShareContentSize
-
-	// Calculate number of continuation shares needed
-	continuationShares := remainingBytes / ContinuationCompactShareContentSize
-	overflow := remainingBytes % ContinuationCompactShareContentSize
-	if overflow > 0 {
-		continuationShares++
-	}
-
-	// 1 first share + continuation shares
-	return 1 + int(continuationShares)
+	return sharesNeededForContent(sequenceLen, FirstCompactShareContentSize, ContinuationCompactShareContentSize)
 }
 
 // SparseSharesNeeded returns the number of shares needed to store a sequence
 // of length sequenceLen. This function can be used by all existing share
 // versions (v0 and v1).
 func SparseSharesNeeded(sequenceLen uint32, containsSigner bool) (sharesNeeded int) {
+	firstShareSize := FirstSparseShareContentSize
+	if containsSigner {
+		firstShareSize = FirstSparseShareContentSizeWithSigner
+	}
+	return sharesNeededForContent(sequenceLen, uint32(firstShareSize), ContinuationSparseShareContentSize)
+}
+
+// sharesNeededForContent counts shares from their payload capacities. Subtract
+// before rounding up so even the largest uint32 sequence length cannot overflow.
+func sharesNeededForContent(sequenceLen, first, continuation uint32) int {
 	if sequenceLen == 0 {
 		return 0
 	}
-
-	if fitsInFirstShare(sequenceLen, containsSigner) {
+	if sequenceLen <= first {
 		return 1
 	}
-
-	remainingBytes := int(sequenceLen) - bytesInFirstShare(containsSigner)
-
-	// Calculate number of continuation shares needed
-	continuationShares := remainingBytes / ContinuationSparseShareContentSize
-	overflow := remainingBytes % ContinuationSparseShareContentSize
-	if overflow > 0 {
-		continuationShares++
-	}
-
-	// 1 first share + continuation shares
-	return 1 + int(continuationShares)
-}
-
-func fitsInFirstShare(sequenceLen uint32, containsSigner bool) bool {
-	if containsSigner {
-		return sequenceLen <= FirstSparseShareContentSizeWithSigner
-	}
-	return sequenceLen <= FirstSparseShareContentSize
-}
-
-func bytesInFirstShare(containsSigner bool) int {
-	if containsSigner {
-		return FirstSparseShareContentSizeWithSigner
-	}
-	return FirstSparseShareContentSize
+	return 2 + int((sequenceLen-first-1)/continuation)
 }

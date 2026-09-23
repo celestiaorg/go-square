@@ -10,9 +10,7 @@ import (
 // increasing set of shares. It is used to lazily split block data such as
 // transactions or intermediate state roots into shares.
 type CompactShareSplitter struct {
-	shares []Share
-	// pendingShare Share
-	shareBuilder *builder
+	writer       sequenceWriter
 	namespace    Namespace
 	done         bool
 	shareVersion uint8
@@ -32,11 +30,10 @@ func NewCompactShareSplitter(ns Namespace, shareVersion uint8) *CompactShareSpli
 	}
 
 	return &CompactShareSplitter{
-		shares:       []Share{},
+		writer:       sequenceWriter{shares: []Share{}, pending: sb},
 		namespace:    ns,
 		shareVersion: shareVersion,
 		shareRanges:  map[[sha256.Size]byte]Range{},
-		shareBuilder: sb,
 	}
 }
 
@@ -48,7 +45,7 @@ func (css *CompactShareSplitter) WriteTx(tx []byte) error {
 		return fmt.Errorf("included Tx in mem-pool that can not be encoded %v", tx)
 	}
 
-	startShare := len(css.shares)
+	startShare := len(css.writer.shares)
 
 	if err := css.write(rawData); err != nil {
 		return err
@@ -63,47 +60,17 @@ func (css *CompactShareSplitter) WriteTx(tx []byte) error {
 func (css *CompactShareSplitter) write(rawData []byte) error {
 	if css.done {
 		// remove the last element
-		if !css.shareBuilder.IsEmptyShare() {
-			css.shares = css.shares[:len(css.shares)-1]
+		if !css.writer.pending.IsEmptyShare() {
+			css.writer.shares = css.writer.shares[:len(css.writer.shares)-1]
 		}
 		css.done = false
 	}
 
-	if err := css.shareBuilder.MaybeWriteReservedBytes(); err != nil {
+	if err := css.writer.pending.MaybeWriteReservedBytes(); err != nil {
 		return err
 	}
 
-	for {
-		rawDataLeftOver := css.shareBuilder.AddData(rawData)
-		if rawDataLeftOver == nil {
-			break
-		}
-		if err := css.stackPending(); err != nil {
-			return err
-		}
-
-		rawData = rawDataLeftOver
-	}
-
-	if css.shareBuilder.AvailableBytes() == 0 {
-		if err := css.stackPending(); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// stackPending will build & add the pending share to accumulated shares
-func (css *CompactShareSplitter) stackPending() error {
-	pendingShare, err := css.shareBuilder.Build()
-	if err != nil {
-		return err
-	}
-	css.shares = append(css.shares, pendingShare)
-
-	// Now we need to create a new builder
-	css.shareBuilder, err = newBuilder(css.namespace, css.shareVersion, false)
-	return err
+	return css.writer.write(rawData)
 }
 
 // Export returns the underlying compact shares
@@ -114,14 +81,14 @@ func (css *CompactShareSplitter) Export() ([]Share, error) {
 
 	// in case Export is called multiple times
 	if css.done {
-		return css.shares, nil
+		return css.writer.shares, nil
 	}
 
 	var bytesOfPadding int
 	// add the pending share to the current shares before returning
-	if !css.shareBuilder.IsEmptyShare() {
-		bytesOfPadding = css.shareBuilder.ZeroPadIfNecessary()
-		if err := css.stackPending(); err != nil {
+	if !css.writer.pending.IsEmptyShare() {
+		bytesOfPadding = css.writer.pending.ZeroPadIfNecessary()
+		if err := css.writer.flush(); err != nil {
 			return []Share{}, err
 		}
 	}
@@ -131,7 +98,7 @@ func (css *CompactShareSplitter) Export() ([]Share, error) {
 		return []Share{}, err
 	}
 	css.done = true
-	return css.shares, nil
+	return css.writer.shares, nil
 }
 
 // ShareRanges returns a map of share ranges to the corresponding tx keys. All
@@ -164,7 +131,7 @@ func (css *CompactShareSplitter) writeSequenceLen(sequenceLen uint32) error {
 	if err != nil {
 		return err
 	}
-	if err := b.ImportRawShare(css.shares[0].ToBytes()); err != nil {
+	if err := b.ImportRawShare(css.writer.shares[0].ToBytes()); err != nil {
 		return err
 	}
 	if err := b.WriteSequenceLen(sequenceLen); err != nil {
@@ -177,7 +144,7 @@ func (css *CompactShareSplitter) writeSequenceLen(sequenceLen uint32) error {
 	}
 
 	// replace existing first share with new first share
-	css.shares[0] = firstShare
+	css.writer.shares[0] = firstShare
 
 	return nil
 }
@@ -188,31 +155,31 @@ func (css *CompactShareSplitter) writeSequenceLen(sequenceLen uint32) error {
 // byte, or the reserved bytes. sequenceLen does include the unit length
 // delimiter prefixed to each unit.
 func (css *CompactShareSplitter) sequenceLen(bytesOfPadding int) uint32 {
-	if len(css.shares) == 0 {
+	if len(css.writer.shares) == 0 {
 		return 0
 	}
-	if len(css.shares) == 1 {
+	if len(css.writer.shares) == 1 {
 		return uint32(FirstCompactShareContentSize) - uint32(bytesOfPadding)
 	}
 
-	continuationSharesCount := len(css.shares) - 1
+	continuationSharesCount := len(css.writer.shares) - 1
 	continuationSharesSequenceLen := continuationSharesCount * ContinuationCompactShareContentSize
 	return uint32(FirstCompactShareContentSize + continuationSharesSequenceLen - bytesOfPadding)
 }
 
 // isEmpty returns whether this compact share splitter is empty.
 func (css *CompactShareSplitter) isEmpty() bool {
-	return len(css.shares) == 0 && css.shareBuilder.IsEmptyShare()
+	return len(css.writer.shares) == 0 && css.writer.pending.IsEmptyShare()
 }
 
 // Count returns the number of shares that would be made if `Export` was invoked
 // on this compact share splitter.
 func (css *CompactShareSplitter) Count() int {
-	if !css.shareBuilder.IsEmptyShare() && !css.done {
+	if !css.writer.pending.IsEmptyShare() && !css.done {
 		// pending share is non-empty, so it will be zero padded and added to shares during export
-		return len(css.shares) + 1
+		return len(css.writer.shares) + 1
 	}
-	return len(css.shares)
+	return len(css.writer.shares)
 }
 
 // MarshalDelimitedTx prefixes a transaction with the length of the transaction

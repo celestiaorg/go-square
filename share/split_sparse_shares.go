@@ -1,7 +1,6 @@
 package share
 
 import (
-	"encoding/binary"
 	"errors"
 	"fmt"
 
@@ -33,57 +32,26 @@ func (sss *SparseShareSplitter) Write(blob *Blob) error {
 	if err != nil {
 		return err
 	}
-	// For share version 2, sequence length is the length of fibre_blob_version (4 bytes) + commitment (32 bytes) = 36 bytes
-	// For other versions, sequence length is the total data length
-	var sequenceLen uint32
-	if blob.ShareVersion() == ShareVersionTwo {
-		sequenceLen = FibreBlobVersionSize + FibreCommitmentSize
-	} else {
-		sequenceLen = uint32(len(rawData))
-	}
-
-	if err := b.WriteSequenceLen(sequenceLen); err != nil {
+	// Blob.Data already contains the encoded Fibre version and commitment for
+	// v2, so all versions use the same sequence writer.
+	if err := b.WriteSequenceLen(uint32(len(rawData))); err != nil {
 		return err
 	}
-	// add the signer to the first share for v1 and v2 share versions
-	if blob.ShareVersion() == ShareVersionOne || blob.ShareVersion() == ShareVersionTwo {
-		b.WriteSigner(blob.Signer())
-	}
+	b.WriteSigner(blob.Signer())
 
-	// For share version 2 (Fibre system blobs), write fibre_blob_version and commitment
-	// directly into the first share. The data field already contains these encoded.
-	if blob.ShareVersion() == ShareVersionTwo {
-		fibreBlobVersion := binary.BigEndian.Uint32(rawData[:FibreBlobVersionSize])
-		b.WriteFibreBlobVersion(fibreBlobVersion)
-		b.WriteFibreCommitment(rawData[FibreBlobVersionSize:])
-		b.ZeroPadIfNecessary()
-		share, err := b.Build()
-		if err != nil {
+	writer := sequenceWriter{shares: sss.shares, pending: b}
+	if err := writer.write(rawData); err != nil {
+		sss.shares = writer.shares
+		return err
+	}
+	if !writer.pending.IsEmptyShare() {
+		writer.pending.ZeroPadIfNecessary()
+		if err := writer.flush(); err != nil {
+			sss.shares = writer.shares
 			return err
 		}
-		sss.shares = append(sss.shares, share)
-		return nil
 	}
-
-	for rawData != nil {
-		rawDataLeftOver := b.AddData(rawData)
-		if rawDataLeftOver == nil {
-			// Just call it on the latest share
-			b.ZeroPadIfNecessary()
-		}
-
-		share, err := b.Build()
-		if err != nil {
-			return err
-		}
-		sss.shares = append(sss.shares, share)
-
-		b, err = newBuilder(blobNamespace, blob.ShareVersion(), false)
-		if err != nil {
-			return err
-		}
-		rawData = rawDataLeftOver
-	}
+	sss.shares = writer.shares
 
 	return nil
 }

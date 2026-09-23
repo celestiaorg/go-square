@@ -36,10 +36,20 @@ func newBuilder(ns Namespace, shareVersion uint8, isFirstShare bool) (*builder, 
 
 // init initializes the share builder by populating rawShareData.
 func (b *builder) init() error {
-	if b.isCompactShare {
-		return b.prepareCompactShare()
+	infoByte, err := NewInfoByte(b.shareVersion, b.isFirstShare)
+	if err != nil {
+		return err
 	}
-	return b.prepareSparseShare()
+	b.rawShareData = make([]byte, 0, ShareSize)
+	b.rawShareData = append(b.rawShareData, b.namespace.Bytes()...)
+	b.rawShareData = append(b.rawShareData, byte(infoByte))
+	if b.isFirstShare {
+		b.rawShareData = append(b.rawShareData, make([]byte, SequenceLenBytes)...)
+	}
+	if b.isCompactShare {
+		b.rawShareData = append(b.rawShareData, make([]byte, ShareReservedBytes)...)
+	}
+	return nil
 }
 
 func (b *builder) AvailableBytes() int {
@@ -209,48 +219,6 @@ func (b *builder) FlipSequenceStart() {
 	// the sequence start indicator is the last bit of the info byte so flip the
 	// last bit
 	b.rawShareData[infoByteIndex] ^= 0x01
-}
-
-func (b *builder) prepareCompactShare() error {
-	shareData := make([]byte, 0, ShareSize)
-	infoByte, err := NewInfoByte(b.shareVersion, b.isFirstShare)
-	if err != nil {
-		return err
-	}
-	placeholderSequenceLen := make([]byte, SequenceLenBytes)
-	placeholderReservedBytes := make([]byte, ShareReservedBytes)
-
-	shareData = append(shareData, b.namespace.Bytes()...)
-	shareData = append(shareData, byte(infoByte))
-
-	if b.isFirstShare {
-		shareData = append(shareData, placeholderSequenceLen...)
-	}
-
-	shareData = append(shareData, placeholderReservedBytes...)
-
-	b.rawShareData = shareData
-
-	return nil
-}
-
-func (b *builder) prepareSparseShare() error {
-	shareData := make([]byte, 0, ShareSize)
-	infoByte, err := NewInfoByte(b.shareVersion, b.isFirstShare)
-	if err != nil {
-		return err
-	}
-	placeholderSequenceLen := make([]byte, SequenceLenBytes)
-
-	shareData = append(shareData, b.namespace.Bytes()...)
-	shareData = append(shareData, byte(infoByte))
-
-	if b.isFirstShare {
-		shareData = append(shareData, placeholderSequenceLen...)
-	}
-
-	b.rawShareData = shareData
-	return nil
 }
 
 func isCompactShare(ns Namespace) bool {
