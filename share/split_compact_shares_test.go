@@ -3,6 +3,7 @@ package share
 import (
 	"bytes"
 	"crypto/sha256"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -378,4 +379,23 @@ func TestWriteAfterExport(t *testing.T) {
 // is equal to ShareSize.
 func fillShare(share Share, filler byte) (paddedShare Share) {
 	return Share{data: append(share.data, bytes.Repeat([]byte{filler}, ShareSize-len(share.data))...)}
+}
+
+func TestCompactShareSplitterRejectsInvalidVersion(t *testing.T) {
+	for _, version := range []uint8{MaxShareVersion + 1, 255} {
+		require.PanicsWithError(t, fmt.Sprintf("version %d must be less than or equal to %d", version, MaxShareVersion), func() {
+			NewCompactShareSplitter(TxNamespace, version)
+		})
+	}
+}
+
+func TestCompactShareSplitterRejectsNonTransactionNamespace(t *testing.T) {
+	ns := MustNewV0Namespace(bytes.Repeat([]byte{1}, NamespaceVersionZeroIDSize))
+	splitter := NewCompactShareSplitter(ns, ShareVersionZero)
+	require.ErrorContains(t, splitter.WriteTx([]byte("tx")), "this is not a compact share")
+	require.Zero(t, splitter.Count())
+	require.Empty(t, splitter.ShareRanges(0), "a rejected transaction must not register a share range")
+	shares, err := splitter.Export()
+	require.NoError(t, err)
+	require.Empty(t, shares)
 }
