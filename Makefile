@@ -45,3 +45,11 @@ benchmark:
 	@echo "--> Perform benchmark"
 	@go test -mod=readonly -bench=. ./...
 .PHONY: benchmark
+
+## fuzz: Run each fuzz test for 30 seconds. Not run in CI.
+fuzz:
+	@echo "--> Fuzzing share encoders"
+	@for target in FuzzTxRoundTrip FuzzBlobRoundTrip FuzzSharesNeeded; do \
+		go test -mod=readonly ./share -run '^$$' -fuzz "^$$target$$" -fuzztime 30s || exit 1; \
+	done
+.PHONY: fuzz
