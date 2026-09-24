@@ -426,3 +426,37 @@ func TestCompactShareSplitterExportRejectsInvalidShare(t *testing.T) {
 	require.ErrorContains(t, err, "imported share must be 512 bytes, got 0")
 	require.Empty(t, shares)
 }
+
+func TestWriteAfterExportRoundTrip(t *testing.T) {
+	for _, ns := range []Namespace{TxNamespace, PayForBlobNamespace, PayForFibreNamespace} {
+		for _, size := range []int{1, 100, 300, 471, 472, 473, 474, 949, 950, 951} {
+			t.Run(fmt.Sprintf("%x/%d", ns.Bytes(), size), func(t *testing.T) {
+				txs := goldenTxs([]int{size, 50, 1000})
+				splitter := NewCompactShareSplitter(ns, ShareVersionZero)
+				for i, tx := range txs {
+					require.NoError(t, splitter.WriteTx(tx))
+					count := splitter.Count()
+					got, err := splitter.Export()
+					require.NoError(t, err)
+					require.Len(t, got, count)
+					want := splitGoldenTxs(t, ns, txs[:i+1])
+					require.Equal(t, ToBytes(want), ToBytes(got), "intermediate exports must not change encoding")
+					parsed, err := ParseTxs(got)
+					require.NoError(t, err)
+					require.Equal(t, txs[:i+1], parsed)
+					assertTxShareSuffixes(t, txs[:i+1], got)
+					again, err := splitter.Export()
+					require.NoError(t, err)
+					require.Equal(t, ToBytes(got), ToBytes(again))
+
+					// Compare ranges with uninterrupted writes, including offsets.
+					uninterrupted := NewCompactShareSplitter(ns, ShareVersionZero)
+					for _, written := range txs[:i+1] {
+						require.NoError(t, uninterrupted.WriteTx(written))
+					}
+					require.Equal(t, uninterrupted.ShareRanges(7), splitter.ShareRanges(7))
+				}
+			})
+		}
+	}
+}
