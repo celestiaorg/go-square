@@ -1,6 +1,7 @@
 package share
 
 import (
+	"encoding/binary"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -28,6 +29,10 @@ func FuzzTxRoundTrip(f *testing.F) {
 	f.Add(repeatingBytes(472), repeatingBytes(100), []byte{})
 	f.Add(repeatingBytes(471), repeatingBytes(100), []byte{})
 	f.Add(repeatingBytes(1000), repeatingBytes(100), repeatingBytes(20))
+	f.Add(repeatingBytes(1000), []byte{}, []byte{})
+	f.Add(repeatingBytes(2000), repeatingBytes(1000), repeatingBytes(20))
+	f.Add(repeatingBytes(949), repeatingBytes(100), []byte{})
+	f.Add(repeatingBytes(1427), repeatingBytes(100), []byte{})
 	f.Add(repeatingBytes(127), repeatingBytes(128), repeatingBytes(16384))
 
 	f.Fuzz(func(t *testing.T, a, b, c []byte) {
@@ -49,20 +54,7 @@ func FuzzTxRoundTrip(f *testing.F) {
 		require.NoError(t, err)
 		require.Equal(t, txs, parsed)
 
-		// assert: parsing from any share where a transaction starts yields a
-		// contiguous suffix of txs. Shares with zero reserved bytes are
-		// skipped on purpose; see the known quirk in the Phase 0 plan.
-		reserved := reservedBytesOf(t, shares)
-		for start := 1; start < len(shares); start++ {
-			if reserved[start] == 0 {
-				continue
-			}
-			suffix, err := ParseTxs(shares[start:])
-			require.NoError(t, err)
-			require.NotEmpty(t, suffix, "share %d has reserved bytes %d but parsed no txs", start, reserved[start])
-			require.True(t, checkSubArray(txs, suffix), "parse from share %d is not a sub-array of txs", start)
-			require.Equal(t, txs[len(txs)-len(suffix):], suffix, "parse from share %d is not a suffix", start)
-		}
+		assertTxShareSuffixes(t, txs, shares)
 
 		// assert: every continuation share is marked as such and shares the namespace
 		for i, s := range shares {
@@ -71,6 +63,31 @@ func FuzzTxRoundTrip(f *testing.F) {
 			require.Equal(t, ShareVersionZero, s.Version())
 		}
 	})
+}
+
+// assertTxShareSuffixes checks every starting share, including those with no
+// transaction start. Compute the expected suffix from input transaction lengths
+// and share capacities, independently of the encoder's reserved bytes.
+func assertTxShareSuffixes(t *testing.T, txs [][]byte, shares []Share) {
+	t.Helper()
+	starts := make([]int, len(txs))
+	offset := 0
+	var delimiter [binary.MaxVarintLen64]byte
+	for i, tx := range txs {
+		starts[i] = offset
+		offset += binary.PutUvarint(delimiter[:], uint64(len(tx))) + len(tx)
+	}
+
+	firstTx := 0
+	for start := 1; start < len(shares); start++ {
+		payloadStart := FirstCompactShareContentSize + (start-1)*ContinuationCompactShareContentSize
+		for firstTx < len(txs) && starts[firstTx] < payloadStart {
+			firstTx++
+		}
+		parsed, err := ParseTxs(shares[start:])
+		require.NoError(t, err, "parse from share %d", start)
+		require.Equal(t, txs[firstTx:], parsed, "parse from share %d", start)
+	}
 }
 
 func FuzzBlobRoundTrip(f *testing.F) {
