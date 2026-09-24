@@ -36,3 +36,13 @@ func (w *sequenceWriter) flush() error {
 	w.pending, err = newBuilder(w.pending.namespace, w.pending.shareVersion, false)
 	return err
 }
+
+// finalize pads and flushes a partial share. An empty continuation is left
+// pending so exact-fit payloads do not produce a trailing padding share.
+func (w *sequenceWriter) finalize() (bytesOfPadding int, err error) {
+	if w.pending.IsEmptyShare() {
+		return 0, nil
+	}
+	bytesOfPadding = w.pending.ZeroPadIfNecessary()
+	return bytesOfPadding, w.flush()
+}

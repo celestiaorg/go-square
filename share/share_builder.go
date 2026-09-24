@@ -194,24 +194,6 @@ func (b *builder) WriteSigner(signer []byte) {
 	b.rawShareData = append(b.rawShareData, signer...)
 }
 
-// WriteFibreBlobVersion writes the Fibre blob version to the share.
-func (b *builder) WriteFibreBlobVersion(version uint32) {
-	if b == nil || !b.isFirstShare || b.shareVersion != ShareVersionTwo {
-		return
-	}
-	buf := make([]byte, FibreBlobVersionSize)
-	binary.BigEndian.PutUint32(buf, version)
-	b.rawShareData = append(b.rawShareData, buf...)
-}
-
-// WriteFibreCommitment writes the Fibre commitment to the share.
-func (b *builder) WriteFibreCommitment(commitment []byte) {
-	if b == nil || !b.isFirstShare || b.shareVersion != ShareVersionTwo {
-		return
-	}
-	b.rawShareData = append(b.rawShareData, commitment...)
-}
-
 // FlipSequenceStart flips the sequence start indicator of the share provided
 func (b *builder) FlipSequenceStart() {
 	infoByteIndex := b.indexOfInfoBytes()

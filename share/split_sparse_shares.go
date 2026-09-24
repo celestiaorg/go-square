@@ -26,6 +26,9 @@ func (sss *SparseShareSplitter) Write(blob *Blob) error {
 	}
 
 	rawData := blob.Data()
+	if len(rawData) == 0 {
+		return errors.New("cannot write blob with empty data")
+	}
 	blobNamespace := blob.Namespace()
 
 	b, err := newBuilder(blobNamespace, blob.ShareVersion(), true)
@@ -40,20 +43,12 @@ func (sss *SparseShareSplitter) Write(blob *Blob) error {
 	b.WriteSigner(blob.Signer())
 
 	writer := sequenceWriter{shares: sss.shares, pending: b}
+	defer func() { sss.shares = writer.shares }()
 	if err := writer.write(rawData); err != nil {
-		sss.shares = writer.shares
 		return err
 	}
-	if !writer.pending.IsEmptyShare() {
-		writer.pending.ZeroPadIfNecessary()
-		if err := writer.flush(); err != nil {
-			sss.shares = writer.shares
-			return err
-		}
-	}
-	sss.shares = writer.shares
-
-	return nil
+	_, err = writer.finalize()
+	return err
 }
 
 // WriteNamespacePaddingShares adds padding shares with the namespace of the
