@@ -2,6 +2,7 @@ package share
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -31,4 +32,31 @@ func TestSequenceWriterFlushIncompleteShare(t *testing.T) {
 	require.Equal(t, continuation, writer.shares[1].RawData())
 	require.False(t, writer.shares[1].IsSequenceStart())
 	require.True(t, writer.shares[1].Namespace().Equals(TxNamespace))
+}
+
+func TestSequenceWriterFinalize(t *testing.T) {
+	for _, size := range []int{0, 100, FirstCompactShareContentSize, FirstCompactShareContentSize + 1} {
+		t.Run(fmt.Sprint(size), func(t *testing.T) {
+			pending, err := newBuilder(TxNamespace, ShareVersionZero, true)
+			require.NoError(t, err)
+			writer := sequenceWriter{pending: pending}
+			payload := bytes.Repeat([]byte{0xab}, size)
+			require.NoError(t, writer.write(payload))
+			padding, err := writer.finalize()
+			require.NoError(t, err)
+			require.Len(t, writer.shares, CompactSharesNeeded(uint32(size)))
+			var got []byte
+			for _, s := range writer.shares {
+				got = append(got, s.RawData()...)
+			}
+			require.Equal(t, len(got)-size, padding)
+			require.Equal(t, payload, append([]byte{}, got[:size]...))
+			require.Equal(t, make([]byte, padding), append([]byte{}, got[size:]...))
+			count := len(writer.shares)
+			padding, err = writer.finalize()
+			require.NoError(t, err)
+			require.Zero(t, padding)
+			require.Len(t, writer.shares, count, "repeated finalization must not append padding shares")
+		})
+	}
 }

@@ -84,13 +84,9 @@ func (css *CompactShareSplitter) Export() ([]Share, error) {
 		return css.writer.shares, nil
 	}
 
-	var bytesOfPadding int
-	// add the pending share to the current shares before returning
-	if !css.writer.pending.IsEmptyShare() {
-		bytesOfPadding = css.writer.pending.ZeroPadIfNecessary()
-		if err := css.writer.flush(); err != nil {
-			return []Share{}, err
-		}
+	bytesOfPadding, err := css.writer.finalize()
+	if err != nil {
+		return []Share{}, err
 	}
 
 	sequenceLen := css.sequenceLen(bytesOfPadding)

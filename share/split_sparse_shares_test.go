@@ -181,3 +181,28 @@ func TestSparseShareSplitterV2BlobInvalidData(t *testing.T) {
 	err = sss.Write(validBlob)
 	assert.NoError(t, err)
 }
+
+func TestSparseShareSplitterRejectsEmptyData(t *testing.T) {
+	ns := MustNewV0Namespace(bytes.Repeat([]byte{1}, NamespaceVersionZeroIDSize))
+	for _, version := range []uint8{ShareVersionZero, ShareVersionOne, ShareVersionTwo} {
+		for _, data := range [][]byte{nil, {}} {
+			var signer []byte
+			if version != ShareVersionZero {
+				signer = make([]byte, SignerSize)
+			}
+			// Constructors reject this state; pin the writer's defensive behavior
+			// as well, including after a valid blob has already been written.
+			invalid := &Blob{namespace: ns, shareVersion: version, data: data, signer: signer}
+			splitter := NewSparseShareSplitter()
+			require.ErrorContains(t, splitter.Write(invalid), "empty data")
+			require.Zero(t, splitter.Count())
+			valid, err := NewV0Blob(ns, []byte("valid"))
+			require.NoError(t, err)
+			require.NoError(t, splitter.Write(valid))
+			before := bytes.Clone(splitter.Export()[0].ToBytes())
+			require.ErrorContains(t, splitter.Write(invalid), "empty data")
+			require.Equal(t, 1, splitter.Count())
+			require.Equal(t, before, splitter.Export()[0].ToBytes())
+		}
+	}
+}
