@@ -56,6 +56,20 @@ func FuzzTxRoundTrip(f *testing.F) {
 
 		assertTxShareSuffixes(t, txs, shares)
 
+		// Intermediate exports must produce the same final encoding and
+		// transaction ranges as uninterrupted writes.
+		incremental := NewCompactShareSplitter(TxNamespace, ShareVersionZero)
+		var exported []Share
+		for _, tx := range txs {
+			require.NoError(t, incremental.WriteTx(tx))
+			expectedCount := incremental.Count()
+			exported, err = incremental.Export()
+			require.NoError(t, err)
+			require.Len(t, exported, expectedCount)
+		}
+		require.Equal(t, ToBytes(shares), ToBytes(exported))
+		require.Equal(t, splitter.ShareRanges(0), incremental.ShareRanges(0))
+
 		// assert: every continuation share is marked as such and shares the namespace
 		for i, s := range shares {
 			require.Equal(t, i == 0, s.IsSequenceStart(), "share %d", i)

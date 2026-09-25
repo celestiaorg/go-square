@@ -1,6 +1,7 @@
 package share
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
@@ -10,10 +11,13 @@ import (
 // increasing set of shares. It is used to lazily split block data such as
 // transactions or intermediate state roots into shares.
 type CompactShareSplitter struct {
-	writer       sequenceWriter
-	namespace    Namespace
-	done         bool
-	shareVersion uint8
+	writer    sequenceWriter
+	namespace Namespace
+	done      bool
+	// A partial share finalized by Export can be reopened by the next WriteTx.
+	pendingBeforeExport *builder
+	exportPadding       int
+	shareVersion        uint8
 	// shareRanges is a map from a transaction key to the range of shares it
 	// occupies. The range assumes this compact share splitter is the only
 	// thing in the data square (e.g. the range for the first tx starts at index
@@ -45,6 +49,7 @@ func (css *CompactShareSplitter) WriteTx(tx []byte) error {
 		return fmt.Errorf("included Tx in mem-pool that can not be encoded %v", tx)
 	}
 
+	css.resume()
 	startShare := len(css.writer.shares)
 
 	if err := css.write(rawData); err != nil {
@@ -58,19 +63,31 @@ func (css *CompactShareSplitter) WriteTx(tx []byte) error {
 
 // write adds the delimited data to the underlying compact shares.
 func (css *CompactShareSplitter) write(rawData []byte) error {
-	if css.done {
-		// remove the last element
-		if !css.writer.pending.IsEmptyShare() {
-			css.writer.shares = css.writer.shares[:len(css.writer.shares)-1]
-		}
-		css.done = false
-	}
-
 	if err := css.writer.pending.MaybeWriteReservedBytes(); err != nil {
 		return err
 	}
 
 	return css.writer.write(rawData)
+}
+
+// resume removes only the padding introduced by Export. Restore the partial
+// builder before computing a new transaction's share range, since that
+// transaction may start in the previously exported last share.
+func (css *CompactShareSplitter) resume() {
+	if !css.done {
+		return
+	}
+	if css.pendingBeforeExport != nil {
+		pending := css.pendingBeforeExport
+		// Copy before writing again: exported Share values may still refer to
+		// the padded buffer, which must not become the active write buffer.
+		pending.rawShareData = bytes.Clone(pending.rawShareData[:ShareSize-css.exportPadding])
+		css.writer.pending = pending
+		css.writer.shares = css.writer.shares[:len(css.writer.shares)-1]
+		css.pendingBeforeExport = nil
+		css.exportPadding = 0
+	}
+	css.done = false
 }
 
 // Export returns the underlying compact shares
@@ -84,6 +101,7 @@ func (css *CompactShareSplitter) Export() ([]Share, error) {
 		return css.writer.shares, nil
 	}
 
+	pending := css.writer.pending
 	bytesOfPadding, err := css.writer.finalize()
 	if err != nil {
 		return []Share{}, err
@@ -92,6 +110,10 @@ func (css *CompactShareSplitter) Export() ([]Share, error) {
 	sequenceLen := css.sequenceLen(bytesOfPadding)
 	if err := css.writeSequenceLen(sequenceLen); err != nil {
 		return []Share{}, err
+	}
+	if bytesOfPadding > 0 {
+		css.pendingBeforeExport = pending
+		css.exportPadding = bytesOfPadding
 	}
 	css.done = true
 	return css.writer.shares, nil
