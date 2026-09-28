@@ -30,10 +30,39 @@ func ParseBlobs(shares []Share) ([]*Blob, error) {
 // If ignorePadding is true then the returned Sequences will not contain
 // any padding sequences.
 func ParseShares(shares []Share, ignorePadding bool) ([]Sequence, error) {
+	sequences, err := collectSequences(shares, false)
+	if err != nil {
+		return sequences, err
+	}
+
+	for _, sequence := range sequences {
+		if err := sequence.validSequenceLen(); err != nil {
+			return sequences, err
+		}
+	}
+
+	result := []Sequence{}
+	for _, sequence := range sequences {
+		if ignorePadding && sequence.isPadding() {
+			continue
+		}
+		result = append(result, sequence)
+	}
+
+	return result, nil
+}
+
+// collectSequences groups shares by sequence starts without imposing a length
+// policy. ParseShares requires exact share counts, while ParseBlobs historically
+// accepts surplus continuation data and skips padding even within a sequence.
+func collectSequences(shares []Share, skipPadding bool) ([]Sequence, error) {
 	sequences := []Sequence{}
 	currentSequence := Sequence{}
 
 	for _, share := range shares {
+		if skipPadding && share.IsPadding() {
+			continue
+		}
 		ns := share.Namespace()
 		if share.IsSequenceStart() {
 			if len(currentSequence.Shares) > 0 {
@@ -55,19 +84,5 @@ func ParseShares(shares []Share, ignorePadding bool) ([]Sequence, error) {
 		sequences = append(sequences, currentSequence)
 	}
 
-	for _, sequence := range sequences {
-		if err := sequence.validSequenceLen(); err != nil {
-			return sequences, err
-		}
-	}
-
-	result := []Sequence{}
-	for _, sequence := range sequences {
-		if ignorePadding && sequence.isPadding() {
-			continue
-		}
-		result = append(result, sequence)
-	}
-
-	return result, nil
+	return sequences, nil
 }
