@@ -23,6 +23,9 @@ func (s Sequence) RawData() (data []byte, err error) {
 	if err != nil {
 		return []byte{}, err
 	}
+	if uint64(sequenceLen) > uint64(len(data)) {
+		return nil, fmt.Errorf("sequence length %v is greater than the number of bytes in the sequence %v", sequenceLen, len(data))
+	}
 	// trim any padding that may have been added to the last share
 	return data[:sequenceLen], nil
 }
