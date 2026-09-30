@@ -59,7 +59,7 @@ func collectSequences(shares []Share, skipPadding bool) ([]Sequence, error) {
 	sequences := []Sequence{}
 	currentSequence := Sequence{}
 
-	for _, share := range shares {
+	for i, share := range shares {
 		if skipPadding && share.IsPadding() {
 			continue
 		}
@@ -74,7 +74,7 @@ func collectSequences(shares []Share, skipPadding bool) ([]Sequence, error) {
 			}
 		} else {
 			if !bytes.Equal(currentSequence.Namespace.Bytes(), ns.Bytes()) {
-				return sequences, fmt.Errorf("share sequence %v has inconsistent namespace IDs with share %v", currentSequence, share)
+				return sequences, fmt.Errorf("share %d has namespace %x but its sequence has namespace %x", i, ns.Bytes(), currentSequence.Namespace.Bytes())
 			}
 			currentSequence.Shares = append(currentSequence.Shares, share)
 		}

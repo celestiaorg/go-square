@@ -273,3 +273,17 @@ func Test_parseSparseSharesV1(t *testing.T) {
 		})
 	}
 }
+
+func Test_parseSparseSharesNamespaceMismatchErrorIsBounded(t *testing.T) {
+	shares, err := splitBlobs(generateRandomBlob(ContinuationSparseShareContentSize * 100))
+	require.NoError(t, err)
+
+	last := shares[len(shares)-1].ToBytes()
+	last[NamespaceSize-1] ^= 0xFF
+	shares[len(shares)-1], err = NewShare(last)
+	require.NoError(t, err)
+
+	_, err = parseSparseShares(shares)
+	require.Error(t, err)
+	assert.Less(t, len(err.Error()), 512)
+}
