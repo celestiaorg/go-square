@@ -8,6 +8,9 @@ import (
 // reserved for version information in big endian form (initially `0000000`).
 // The last bit is a "sequence start indicator", that is `1` if this is the
 // first share of a sequence and `0` if this is a continuation share.
+// This encoding and its offset at byte 29 must remain stable across share
+// versions: downstream consumers such as Sovereign use it to identify the format.
+// See the compatibility tests in share_prefix_test.go.
 type InfoByte byte
 
 func NewInfoByte(version uint8, isSequenceStart bool) (InfoByte, error) {

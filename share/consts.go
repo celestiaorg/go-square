@@ -15,6 +15,8 @@ const (
 
 	// SequenceLenBytes is the number of bytes reserved for the sequence length
 	// that is present in the first share of a sequence.
+	// Its big-endian encoding at bytes [30, 34) is a compatibility contract with
+	// downstream consumers such as Sovereign, pinned in share_prefix_test.go.
 	SequenceLenBytes = 4
 
 	// ShareVersionZero is the first share version format.
