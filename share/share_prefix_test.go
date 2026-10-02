@@ -3,6 +3,7 @@ package share
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -16,6 +17,71 @@ import (
 // change is a breaking change to the share format and must not be released
 // without coordinating with downstream consumers.
 // See https://github.com/celestiaorg/go-square/issues/267.
+
+// TestShareInfoByteWireFormat covers every bit of the version field, including
+// versions whose payload format is not supported yet. Decode literal raw shares
+// independently of the encoder so matching encoder/decoder changes cannot hide
+// an incompatible change to the prefix.
+func TestShareInfoByteWireFormat(t *testing.T) {
+	for wire := 0; wire < 256; wire++ {
+		t.Run(fmt.Sprintf("0x%02x", wire), func(t *testing.T) {
+			wantVersion := uint8(wire / 2)
+			wantStart := wire%2 == 1
+			info, err := NewInfoByte(wantVersion, wantStart)
+			require.NoError(t, err)
+			assert.Equal(t, byte(wire), byte(info))
+
+			parsed, err := ParseInfoByte(byte(wire))
+			require.NoError(t, err)
+			assert.Equal(t, byte(wire), byte(parsed))
+			assert.Equal(t, wantVersion, parsed.Version())
+			assert.Equal(t, wantStart, parsed.IsSequenceStart())
+
+			raw := make([]byte, 512)
+			raw[28] = 0xAB // Distinguish the namespace from the info byte.
+			raw[29] = byte(wire)
+			copy(raw[30:34], []byte{0x12, 0x34, 0x56, 0x78})
+			share, err := NewShare(raw)
+			require.NoError(t, err)
+			assert.Equal(t, byte(wire), byte(share.InfoByte()))
+			assert.Equal(t, wantVersion, share.Version())
+			assert.Equal(t, wantStart, share.IsSequenceStart())
+			if wantStart {
+				assert.Equal(t, uint32(0x12345678), share.SequenceLen())
+			} else {
+				assert.Zero(t, share.SequenceLen(), "continuation bytes are not a sequence length")
+			}
+		})
+	}
+}
+
+// TestShareSequenceLengthWireFormat pins all four bytes without allocating a
+// correspondingly large blob. The expected bytes are independent of the encoder.
+func TestShareSequenceLengthWireFormat(t *testing.T) {
+	testCases := []struct {
+		length uint32
+		wire   []byte
+	}{
+		{0, []byte{0x00, 0x00, 0x00, 0x00}},
+		{0x12345678, []byte{0x12, 0x34, 0x56, 0x78}},
+		{0xFFFFFFFF, []byte{0xFF, 0xFF, 0xFF, 0xFF}},
+	}
+	namespace := MustNewV0Namespace(bytes.Repeat([]byte{0xAB}, 10))
+	for _, version := range []uint8{0, 1, 2} {
+		for _, tc := range testCases {
+			t.Run(fmt.Sprintf("v%d/%08x", version, tc.length), func(t *testing.T) {
+				builder, err := newBuilder(namespace, version, true)
+				require.NoError(t, err)
+				require.NoError(t, builder.WriteSequenceLen(tc.length))
+				builder.ZeroPadIfNecessary()
+				share, err := builder.Build()
+				require.NoError(t, err)
+				assert.Equal(t, tc.wire, share.ToBytes()[30:34])
+				assert.Equal(t, tc.length, share.SequenceLen())
+			})
+		}
+	}
+}
 
 // TestSharePrefixConstants pins the constants that define the share prefix
 // layout to their expected literal values.
