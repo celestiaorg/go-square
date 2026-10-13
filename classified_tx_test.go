@@ -25,6 +25,12 @@ func TestClassifiedTxValidate(t *testing.T) {
 	v0Blob, err := share.NewV0Blob(share.MustNewV0Namespace([]byte("fibre")), []byte("data"))
 	require.NoError(t, err)
 
+	blobTxBytes, err := tx.MarshalBlobTx([]byte("inner tx"), v0Blob)
+	require.NoError(t, err)
+	decodedBlobTx, isBlobTx, err := tx.UnmarshalBlobTx(blobTxBytes)
+	require.NoError(t, err)
+	require.True(t, isBlobTx)
+
 	testCases := []struct {
 		name    string
 		ctx     square.ClassifiedTx
@@ -57,6 +63,24 @@ func TestClassifiedTxValidate(t *testing.T) {
 			name:    "system blob is not share version two",
 			ctx:     square.ClassifiedTx{Bytes: raw, FibreTx: &tx.FibreTx{Tx: raw, SystemBlob: v0Blob}},
 			wantErr: "share version",
+		},
+		{
+			name: "pre-decoded blob tx",
+			ctx:  square.ClassifiedTx{Bytes: blobTxBytes, BlobTx: decodedBlobTx},
+		},
+		{
+			name: "pre-decoded blob tx and fibre tx",
+			ctx: square.ClassifiedTx{
+				Bytes:   blobTxBytes,
+				BlobTx:  decodedBlobTx,
+				FibreTx: &tx.FibreTx{Tx: blobTxBytes, SystemBlob: blob},
+			},
+			wantErr: "both blob tx and fibre tx",
+		},
+		{
+			name:    "pre-decoded blob tx with no blobs",
+			ctx:     square.ClassifiedTx{Bytes: blobTxBytes, BlobTx: &tx.BlobTx{Tx: []byte("inner tx")}},
+			wantErr: "blob tx has no blobs",
 		},
 	}
 
@@ -164,5 +188,39 @@ func TestNewClassifiedFibreTx(t *testing.T) {
 	t.Run("nil system blob", func(t *testing.T) {
 		_, err := square.NewClassifiedFibreTx(&tx.FibreTx{Tx: raw})
 		require.ErrorContains(t, err, "system blob")
+	})
+}
+
+func TestNewClassifiedBlobTx(t *testing.T) {
+	v0Blob, err := share.NewV0Blob(share.MustNewV0Namespace([]byte("blobns")), []byte("data"))
+	require.NoError(t, err)
+	blobTxBytes, err := tx.MarshalBlobTx([]byte("inner tx"), v0Blob)
+	require.NoError(t, err)
+	decoded, isBlobTx, err := tx.UnmarshalBlobTx(blobTxBytes)
+	require.NoError(t, err)
+	require.True(t, isBlobTx)
+
+	t.Run("valid", func(t *testing.T) {
+		classified, err := square.NewClassifiedBlobTx(blobTxBytes, decoded)
+		require.NoError(t, err)
+		require.Equal(t, blobTxBytes, classified.Bytes)
+		require.Same(t, decoded, classified.BlobTx)
+		require.Nil(t, classified.FibreTx)
+		require.NoError(t, classified.Validate())
+	})
+
+	t.Run("nil blob tx", func(t *testing.T) {
+		_, err := square.NewClassifiedBlobTx(blobTxBytes, nil)
+		require.ErrorContains(t, err, "nil blob tx")
+	})
+
+	t.Run("no bytes", func(t *testing.T) {
+		_, err := square.NewClassifiedBlobTx(nil, decoded)
+		require.ErrorContains(t, err, "has no bytes")
+	})
+
+	t.Run("no blobs", func(t *testing.T) {
+		_, err := square.NewClassifiedBlobTx(blobTxBytes, &tx.BlobTx{Tx: []byte("inner tx")})
+		require.ErrorContains(t, err, "blob tx has no blobs")
 	})
 }

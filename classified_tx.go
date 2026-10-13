@@ -22,6 +22,20 @@ type ClassifiedTx struct {
 	// in which case it carries the system blob the caller synthesized. When set,
 	// FibreTx.Tx must equal Bytes.
 	FibreTx *tx.FibreTx
+
+	// BlobTx, when non-nil, is the decoded form of Bytes that the caller has
+	// already unmarshalled. It is an optimization only: leaving it nil makes
+	// the square decode Bytes itself, with identical results. Callers that set
+	// it are asserting that it is what tx.UnmarshalBlobTx(Bytes) returns --
+	// the same assertion Builder.AppendBlobTx already takes on its argument,
+	// so this grants no trust that the builder did not already grant, only
+	// through Construct as well.
+	//
+	// Validate cannot confirm the assertion: FibreTx is cross-checked against
+	// Bytes because FibreTx.Tx is the raw transaction, whereas BlobTx.Tx is
+	// the inner SDK transaction, so checking it would mean re-marshalling --
+	// exactly the work this field exists to avoid.
+	BlobTx *tx.BlobTx
 }
 
 // NewClassifiedTx returns a ClassifiedTx for a transaction that is not a
@@ -43,10 +57,34 @@ func NewClassifiedFibreTx(fibreTx *tx.FibreTx) (ClassifiedTx, error) {
 	return classified, nil
 }
 
+// NewClassifiedBlobTx returns a ClassifiedTx for a blob transaction the caller
+// has already decoded. blobTx must be what tx.UnmarshalBlobTx(txBytes)
+// returns; see the BlobTx field.
+func NewClassifiedBlobTx(txBytes []byte, blobTx *tx.BlobTx) (ClassifiedTx, error) {
+	if blobTx == nil {
+		return ClassifiedTx{}, errors.New("nil blob tx")
+	}
+	classified := ClassifiedTx{Bytes: txBytes, BlobTx: blobTx}
+	if err := classified.Validate(); err != nil {
+		return ClassifiedTx{}, err
+	}
+	return classified, nil
+}
+
 // Validate returns an error if the classification is not self-consistent.
 func (c ClassifiedTx) Validate() error {
 	if len(c.Bytes) == 0 {
 		return errors.New("classified tx has no bytes")
+	}
+	if c.BlobTx != nil {
+		if c.FibreTx != nil {
+			return errors.New("tx classified as both blob tx and fibre tx")
+		}
+		// tx.UnmarshalBlobTx rejects a BlobTx with no blobs, so a pre-decoded
+		// one must be rejected here too.
+		if len(c.BlobTx.Blobs) == 0 {
+			return errors.New("blob tx has no blobs")
+		}
 	}
 	if c.FibreTx == nil {
 		return nil
@@ -64,4 +102,18 @@ func (c ClassifiedTx) Validate() error {
 		return errors.New("tx classified as fibre is a blob tx")
 	}
 	return nil
+}
+
+// blobTx returns the decoded blob tx for c, using the caller's pre-decoded
+// form when present and unmarshalling Bytes otherwise. The results match
+// tx.UnmarshalBlobTx: the second value reports whether Bytes is a blob tx at
+// all, and an error alongside it means it is one but could not be decoded.
+//
+// Both square construction paths go through here so that the fallback cannot
+// drift between them.
+func (c ClassifiedTx) blobTx() (*tx.BlobTx, bool, error) {
+	if c.BlobTx != nil {
+		return c.BlobTx, true, nil
+	}
+	return tx.UnmarshalBlobTx(c.Bytes)
 }

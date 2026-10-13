@@ -12,7 +12,7 @@ This document describes version compatibility between go-square, celestia-app, a
 | v5.x | 5 | v2.3.1 | v0, v1 |
 | v6.x | 6 | v2.3.3, v3.0.2 | v0, v1 |
 | v7.x | 7 | v2.3.3, v3.0.2 | v0, v1 |
-| main | 8 | v2.3.3, v4.0.0-rc3 | v0, v1, v2 |
+| main | 8 | v2.3.3, v4.0.1, v4.1.0 | v0, v1, v2 |
 
 ## Share Versions
 
