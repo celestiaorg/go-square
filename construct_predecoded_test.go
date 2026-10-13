@@ -244,3 +244,104 @@ func TestConstructTrustsPreDecodedBlobTx(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEqual(t, asNormal, fromMismatch)
 }
+
+// TestConstructRejectsImpossiblePreDecodedBlobTx covers the pre-decodes that
+// tx.UnmarshalBlobTx could never have returned. Construct must reject each one
+// with an error rather than panicking or building a square: it runs on a
+// consensus path, where a panic is a crashed node and an accepted block that
+// the decoding path rejects is a fork.
+func TestConstructRejectsImpossiblePreDecodedBlobTx(t *testing.T) {
+	rng := rand.New(rand.NewSource(29))
+	realBytes := deterministicBlobTx(t, rng, 400)
+	decoded, isBlobTx, err := tx.UnmarshalBlobTx(realBytes)
+	require.NoError(t, err)
+	require.True(t, isBlobTx)
+
+	nestedBytes, err := tx.MarshalBlobTx(realBytes, decoded.Blobs...)
+	require.NoError(t, err)
+
+	testCases := []struct {
+		name    string
+		bytes   []byte
+		blobTx  *tx.BlobTx
+		wantErr string
+	}{
+		{
+			name:    "nil blob",
+			bytes:   realBytes,
+			blobTx:  &tx.BlobTx{Tx: decoded.Tx, Blobs: []*share.Blob{nil}},
+			wantErr: "blob 0 is nil or empty",
+		},
+		{
+			name:    "nil blob after a valid one",
+			bytes:   realBytes,
+			blobTx:  &tx.BlobTx{Tx: decoded.Tx, Blobs: []*share.Blob{decoded.Blobs[0], nil}},
+			wantErr: "blob 1 is nil or empty",
+		},
+		{
+			name:    "empty blob",
+			bytes:   realBytes,
+			blobTx:  &tx.BlobTx{Tx: decoded.Tx, Blobs: []*share.Blob{{}}},
+			wantErr: "blob 0 is nil or empty",
+		},
+		{
+			name:    "nested blob tx",
+			bytes:   nestedBytes,
+			blobTx:  &tx.BlobTx{Tx: realBytes, Blobs: decoded.Blobs},
+			wantErr: "wraps another blob tx",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// The field is exported, so a caller can set it without going
+			// through NewClassifiedBlobTx. Construct must still reject.
+			classified := square.ClassifiedTx{Bytes: tc.bytes, BlobTx: tc.blobTx}
+
+			_, err := square.Construct([]square.ClassifiedTx{classified}, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+			require.ErrorContains(t, err, tc.wantErr)
+
+			// NewBuilder reaches populateBuilder without validateTxOrdering,
+			// so it has to reject independently.
+			_, err = square.NewBuilder(defaultMaxSquareSize, defaultSubtreeRootThreshold, classified)
+			require.ErrorContains(t, err, tc.wantErr)
+
+			// The share range helpers go through the same validation.
+			_, err = square.TxShareRange([]square.ClassifiedTx{classified}, 0, defaultMaxSquareSize, defaultSubtreeRootThreshold)
+			require.ErrorContains(t, err, tc.wantErr)
+		})
+	}
+}
+
+// TestNestedBlobTxVerdictMatchesDecodingPath pins the property that motivated
+// the nested check: for bytes that tx.UnmarshalBlobTx rejects as nested, the
+// pre-decoded path must reach the same verdict as the path that decodes Bytes
+// itself. Before the check, one accepted what the other rejected.
+func TestNestedBlobTxVerdictMatchesDecodingPath(t *testing.T) {
+	rng := rand.New(rand.NewSource(31))
+	innerBlobTx := deterministicBlobTx(t, rng, 300)
+	innerDecoded, _, err := tx.UnmarshalBlobTx(innerBlobTx)
+	require.NoError(t, err)
+
+	nestedBytes, err := tx.MarshalBlobTx(innerBlobTx, innerDecoded.Blobs...)
+	require.NoError(t, err)
+
+	// The decoding path rejects these bytes.
+	_, isBlobTx, decodeErr := tx.UnmarshalBlobTx(nestedBytes)
+	require.True(t, isBlobTx)
+	require.ErrorIs(t, decodeErr, tx.ErrNestedBlobTx)
+	_, fromBytesErr := square.Construct(
+		[]square.ClassifiedTx{square.NewClassifiedTx(nestedBytes)},
+		defaultMaxSquareSize, defaultSubtreeRootThreshold,
+	)
+	require.Error(t, fromBytesErr)
+
+	// So must the pre-decoded path, handed the decode of those same bytes
+	// that a laxer decoder would produce.
+	_, fromPreDecodedErr := square.Construct(
+		[]square.ClassifiedTx{{Bytes: nestedBytes, BlobTx: &tx.BlobTx{Tx: innerBlobTx, Blobs: innerDecoded.Blobs}}},
+		defaultMaxSquareSize, defaultSubtreeRootThreshold,
+	)
+	require.Error(t, fromPreDecodedErr)
+	require.ErrorIs(t, fromPreDecodedErr, tx.ErrNestedBlobTx)
+}

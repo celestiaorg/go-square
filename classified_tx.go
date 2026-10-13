@@ -34,7 +34,12 @@ type ClassifiedTx struct {
 	// Validate cannot confirm the assertion: FibreTx is cross-checked against
 	// Bytes because FibreTx.Tx is the raw transaction, whereas BlobTx.Tx is
 	// the inner SDK transaction, so checking it would mean re-marshalling --
-	// exactly the work this field exists to avoid.
+	// exactly the work this field exists to avoid. What Validate does enforce
+	// is every invariant tx.UnmarshalBlobTx guarantees about the decode
+	// itself, which costs O(1) per blob and copies nothing: at least one
+	// blob, no nil or empty blob, and no nested BlobTx. A pre-decode that
+	// fails one of these is not something UnmarshalBlobTx could have
+	// returned, so it is rejected rather than trusted.
 	BlobTx *tx.BlobTx
 }
 
@@ -80,10 +85,8 @@ func (c ClassifiedTx) Validate() error {
 		if c.FibreTx != nil {
 			return errors.New("tx classified as both blob tx and fibre tx")
 		}
-		// tx.UnmarshalBlobTx rejects a BlobTx with no blobs, so a pre-decoded
-		// one must be rejected here too.
-		if len(c.BlobTx.Blobs) == 0 {
-			return errors.New("blob tx has no blobs")
+		if err := c.validateBlobTx(); err != nil {
+			return err
 		}
 	}
 	if c.FibreTx == nil {
@@ -100,6 +103,35 @@ func (c ClassifiedTx) Validate() error {
 	}
 	if _, isBlobTx, _ := tx.UnmarshalBlobTx(c.Bytes); isBlobTx {
 		return errors.New("tx classified as fibre is a blob tx")
+	}
+	return nil
+}
+
+// validateBlobTx rejects a pre-decoded blob tx that tx.UnmarshalBlobTx could
+// not have returned. It cannot prove the decode belongs to Bytes -- that needs
+// a re-marshal, which is the cost this field exists to avoid -- but every
+// invariant UnmarshalBlobTx guarantees about the decoded value itself is
+// checked here, at O(1) per blob and copying no blob data.
+func (c ClassifiedTx) validateBlobTx() error {
+	// UnmarshalBlobTx rejects a BlobTx with no blobs.
+	if len(c.BlobTx.Blobs) == 0 {
+		return errors.New("blob tx has no blobs")
+	}
+	// UnmarshalBlobTx rejects a BlobTx whose inner tx is itself a BlobTx. The
+	// bytes path and the pre-decoded path would otherwise disagree on whether
+	// the same transaction is valid, which for a square under construction is
+	// a disagreement about the data root.
+	if tx.HasBlobTxTypeID(c.BlobTx.Tx) {
+		return fmt.Errorf("blob tx wraps another blob tx: %w", tx.ErrNestedBlobTx)
+	}
+	// UnmarshalBlobTx builds blobs with share.NewBlobFromProto, which never
+	// yields a nil or empty one. Without this check a nil blob is a nil
+	// pointer dereference in the builder rather than an error, and Construct
+	// runs on a consensus path.
+	for i, blob := range c.BlobTx.Blobs {
+		if blob == nil || blob.IsEmpty() {
+			return fmt.Errorf("blob tx blob %d is nil or empty", i)
+		}
 	}
 	return nil
 }

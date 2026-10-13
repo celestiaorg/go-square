@@ -114,3 +114,10 @@ func blobsToProto(blobs []*share.Blob) []*v4.BlobProto {
 	}
 	return pb
 }
+
+// HasBlobTxTypeID reports whether txBytes decode as a BlobTx wrapper. It is
+// the check UnmarshalBlobTx uses to reject a BlobTx nested inside another, so
+// that a caller holding an already-decoded BlobTx can apply the same rule.
+func HasBlobTxTypeID(txBytes []byte) bool {
+	return hasBlobTxTypeID(txBytes)
+}
