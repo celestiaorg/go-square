@@ -6,7 +6,7 @@ require (
 	github.com/celestiaorg/nmt v0.24.5
 	github.com/stretchr/testify v1.12.1
 	golang.org/x/exp v0.0.0-20250911091902-df9299821621
-	golang.org/x/sync v0.23.0
+	golang.org/x/sync v0.24.0
 	google.golang.org/protobuf v1.36.12
 )
 
