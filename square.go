@@ -10,7 +10,6 @@ import (
 
 	"github.com/celestiaorg/go-square/v4/inclusion"
 	"github.com/celestiaorg/go-square/v4/share"
-	"github.com/celestiaorg/go-square/v4/tx"
 	"golang.org/x/exp/constraints"
 )
 
@@ -34,7 +33,7 @@ func validateTxOrdering(txs []ClassifiedTx) error {
 			continue
 		}
 
-		_, isBlobTx, err := tx.UnmarshalBlobTx(classified.Bytes)
+		_, isBlobTx, err := classified.blobTx()
 		if err != nil && isBlobTx {
 			return fmt.Errorf("unmarshalling blob tx at index %d: %w", idx, err)
 		}
@@ -81,8 +80,9 @@ func Construct(txs []ClassifiedTx, maxSquareSize, subtreeRootThreshold int) (Squ
 
 // populateBuilder appends each pre-classified transaction to the builder. Fibre
 // txs are appended atomically with the system blob the caller synthesized, blob
-// txs are unmarshalled from go-square's own BlobTx format, and everything else
-// is appended as a normal tx.
+// txs are taken from the caller's pre-decoded form or unmarshalled from
+// go-square's own BlobTx format, and everything else is appended as a normal
+// tx.
 func populateBuilder(builder *Builder, txs []ClassifiedTx) error {
 	for idx, classified := range txs {
 		if err := classified.Validate(); err != nil {
@@ -100,7 +100,7 @@ func populateBuilder(builder *Builder, txs []ClassifiedTx) error {
 			continue
 		}
 
-		blobTx, isBlobTx, err := tx.UnmarshalBlobTx(classified.Bytes)
+		blobTx, isBlobTx, err := classified.blobTx()
 		if err != nil && isBlobTx {
 			return fmt.Errorf("unmarshalling blob tx at index %d: %w", idx, err)
 		}
