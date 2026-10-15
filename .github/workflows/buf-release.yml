@@ -22,6 +22,7 @@ jobs:
       - uses: bufbuild/buf-push-action@a654ff18effe4641ebea4a4ce242c49800728459 # v1.2.0
         with:
           buf_token: ${{ secrets.BUF_TOKEN }}
+          create_visibility: public
       - name: "push the tag label to BSR"
         run: |
           set -euo pipefail
