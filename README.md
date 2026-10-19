@@ -216,6 +216,16 @@ Pull requests are welcome. For major changes, please open an issue first to disc
 
 This repo attempts to conform to [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/) so PR titles should ideally start with `fix:`, `feat:`, `build:`, `chore:`, `ci:`, `docs:`, `style:`, `refactor:`, `perf:`, or `test:` because this helps with semantic versioning and changelog generation. It is especially important to include an `!` (e.g. `feat!:`) if the PR includes a breaking change.
 
+PR titles must start the subject with `[high]`, `[medium]`, or `[low]` to indicate the review thoroughness needed. For example: `fix!: [high] correct share splitting` or `docs: [low] clarify setup instructions`. Include the same tag in the PR description and explain why you chose it.
+
+- `[high]`: Deep review for consensus, security, or other changes with significant risk. This includes share encoding, splitting, and parsing; square construction; inclusion and commitment generation; and tx/BlobTx wire formats, all of which are consensus-critical for celestia-app.
+- `[medium]`: Standard review for code changes with limited impact and well-understood behavior.
+- `[low]`: Focused review for straightforward docs, tests, or tooling changes with low risk.
+
+Choose the higher level when unsure. A small diff can still need deep review. CI checks the title format; reviewers should confirm the chosen level.
+
+Dependabot defaults to `[high]` for Go module dependencies and `[medium]` for GitHub Actions. Maintainers should confirm the level and add it to the PR description with a brief explanation.
+
 ### Tools
 
 1. Install [Go](https://golang.org/doc/install) 1.25.8
