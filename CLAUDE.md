@@ -41,11 +41,21 @@ Transactions/blobs → `Builder` splits into compact/sparse shares → shares as
 
 ## Conventions
 
-- **Commits**: Follow [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/) — prefix with `fix:`, `feat:`, `chore:`, `perf:`, `refactor:`, etc. Use `!` for breaking changes (e.g., `feat!:`).
+- **Commits and PR titles**: Follow [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/) — prefix with `fix:`, `feat:`, `chore:`, `perf:`, `refactor:`, etc. Use `!` for breaking changes (e.g., `feat!:`). PR titles must also start the subject with a review level tag: `type(scope)!: [level] subject` (see Pull Requests).
 - **Testing**: Uses `testify` (assert/require). Table-driven tests with `testCases` structs. Test packages use `_test` suffix.
 - **Formatting**: gofumpt (via golangci-lint), not just gofmt.
 - **Linting**: golangci-lint v2 with copyloopvar, gocritic, misspell, nakedret (max-func-lines: 0), prealloc, revive, staticcheck.
 - **Protobuf**: Generated via `buf` (dockerized). Do not edit `*.pb.go` files manually.
+
+### Pull Requests
+
+- Title format: `type(scope)!: [level] subject`, e.g. `fix!: [high] correct share splitting` or `docs: [low] clarify setup`. CI enforces the tag.
+- Levels (see [README.md#contributing](README.md#contributing)):
+  - `[high]`: Deep review for consensus, security, or other changes with significant risk. This includes share encoding/splitting/parsing, square construction, inclusion/commitment generation, and tx/BlobTx wire formats, all of which are consensus-critical for celestia-app.
+  - `[medium]`: Standard review for code changes with limited impact and well-understood behavior.
+  - `[low]`: Focused review for straightforward docs, tests, or tooling changes with low risk.
+- Use the higher level when unsure and reassess if scope changes.
+- Include the title's review tag in the description with a brief reason, e.g. `Review level: [low] — documentation only.`
 
 ### Security PRs
 
