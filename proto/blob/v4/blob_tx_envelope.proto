@@ -1,0 +1,14 @@
+syntax = "proto3";
+package proto.blob.v4;
+
+option go_package = "github.com/celestiaorg/go-square/v4/proto/blob/v4";
+
+// BlobTxEnvelope is BlobTx without its bytes fields, so classifying a tx
+// does not copy it. Field numbers must match BlobTx.
+message BlobTxEnvelope {
+  repeated BlobEnvelope blobs = 2;
+  string type_id = 3;
+}
+
+// BlobEnvelope is BlobProto with every field left unknown.
+message BlobEnvelope {}
