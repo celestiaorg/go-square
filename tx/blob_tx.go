@@ -73,9 +73,13 @@ func UnmarshalBlobTx(tx []byte) (*BlobTx, bool, error) {
 	return blobTx, true, nil
 }
 
+// envelopeUnmarshal skips BlobTx's bytes fields with the same wire checks
+// proto.Unmarshal applies to them, so the verdict matches without the copies.
+var envelopeUnmarshal = proto.UnmarshalOptions{DiscardUnknown: true}
+
 func hasBlobTxTypeID(txBytes []byte) bool {
-	var blobTx v4.BlobTx
-	return proto.Unmarshal(txBytes, &blobTx) == nil && blobTx.TypeId == ProtoBlobTxTypeID
+	var env v4.BlobTxEnvelope
+	return envelopeUnmarshal.Unmarshal(txBytes, &env) == nil && env.TypeId == ProtoBlobTxTypeID
 }
 
 // MarshalBlobTx creates a BlobTx using a normal transaction and some number of
