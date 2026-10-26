@@ -97,7 +97,7 @@ func noCopyCases(tb testing.TB) []noCopyCase {
 	v2Blob, err := share.NewV2Blob(share.MustNewV0Namespace(bytes.Repeat([]byte{3}, 10)), 1, bytes.Repeat([]byte{4}, share.FibreCommitmentSize), signer)
 	require.NoError(tb, err)
 
-	cases := []noCopyCase{
+	fixed := []noCopyCase{
 		{"canonical v0 blob", cat(innerTx, v0, typeID), true},
 		{"canonical v1 blob", cat(innerTx, blob(lenField(1, ns), lenField(2, data), varintField(3, 1), lenField(5, signer)), typeID), true},
 		{"canonical v2 blob", marshalBlobTx(tb, []byte("inner tx"), v2Blob), true},
@@ -143,12 +143,16 @@ func noCopyCases(tb testing.TB) []noCopyCase {
 			return pb
 		}()}, TypeId: tx.ProtoBlobTxTypeID}), false},
 	}
-	for _, tc := range envelopeCases(tb) {
+	envelope := envelopeCases(tb)
+	// Truncate a canonical BlobTx at every length.
+	canonical := cat(innerTx, blob(lenField(1, ns), lenField(2, data), varintField(3, 1), lenField(5, signer)), typeID)
+
+	cases := make([]noCopyCase, 0, len(fixed)+len(envelope)+len(canonical))
+	cases = append(cases, fixed...)
+	for _, tc := range envelope {
 		_, _, err := tx.UnmarshalBlobTx(tc.input)
 		cases = append(cases, noCopyCase{"envelope case " + tc.name, tc.input, err == nil})
 	}
-	// Truncate a canonical BlobTx at every length.
-	canonical := cat(innerTx, blob(lenField(1, ns), lenField(2, data), varintField(3, 1), lenField(5, signer)), typeID)
 	for i := range canonical {
 		cases = append(cases, noCopyCase{fmt.Sprintf("truncated to %d bytes", i), canonical[:i], false})
 	}
