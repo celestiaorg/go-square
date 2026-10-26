@@ -45,6 +45,7 @@ type Builder struct {
 	lastTxSizeChange            int
 	lastBlobTxSizeChange        int
 	lastPayForFibreTxSizeChange int
+	lastPayForFibreBlob         *Element
 	// track if a revert has already occurred to prevent multiple reverts
 	txReverted            bool
 	blobTxReverted        bool
@@ -82,10 +83,16 @@ func NewBuilder(maxSquareSize int, subtreeRootThreshold int, txs ...ClassifiedTx
 }
 
 // AppendTx attempts to allocate the transaction to the square. It returns false if there is not
-// enough space in the square to fit the transaction.
+// enough space in the square to fit the transaction or the transaction is empty.
 func (b *Builder) AppendTx(tx []byte) bool {
-	lenChange := b.TxCounter.Add(len(tx))
+	if len(tx) == 0 {
+		return false
+	}
+	// Count on a copy so a rejected append preserves the last accepted tx's undo state.
+	counter := *b.TxCounter
+	lenChange := counter.Add(len(tx))
 	if b.canFit(lenChange) {
+		*b.TxCounter = counter
 		b.Txs = append(b.Txs, tx)
 		b.currentSize += lenChange
 		b.lastTxSizeChange = lenChange
@@ -93,7 +100,6 @@ func (b *Builder) AppendTx(tx []byte) bool {
 		b.done = false
 		return true
 	}
-	b.TxCounter.Revert()
 	return false
 }
 
@@ -122,7 +128,8 @@ func (b *Builder) RevertLastTx() error {
 func (b *Builder) AppendBlobTx(blobTx *tx.BlobTx) (bool, error) {
 	iw := tx.NewIndexWrapper(blobTx.Tx, worstCaseShareIndexes(len(blobTx.Blobs))...)
 	size := proto.Size(iw)
-	pfbShareDiff := b.PfbCounter.Add(size)
+	counter := *b.PfbCounter
+	pfbShareDiff := counter.Add(size)
 
 	// create a new blob element for each blob and track the worst-case share count
 	blobElements := make([]*Element, len(blobTx.Blobs))
@@ -130,7 +137,6 @@ func (b *Builder) AppendBlobTx(blobTx *tx.BlobTx) (bool, error) {
 	for idx, blob := range blobTx.Blobs {
 		element, err := newElement(blob, len(b.Pfbs), idx, b.subtreeRootThreshold)
 		if err != nil {
-			b.PfbCounter.Revert()
 			return false, err
 		}
 		blobElements[idx] = element
@@ -139,6 +145,7 @@ func (b *Builder) AppendBlobTx(blobTx *tx.BlobTx) (bool, error) {
 
 	totalSizeChange := pfbShareDiff + maxBlobShareCount
 	if b.canFit(totalSizeChange) {
+		*b.PfbCounter = counter
 		b.Blobs = append(b.Blobs, blobElements...)
 		b.Pfbs = append(b.Pfbs, iw)
 		b.currentSize += totalSizeChange
@@ -147,7 +154,6 @@ func (b *Builder) AppendBlobTx(blobTx *tx.BlobTx) (bool, error) {
 		b.done = false
 		return true, nil
 	}
-	b.PfbCounter.Revert()
 	return false, nil
 }
 
@@ -188,6 +194,9 @@ func (b *Builder) AppendFibreTx(fibreTx *tx.FibreTx) (bool, error) {
 	if fibreTx == nil {
 		return false, errors.New("fibre tx must not be nil")
 	}
+	if len(fibreTx.Tx) == 0 {
+		return false, errors.New("fibre tx must have transaction bytes")
+	}
 	if fibreTx.SystemBlob == nil {
 		return false, errors.New("fibre tx must have a system blob")
 	}
@@ -195,26 +204,27 @@ func (b *Builder) AppendFibreTx(fibreTx *tx.FibreTx) (bool, error) {
 		return false, fmt.Errorf("system blobs must use ShareVersionTwo, got version %d", fibreTx.SystemBlob.ShareVersion())
 	}
 
-	pffShareDiff := b.PayForFibreCounter.Add(len(fibreTx.Tx))
+	counter := *b.PayForFibreCounter
+	pffShareDiff := counter.Add(len(fibreTx.Tx))
 
 	element, err := newElement(fibreTx.SystemBlob, NoPfbIndex, NoPfbIndex, b.subtreeRootThreshold)
 	if err != nil {
-		b.PayForFibreCounter.Revert()
 		return false, err
 	}
 	blobShareCount := element.maxShareOffset()
 
 	totalSizeChange := pffShareDiff + blobShareCount
 	if b.canFit(totalSizeChange) {
+		*b.PayForFibreCounter = counter
 		b.PayForFibreTxs = append(b.PayForFibreTxs, fibreTx.Tx)
 		b.Blobs = append(b.Blobs, element)
 		b.currentSize += totalSizeChange
 		b.lastPayForFibreTxSizeChange = totalSizeChange
+		b.lastPayForFibreBlob = element
 		b.payForFibreTxReverted = false
 		b.done = false
 		return true, nil
 	}
-	b.PayForFibreCounter.Revert()
 	return false, nil
 }
 
@@ -231,13 +241,14 @@ func (b *Builder) RevertLastPayForFibreTx() error {
 	}
 
 	b.PayForFibreTxs = b.PayForFibreTxs[:len(b.PayForFibreTxs)-1]
-	// Remove the last system blob (NoPfbIndex sentinel)
+	// Export sorts Blobs, so identify the last appended element by identity.
 	for i := len(b.Blobs) - 1; i >= 0; i-- {
-		if b.Blobs[i].PfbIndex == NoPfbIndex {
+		if b.Blobs[i] == b.lastPayForFibreBlob {
 			b.Blobs = append(b.Blobs[:i], b.Blobs[i+1:]...)
 			break
 		}
 	}
+	b.lastPayForFibreBlob = nil
 	b.PayForFibreCounter.Revert()
 	b.currentSize -= b.lastPayForFibreTxSizeChange
 	b.payForFibreTxReverted = true
