@@ -275,8 +275,8 @@ func WriteSquare(
 	copy(square, txShares)
 	copy(square[pfbStartIndex:], pfbShares)
 	copy(square[payForFibreStartIndex:], payForFibreShares)
+	copy(square[paddingStartIndex:], padding)
 	if blobWriter.Count() > 0 {
-		copy(square[paddingStartIndex:], padding)
 		copy(square[nonReservedStart:], blobWriter.Export())
 	}
 	if totalShares > endOfLastBlob {
