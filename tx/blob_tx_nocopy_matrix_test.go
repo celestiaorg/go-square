@@ -230,8 +230,16 @@ func TestUnmarshalBlobTxNoCopyNestedMutations(t *testing.T) {
 // fuzz input and then mutates it, so that most inputs get past the first
 // few bytes of the decoder.
 func FuzzUnmarshalBlobTxNoCopyStructured(f *testing.F) {
-	for i := range 32 {
-		f.Add(binary.LittleEndian.AppendUint64(nil, uint64(i)*0x9e3779b97f4a7c15))
+	// Each seed is long enough to make every generation and mutation
+	// decision: the reader returns zeros once the input runs out, which
+	// would give every short seed the same one-blob, unmutated tx.
+	for i := range 64 {
+		seed := make([]byte, 128)
+		rng := rand.New(rand.NewPCG(uint64(i), 0))
+		for j := range seed {
+			seed[j] = byte(rng.Uint32())
+		}
+		f.Add(seed)
 	}
 	f.Fuzz(func(t *testing.T, seed []byte) {
 		r := newFuzzReader(seed)
