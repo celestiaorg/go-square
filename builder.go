@@ -214,6 +214,9 @@ func (b *Builder) sizeBlobTx(blobTx *tx.BlobTx) (blobTxSizing, error) {
 		if blob == nil {
 			return blobTxSizing{}, fmt.Errorf("blob tx blob %d must not be nil", idx)
 		}
+		if blob.IsEmpty() {
+			return blobTxSizing{}, fmt.Errorf("blob tx blob %d must not be empty", idx)
+		}
 		element, err := newElement(blob, len(b.Pfbs), idx, b.subtreeRootThreshold)
 		if err != nil {
 			return blobTxSizing{}, err

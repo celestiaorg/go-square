@@ -273,6 +273,10 @@ func fitsAppendCases(t *testing.T) []fitsAppendCase {
 	require.NoError(t, err)
 	nilBlobTx := newBlobTx(t, ns, 10)
 	nilBlobTx.Blobs[0] = nil
+	emptyBlobTx := newBlobTx(t, ns, 10)
+	emptyBlobTx.Blobs[0] = &share.Blob{}
+	emptySecondBlobTx := newBlobTx(t, ns, 10, 10)
+	emptySecondBlobTx.Blobs[1] = &share.Blob{}
 	twoBlobsFit := newBlobTx(t, ns, share.AvailableBytesFromSparseShares(1), share.AvailableBytesFromSparseShares(1))
 	twoBlobsOver := newBlobTx(t, ns, share.AvailableBytesFromSparseShares(2)+1, share.AvailableBytesFromSparseShares(1))
 
@@ -296,6 +300,9 @@ func fitsAppendCases(t *testing.T) []fitsAppendCase {
 		blobCase("square full", fullSquare, newBlobTx(t, ns, 1), false, ""),
 		blobCase("nil blob tx", noop, nil, false, "must not be nil"),
 		blobCase("nil blob", noop, nilBlobTx, false, "must not be nil"),
+		blobCase("empty blob", noop, emptyBlobTx, false, "blob tx blob 0 must not be empty"),
+		blobCase("empty blob after valid blob", noop, emptySecondBlobTx, false, "blob tx blob 1 must not be empty"),
+		blobCase("empty blob on full square", fullSquare, emptyBlobTx, false, "blob tx blob 0 must not be empty"),
 
 		fibreCase("fits", noop, newFibreTx(t, ns), true, ""),
 		fibreCase("exact capacity", noop, fibreWithTx(newTx(share.AvailableBytesFromCompactShares(3))), true, ""),

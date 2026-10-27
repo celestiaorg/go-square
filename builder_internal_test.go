@@ -51,6 +51,12 @@ func TestBuilderFitsLeavesStateUnchanged(t *testing.T) {
 		{"blob tx fits", func(b *Builder) (bool, error) { return b.FitsBlobTx(blobTx([]byte("pfb"))) }},
 		{"blob tx too large", func(b *Builder) (bool, error) { return b.FitsBlobTx(blobTx(make([]byte, 100_000))) }},
 		{"blob tx nil", func(b *Builder) (bool, error) { return b.FitsBlobTx(nil) }},
+		{"blob tx empty blob", func(b *Builder) (bool, error) {
+			return b.FitsBlobTx(&tx.BlobTx{Tx: []byte("pfb"), Blobs: []*share.Blob{{}}})
+		}},
+		{"blob tx empty blob after valid blob", func(b *Builder) (bool, error) {
+			return b.FitsBlobTx(&tx.BlobTx{Tx: []byte("pfb"), Blobs: []*share.Blob{blob, {}}})
+		}},
 		{"fibre tx fits", func(b *Builder) (bool, error) { return b.FitsFibreTx(fibre([]byte("pff"))) }},
 		{"fibre tx too large", func(b *Builder) (bool, error) { return b.FitsFibreTx(fibre(make([]byte, 100_000))) }},
 		{"fibre tx invalid", func(b *Builder) (bool, error) { return b.FitsFibreTx(fibre(nil)) }},
