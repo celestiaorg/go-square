@@ -115,7 +115,11 @@ func populateBuilder(builder *Builder, txs []ClassifiedTx) error {
 			continue
 		}
 
-		if !builder.AppendTx(classified.Bytes) {
+		added, err := builder.appendTx(classified.Bytes)
+		if err != nil {
+			return fmt.Errorf("appending tx at index %d: %w", idx, err)
+		}
+		if !added {
 			return fmt.Errorf("not enough space to append tx at index %d", idx)
 		}
 	}

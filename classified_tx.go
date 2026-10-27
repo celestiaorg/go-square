@@ -79,7 +79,7 @@ func NewClassifiedBlobTx(txBytes []byte, blobTx *tx.BlobTx) (ClassifiedTx, error
 // Validate returns an error if the classification is not self-consistent.
 func (c ClassifiedTx) Validate() error {
 	if len(c.Bytes) == 0 {
-		return errors.New("classified tx has no bytes")
+		return fmt.Errorf("classified tx has no bytes: %w", ErrEmptyTx)
 	}
 	if c.BlobTx != nil {
 		if c.FibreTx != nil {
