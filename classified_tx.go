@@ -79,7 +79,7 @@ func NewClassifiedBlobTx(txBytes []byte, blobTx *tx.BlobTx) (ClassifiedTx, error
 // Validate returns an error if the classification is not self-consistent.
 func (c ClassifiedTx) Validate() error {
 	if len(c.Bytes) == 0 {
-		return fmt.Errorf("classified tx has no bytes: %w", ErrEmptyTx)
+		return errors.New("classified tx has no bytes")
 	}
 	if c.BlobTx != nil {
 		if c.FibreTx != nil {
@@ -134,6 +134,27 @@ func (c ClassifiedTx) validateBlobTx() error {
 		}
 	}
 	return nil
+}
+
+// decode validates c and returns what the builder appends for it: the fibre
+// tx for a MsgPayForFibre transaction, the decoded blob tx for a blob
+// transaction, or neither for a normal transaction. populateBuilder and
+// Builder.Fits share it so that they cannot disagree on a transaction's kind.
+func (c ClassifiedTx) decode() (*tx.FibreTx, *tx.BlobTx, error) {
+	if err := c.Validate(); err != nil {
+		return nil, nil, err
+	}
+	if c.FibreTx != nil {
+		return c.FibreTx, nil, nil
+	}
+	blobTx, isBlobTx, err := c.blobTx()
+	if !isBlobTx {
+		return nil, nil, nil
+	}
+	if err != nil {
+		return nil, nil, fmt.Errorf("unmarshalling blob tx: %w", err)
+	}
+	return nil, blobTx, nil
 }
 
 // blobTx returns the decoded blob tx for c, using the caller's pre-decoded
