@@ -243,9 +243,14 @@ make help
 # Run tests
 make test
 
+# Run all fuzz targets (30 seconds each)
+make fuzz
+
 # Run linter
 make lint
 
 # Perform benchmarking
 make benchmark
 ```
+
+See [FUZZING.md](FUZZING.md) for the coverage inventory, nightly CI, and crash triage instructions.
