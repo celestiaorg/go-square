@@ -46,10 +46,10 @@ benchmark:
 	@go test -mod=readonly -bench=. ./...
 .PHONY: benchmark
 
-## fuzz: Run each fuzz test for 30 seconds. Not run in CI.
+FUZZTIME ?= 30s
+FUZZ_PACKAGE ?= ./...
+
+## fuzz: Run all discovered fuzz targets (override FUZZTIME and FUZZ_PACKAGE as needed).
 fuzz:
-	@echo "--> Fuzzing share encoders"
-	@for target in FuzzTxRoundTrip FuzzBlobRoundTrip FuzzSharesNeeded; do \
-		go test -mod=readonly ./share -run '^$$' -fuzz "^$$target$$" -fuzztime 30s || exit 1; \
-	done
+	@FUZZTIME="$(FUZZTIME)" bash scripts/fuzz.sh "$(FUZZ_PACKAGE)"
 .PHONY: fuzz

@@ -241,6 +241,13 @@ func generateValidSequence(t *testing.T) Sequence {
 }
 
 func FuzzValidSequenceLen(f *testing.F) {
+	f.Add(make([]byte, ShareSize), TxNamespace.Bytes())
+	f.Add([]byte{0}, []byte{})
+	blob, err := NewV0Blob(MustNewV0Namespace([]byte{1, 0}), []byte("blob"))
+	require.NoError(f, err)
+	shares, err := blob.ToShares()
+	require.NoError(f, err)
+	f.Add(shares[0].ToBytes(), blob.Namespace().Bytes())
 	f.Fuzz(func(t *testing.T, rawData []byte, rawNamespace []byte) {
 		share, err := NewShare(rawData)
 		if err != nil {
@@ -252,14 +259,17 @@ func FuzzValidSequenceLen(f *testing.F) {
 			t.Skip()
 		}
 
-		Sequence := Sequence{
+		sequence := Sequence{
 			Namespace: ns,
 			Shares:    []Share{share},
 		}
 
-		// want := fmt.Errorf("share sequence has 1 shares but needed 0 shares")
-		err = Sequence.validSequenceLen()
-		assert.NoError(t, err)
+		if err := sequence.validSequenceLen(); err != nil || sequence.isPadding() {
+			return // malformed sequences are expected to be rejected
+		}
+		data, err := sequence.RawData()
+		require.NoError(t, err)
+		require.Len(t, data, int(share.SequenceLen()))
 	})
 }
 
