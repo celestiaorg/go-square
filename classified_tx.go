@@ -26,7 +26,8 @@ type ClassifiedTx struct {
 	// BlobTx, when non-nil, is the decoded form of Bytes that the caller has
 	// already unmarshalled. It is an optimization only: leaving it nil makes
 	// the square decode Bytes itself, with identical results. Callers that set
-	// it are asserting that it is what tx.UnmarshalBlobTx(Bytes) returns --
+	// it are asserting that it is what tx.UnmarshalBlobTx(Bytes) returns, or
+	// equally tx.UnmarshalBlobTxNoCopy(Bytes), since the two agree --
 	// the same assertion Builder.AppendBlobTx already takes on its argument,
 	// so this grants no trust that the builder did not already grant, only
 	// through Construct as well.
@@ -101,7 +102,9 @@ func (c ClassifiedTx) Validate() error {
 	if got := c.FibreTx.SystemBlob.ShareVersion(); got != share.ShareVersionTwo {
 		return fmt.Errorf("system blobs must use share version %d, got %d", share.ShareVersionTwo, got)
 	}
-	if _, isBlobTx, _ := tx.UnmarshalBlobTx(c.Bytes); isBlobTx {
+	// HasBlobTxTypeID is UnmarshalBlobTx's isBlob verdict without decoding
+	// the blobs.
+	if tx.HasBlobTxTypeID(c.Bytes) {
 		return errors.New("tx classified as fibre is a blob tx")
 	}
 	return nil
@@ -162,11 +165,16 @@ func (c ClassifiedTx) decode() (*tx.FibreTx, *tx.BlobTx, error) {
 // tx.UnmarshalBlobTx: the second value reports whether Bytes is a blob tx at
 // all, and an error alongside it means it is one but could not be decoded.
 //
+// The fallback decodes with tx.UnmarshalBlobTxNoCopy, so the result aliases
+// Bytes rather than copying the inner tx and the blob data. Square
+// construction only reads the result and Bytes is the transaction exactly as
+// it appears in the block, which nothing modifies.
+//
 // Both square construction paths go through here so that the fallback cannot
 // drift between them.
 func (c ClassifiedTx) blobTx() (*tx.BlobTx, bool, error) {
 	if c.BlobTx != nil {
 		return c.BlobTx, true, nil
 	}
-	return tx.UnmarshalBlobTx(c.Bytes)
+	return tx.UnmarshalBlobTxNoCopy(c.Bytes)
 }
