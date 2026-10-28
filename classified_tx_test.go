@@ -1,6 +1,8 @@
 package square_test
 
 import (
+	"bytes"
+	"math/rand"
 	"testing"
 
 	square "github.com/celestiaorg/go-square/v4"
@@ -263,4 +265,32 @@ func TestNewClassifiedBlobTx(t *testing.T) {
 		_, err = square.NewClassifiedBlobTx(nested, &tx.BlobTx{Tx: blobTxBytes, Blobs: []*share.Blob{v0Blob}})
 		require.ErrorIs(t, err, tx.ErrNestedBlobTx)
 	})
+}
+
+// TestConstructLeavesTxBytesIntact pins the contract behind decoding a blob tx
+// without copying: the square only reads the decoded tx and blob data, which
+// alias ClassifiedTx.Bytes, so constructing a square leaves every input
+// transaction byte for byte as it was.
+func TestConstructLeavesTxBytesIntact(t *testing.T) {
+	rng := rand.New(rand.NewSource(11))
+	raws := [][]byte{
+		deterministicBlobTx(t, rng, 100, 500, 1000),
+		deterministicBlobTx(t, rng, 2000),
+		deterministicBlobTx(t, rng, 1),
+	}
+	classified := make([]square.ClassifiedTx, len(raws))
+	originals := make([][]byte, len(raws))
+	for i, raw := range raws {
+		classified[i] = square.NewClassifiedTx(raw)
+		originals[i] = bytes.Clone(raw)
+	}
+
+	sq, err := square.Construct(classified, 64, defaultSubtreeRootThreshold)
+	require.NoError(t, err)
+	require.NotEmpty(t, sq)
+
+	for i := range raws {
+		require.Equal(t, originals[i], raws[i], "tx %d was modified", i)
+		require.Equal(t, originals[i], classified[i].Bytes, "classified tx %d was modified", i)
+	}
 }

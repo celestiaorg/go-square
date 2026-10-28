@@ -26,8 +26,8 @@ func BenchmarkSquareConstruct(b *testing.B) {
 
 // BenchmarkConstructPreDecodedBlobTx measures what ClassifiedTx.BlobTx saves:
 // Construct unmarshals every blob tx twice, once to validate the ordering and
-// once to append it, and each unmarshal copies every blob. The "decoded" case
-// hands it the decode the caller already has.
+// once to append it, without copying the blobs. The "decoded" case hands it
+// the decode the caller already has.
 func BenchmarkConstructPreDecodedBlobTx(b *testing.B) {
 	const (
 		blobSize = 1024 * 1024
