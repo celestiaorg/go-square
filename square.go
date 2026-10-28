@@ -85,12 +85,13 @@ func Construct(txs []ClassifiedTx, maxSquareSize, subtreeRootThreshold int) (Squ
 // tx.
 func populateBuilder(builder *Builder, txs []ClassifiedTx) error {
 	for idx, classified := range txs {
-		if err := classified.Validate(); err != nil {
+		fibreTx, blobTx, err := classified.decode()
+		if err != nil {
 			return fmt.Errorf("classified tx at index %d: %w", idx, err)
 		}
 
-		if classified.FibreTx != nil {
-			added, err := builder.AppendFibreTx(classified.FibreTx)
+		if fibreTx != nil {
+			added, err := builder.AppendFibreTx(fibreTx)
 			if err != nil {
 				return fmt.Errorf("appending fibre tx at index %d: %w", idx, err)
 			}
@@ -100,11 +101,7 @@ func populateBuilder(builder *Builder, txs []ClassifiedTx) error {
 			continue
 		}
 
-		blobTx, isBlobTx, err := classified.blobTx()
-		if err != nil && isBlobTx {
-			return fmt.Errorf("unmarshalling blob tx at index %d: %w", idx, err)
-		}
-		if isBlobTx {
+		if blobTx != nil {
 			added, err := builder.AppendBlobTx(blobTx)
 			if err != nil {
 				return fmt.Errorf("appending blob tx at index %d: %w", idx, err)
@@ -115,11 +112,7 @@ func populateBuilder(builder *Builder, txs []ClassifiedTx) error {
 			continue
 		}
 
-		added, err := builder.appendTx(classified.Bytes)
-		if err != nil {
-			return fmt.Errorf("appending tx at index %d: %w", idx, err)
-		}
-		if !added {
+		if !builder.AppendTx(classified.Bytes) {
 			return fmt.Errorf("not enough space to append tx at index %d", idx)
 		}
 	}

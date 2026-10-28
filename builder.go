@@ -24,17 +24,6 @@ const (
 	NoPfbIndex = -1
 )
 
-// Builder accumulates transactions and produces a square with Export.
-//
-// Each transaction kind has a Fits method (FitsTx, FitsBlobTx, FitsFibreTx)
-// that reports whether the transaction would fit without changing the
-// builder, and an Append method (AppendTx, AppendBlobTx, AppendFibreTx) that
-// commits it. A caller that must run further checks before keeping a
-// transaction should call Fits, run the checks, and only then Append. The
-// RevertLast* methods undo the most recent Append of their kind; prefer the
-// Fits-then-Append pattern, which needs no undo state.
-//
-// Builder is not safe for concurrent use.
 type Builder struct {
 	// maxSquareSize is the maximum number of rows (or columns) in the original data square
 	maxSquareSize int
@@ -93,79 +82,75 @@ func NewBuilder(maxSquareSize int, subtreeRootThreshold int, txs ...ClassifiedTx
 	return builder, nil
 }
 
-// ErrEmptyTx is returned by FitsTx, and wrapped by ClassifiedTx.Validate and
-// so by Construct and NewBuilder, when a transaction has no bytes. An empty
-// transaction cannot be encoded: compact share parsing treats its zero-length
-// delimiter as padding.
-var ErrEmptyTx = errors.New("tx must not be empty")
-
-// txSizing is the result of sizing a normal transaction against the builder
-// without mutating it. counter is the TxCounter after the transaction is
-// counted and sizeChange is the number of shares the builder grows by.
-type txSizing struct {
+// sizing is what appending a transaction would do to the builder, computed
+// without changing it. counter is the updated compact share counter for the
+// transaction's kind, sizeChange is the number of shares the builder grows by,
+// and pfb and elements are the prepared PFB and blob elements, if any. Fits and
+// the Append methods share it so that their verdicts cannot drift.
+type sizing struct {
 	counter    share.CompactShareCounter
 	sizeChange int
+	pfb        *v4.IndexWrapper
+	elements   []*Element
 }
 
-// sizeTx computes everything AppendTx needs to commit a normal transaction
-// without mutating the builder. AppendTx and FitsTx share it so that their
-// verdicts cannot drift.
-func (b *Builder) sizeTx(tx []byte) (txSizing, error) {
-	if len(tx) == 0 {
-		return txSizing{}, ErrEmptyTx
+// Fits reports whether appending c would succeed, without changing the
+// builder. It returns an error if c is invalid, so a caller can tell an invalid
+// transaction apart from one that does not fit. A caller that must run further
+// checks before keeping a transaction should call Fits, run the checks, and
+// only then append it.
+func (b *Builder) Fits(c ClassifiedTx) (bool, error) {
+	fibreTx, blobTx, err := c.decode()
+	if err != nil {
+		return false, err
 	}
+	var s sizing
+	switch {
+	case fibreTx != nil:
+		s, err = b.sizeFibreTx(fibreTx)
+	case blobTx != nil:
+		s, err = b.sizeBlobTx(blobTx)
+	default:
+		s = b.sizeTx(c.Bytes)
+	}
+	if err != nil {
+		return false, err
+	}
+	return b.canFit(s.sizeChange), nil
+}
+
+func (b *Builder) sizeTx(tx []byte) sizing {
 	// Count on a copy so a rejected append preserves the last accepted tx's undo state.
 	counter := *b.TxCounter
 	sizeChange := counter.Add(len(tx))
-	return txSizing{counter: counter, sizeChange: sizeChange}, nil
+	return sizing{counter: counter, sizeChange: sizeChange}
 }
 
-// FitsTx reports whether AppendTx would accept tx, without mutating the
-// builder. It returns an error if tx is invalid (empty), which AppendTx
-// reports indistinguishably from "does not fit".
-func (b *Builder) FitsTx(tx []byte) (bool, error) {
-	sizing, err := b.sizeTx(tx)
-	if err != nil {
-		return false, err
-	}
-	return b.canFit(sizing.sizeChange), nil
-}
-
-// AppendTx attempts to allocate the transaction to the square. It returns
-// false if there is not enough space in the square to fit the transaction.
-// An empty transaction is invalid and is also rejected with false; call
-// FitsTx first to tell the two cases apart.
+// AppendTx attempts to allocate the transaction to the square. It returns false if there is not
+// enough space in the square to fit the transaction or the transaction is empty.
 func (b *Builder) AppendTx(tx []byte) bool {
-	added, _ := b.appendTx(tx)
-	return added
-}
-
-// appendTx is AppendTx with the reason for an invalid transaction preserved.
-func (b *Builder) appendTx(tx []byte) (bool, error) {
-	sizing, err := b.sizeTx(tx)
-	if err != nil {
-		return false, err
+	if len(tx) == 0 {
+		return false
 	}
-	if !b.canFit(sizing.sizeChange) {
-		return false, nil
+	s := b.sizeTx(tx)
+	if !b.canFit(s.sizeChange) {
+		return false
 	}
-	*b.TxCounter = sizing.counter
+	*b.TxCounter = s.counter
 	b.Txs = append(b.Txs, tx)
-	b.currentSize += sizing.sizeChange
-	b.lastTxSizeChange = sizing.sizeChange
+	b.currentSize += s.sizeChange
+	b.lastTxSizeChange = s.sizeChange
 	b.txReverted = false // reset revert flag
 	b.done = false
-	return true, nil
+	return true
 }
 
 // RevertLastTx reverts the last transaction that was appended to the builder.
 // It returns an error if there are no transactions to revert or if this method
 // has been called consecutively without adding a tx in between calls.
 //
-// Deprecated: use FitsTx before AppendTx instead, and only append a
-// transaction once it is known to be wanted. Checking first needs no undo
-// state, so a builder driven that way cannot be corrupted by a mismatched
-// revert.
+// Deprecated: call Fits before appending instead, and only append a
+// transaction once it is known to be wanted. It will be removed in v5.
 func (b *Builder) RevertLastTx() error {
 	if len(b.Txs) == 0 {
 		return errors.New("no transactions to revert")
@@ -183,25 +168,7 @@ func (b *Builder) RevertLastTx() error {
 	return nil
 }
 
-// blobTxSizing is the result of sizing a blob transaction against the builder
-// without mutating it. counter is the PfbCounter after the wrapped PFB is
-// counted, sizeChange is the number of shares the builder grows by, and
-// indexWrapper and elements are the prepared PFB and blob elements that
-// AppendBlobTx commits.
-type blobTxSizing struct {
-	counter      share.CompactShareCounter
-	sizeChange   int
-	indexWrapper *v4.IndexWrapper
-	elements     []*Element
-}
-
-// sizeBlobTx computes everything AppendBlobTx needs to commit a blob
-// transaction without mutating the builder. AppendBlobTx and FitsBlobTx share
-// it so that their verdicts cannot drift.
-func (b *Builder) sizeBlobTx(blobTx *tx.BlobTx) (blobTxSizing, error) {
-	if blobTx == nil {
-		return blobTxSizing{}, errors.New("blob tx must not be nil")
-	}
+func (b *Builder) sizeBlobTx(blobTx *tx.BlobTx) (sizing, error) {
 	iw := tx.NewIndexWrapper(blobTx.Tx, worstCaseShareIndexes(len(blobTx.Blobs))...)
 	size := proto.Size(iw)
 	counter := *b.PfbCounter
@@ -211,53 +178,32 @@ func (b *Builder) sizeBlobTx(blobTx *tx.BlobTx) (blobTxSizing, error) {
 	blobElements := make([]*Element, len(blobTx.Blobs))
 	maxBlobShareCount := 0
 	for idx, blob := range blobTx.Blobs {
-		if blob == nil {
-			return blobTxSizing{}, fmt.Errorf("blob tx blob %d must not be nil", idx)
-		}
-		if blob.IsEmpty() {
-			return blobTxSizing{}, fmt.Errorf("blob tx blob %d must not be empty", idx)
-		}
 		element, err := newElement(blob, len(b.Pfbs), idx, b.subtreeRootThreshold)
 		if err != nil {
-			return blobTxSizing{}, err
+			return sizing{}, err
 		}
 		blobElements[idx] = element
 		maxBlobShareCount += blobElements[idx].maxShareOffset()
 	}
 
-	return blobTxSizing{
-		counter:      counter,
-		sizeChange:   pfbShareDiff + maxBlobShareCount,
-		indexWrapper: iw,
-		elements:     blobElements,
-	}, nil
-}
-
-// FitsBlobTx reports whether AppendBlobTx would accept blobTx, without
-// mutating the builder. It returns an error if blobTx is invalid.
-func (b *Builder) FitsBlobTx(blobTx *tx.BlobTx) (bool, error) {
-	sizing, err := b.sizeBlobTx(blobTx)
-	if err != nil {
-		return false, err
-	}
-	return b.canFit(sizing.sizeChange), nil
+	return sizing{counter: counter, sizeChange: pfbShareDiff + maxBlobShareCount, pfb: iw, elements: blobElements}, nil
 }
 
 // AppendBlobTx attempts to allocate the blob transaction to the square. It returns false if there is not
-// enough space in the square to fit the transaction and an error if the transaction is invalid.
+// enough space in the square to fit the transaction.
 func (b *Builder) AppendBlobTx(blobTx *tx.BlobTx) (bool, error) {
-	sizing, err := b.sizeBlobTx(blobTx)
+	s, err := b.sizeBlobTx(blobTx)
 	if err != nil {
 		return false, err
 	}
-	if !b.canFit(sizing.sizeChange) {
+	if !b.canFit(s.sizeChange) {
 		return false, nil
 	}
-	*b.PfbCounter = sizing.counter
-	b.Blobs = append(b.Blobs, sizing.elements...)
-	b.Pfbs = append(b.Pfbs, sizing.indexWrapper)
-	b.currentSize += sizing.sizeChange
-	b.lastBlobTxSizeChange = sizing.sizeChange
+	*b.PfbCounter = s.counter
+	b.Blobs = append(b.Blobs, s.elements...)
+	b.Pfbs = append(b.Pfbs, s.pfb)
+	b.currentSize += s.sizeChange
+	b.lastBlobTxSizeChange = s.sizeChange
 	b.blobTxReverted = false // reset revert flag
 	b.done = false
 	return true, nil
@@ -267,7 +213,7 @@ func (b *Builder) AppendBlobTx(blobTx *tx.BlobTx) (bool, error) {
 // It returns an error if there are no blob transactions to revert or if this method
 // has been called consecutively without adding a tx in between calls.
 //
-// Deprecated: use FitsBlobTx before AppendBlobTx instead; see RevertLastTx.
+// Deprecated: call Fits before AppendBlobTx instead; see RevertLastTx.
 func (b *Builder) RevertLastBlobTx() error {
 	if len(b.Pfbs) == 0 {
 		return errors.New("no blob transactions to revert")
@@ -295,81 +241,51 @@ func (b *Builder) RevertLastBlobTx() error {
 	return nil
 }
 
-// fibreTxSizing is the result of sizing a fibre transaction against the
-// builder without mutating it. counter is the PayForFibreCounter after the
-// transaction is counted, sizeChange is the number of shares the builder grows
-// by, and element is the prepared system blob element that AppendFibreTx
-// commits.
-type fibreTxSizing struct {
-	counter    share.CompactShareCounter
-	sizeChange int
-	element    *Element
-}
-
-// sizeFibreTx computes everything AppendFibreTx needs to commit a fibre
-// transaction without mutating the builder. AppendFibreTx and FitsFibreTx
-// share it so that their verdicts cannot drift.
-func (b *Builder) sizeFibreTx(fibreTx *tx.FibreTx) (fibreTxSizing, error) {
+// AppendFibreTx attempts to allocate a FibreTx to the square. It atomically
+// adds the raw SDK tx bytes to PayForFibreTxs (compact shares) and the system
+// blob to Blobs (sparse shares). It returns false if there is not enough space.
+func (b *Builder) AppendFibreTx(fibreTx *tx.FibreTx) (bool, error) {
 	if fibreTx == nil {
-		return fibreTxSizing{}, errors.New("fibre tx must not be nil")
+		return false, errors.New("fibre tx must not be nil")
 	}
 	if len(fibreTx.Tx) == 0 {
-		return fibreTxSizing{}, errors.New("fibre tx must have transaction bytes")
+		return false, errors.New("fibre tx must have transaction bytes")
 	}
 	if fibreTx.SystemBlob == nil {
-		return fibreTxSizing{}, errors.New("fibre tx must have a system blob")
+		return false, errors.New("fibre tx must have a system blob")
 	}
 	if fibreTx.SystemBlob.ShareVersion() != share.ShareVersionTwo {
-		return fibreTxSizing{}, fmt.Errorf("system blobs must use ShareVersionTwo, got version %d", fibreTx.SystemBlob.ShareVersion())
+		return false, fmt.Errorf("system blobs must use ShareVersionTwo, got version %d", fibreTx.SystemBlob.ShareVersion())
 	}
 
+	s, err := b.sizeFibreTx(fibreTx)
+	if err != nil {
+		return false, err
+	}
+	if !b.canFit(s.sizeChange) {
+		return false, nil
+	}
+	element := s.elements[0]
+	*b.PayForFibreCounter = s.counter
+	b.PayForFibreTxs = append(b.PayForFibreTxs, fibreTx.Tx)
+	b.Blobs = append(b.Blobs, element)
+	b.currentSize += s.sizeChange
+	b.lastPayForFibreTxSizeChange = s.sizeChange
+	b.lastPayForFibreBlob = element
+	b.payForFibreTxReverted = false
+	b.done = false
+	return true, nil
+}
+
+func (b *Builder) sizeFibreTx(fibreTx *tx.FibreTx) (sizing, error) {
 	counter := *b.PayForFibreCounter
 	pffShareDiff := counter.Add(len(fibreTx.Tx))
 
 	element, err := newElement(fibreTx.SystemBlob, NoPfbIndex, NoPfbIndex, b.subtreeRootThreshold)
 	if err != nil {
-		return fibreTxSizing{}, err
+		return sizing{}, err
 	}
-	blobShareCount := element.maxShareOffset()
-
-	return fibreTxSizing{
-		counter:    counter,
-		sizeChange: pffShareDiff + blobShareCount,
-		element:    element,
-	}, nil
-}
-
-// FitsFibreTx reports whether AppendFibreTx would accept fibreTx, without
-// mutating the builder. It returns an error if fibreTx is invalid.
-func (b *Builder) FitsFibreTx(fibreTx *tx.FibreTx) (bool, error) {
-	sizing, err := b.sizeFibreTx(fibreTx)
-	if err != nil {
-		return false, err
-	}
-	return b.canFit(sizing.sizeChange), nil
-}
-
-// AppendFibreTx attempts to allocate a FibreTx to the square. It atomically
-// adds the raw SDK tx bytes to PayForFibreTxs (compact shares) and the system
-// blob to Blobs (sparse shares). It returns false if there is not enough space
-// and an error if the transaction is invalid.
-func (b *Builder) AppendFibreTx(fibreTx *tx.FibreTx) (bool, error) {
-	sizing, err := b.sizeFibreTx(fibreTx)
-	if err != nil {
-		return false, err
-	}
-	if !b.canFit(sizing.sizeChange) {
-		return false, nil
-	}
-	*b.PayForFibreCounter = sizing.counter
-	b.PayForFibreTxs = append(b.PayForFibreTxs, fibreTx.Tx)
-	b.Blobs = append(b.Blobs, sizing.element)
-	b.currentSize += sizing.sizeChange
-	b.lastPayForFibreTxSizeChange = sizing.sizeChange
-	b.lastPayForFibreBlob = sizing.element
-	b.payForFibreTxReverted = false
-	b.done = false
-	return true, nil
+	return sizing{counter: counter, sizeChange: pffShareDiff + element.maxShareOffset(), elements: []*Element{element}}, nil
 }
 
 // RevertLastPayForFibreTx reverts the last pay-for-fibre transaction that was appended to the builder.
@@ -377,7 +293,7 @@ func (b *Builder) AppendFibreTx(fibreTx *tx.FibreTx) (bool, error) {
 // It returns an error if there are no pay-for-fibre transactions to revert or if this method
 // has been called consecutively without adding a tx in between calls.
 //
-// Deprecated: use FitsFibreTx before AppendFibreTx instead; see RevertLastTx.
+// Deprecated: call Fits before AppendFibreTx instead; see RevertLastTx.
 func (b *Builder) RevertLastPayForFibreTx() error {
 	if len(b.PayForFibreTxs) == 0 {
 		return errors.New("no pay-for-fibre transactions to revert")

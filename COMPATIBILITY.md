@@ -50,14 +50,7 @@ The deprecated `Build` is also removed. Use `NewBuilder` with `AppendTx`,
 ### Builder revert methods
 
 `Builder.RevertLastTx`, `Builder.RevertLastBlobTx`, and
-`Builder.RevertLastPayForFibreTx` are deprecated. They still work, but the
-append-then-revert pattern they support keeps undo state in the builder that a
-mismatched revert can corrupt. Use `FitsTx`, `FitsBlobTx`, and `FitsFibreTx`
-instead: they report whether a transaction would fit without changing the
-builder, so a caller can run its own checks first and append only transactions
-it will keep.
-
-The `Fits` methods also return an error for an invalid transaction (for
-example, empty bytes, reported as `ErrEmptyTx`), which `AppendTx` cannot
-distinguish from a transaction that does not fit because it returns only a
-boolean.
+`Builder.RevertLastPayForFibreTx` are deprecated and will be removed in v5. Use
+`Builder.Fits` instead: it reports whether a `ClassifiedTx` would fit without
+changing the builder, and returns an error for an invalid one, so a caller can
+run its own checks first and append only transactions it will keep.
