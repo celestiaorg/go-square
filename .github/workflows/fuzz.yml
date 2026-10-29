@@ -34,7 +34,7 @@ jobs:
         id: cache
         run: echo "path=$(go env GOCACHE)/fuzz" >> "$GITHUB_OUTPUT"
       - name: Restore fuzz corpus
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ${{ steps.cache.outputs.path }}
           key: fuzz-${{ runner.os }}-${{ matrix.name }}-${{ github.run_id }}
