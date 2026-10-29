@@ -65,13 +65,11 @@ func TestUnmarshalBlobTxNoCopyLengthBoundaries(t *testing.T) {
 func TestUnmarshalBlobTxNoCopyFieldSizeBoundaries(t *testing.T) {
 	v2DataLen := share.FibreBlobVersionSize + share.FibreCommitmentSize
 	data := bytes.Repeat([]byte{7}, v2DataLen+1)
-	accepted := 0
-	check := func(name string, b []byte) {
+	check := func(name string, b []byte, valid bool) {
 		t.Run(name, func(t *testing.T) {
 			requireSameAsUnmarshalBlobTx(t, b)
-			if _, _, err := tx.UnmarshalBlobTx(b); err == nil {
-				accepted++
-			}
+			_, _, err := tx.UnmarshalBlobTxNoCopy(b)
+			require.Equal(t, valid, err == nil)
 		})
 	}
 	nsID := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, 10)).ID()
@@ -79,27 +77,32 @@ func TestUnmarshalBlobTxNoCopyFieldSizeBoundaries(t *testing.T) {
 		ns := bytes.Repeat([]byte{0}, nsLen)
 		copy(ns, nsID)
 		check(fmt.Sprintf("namespace id length %d", nsLen),
-			encodeFields(blobTxFields(nil, blobFields(ns, data[:v2DataLen], 0, 0, nil))))
+			encodeFields(blobTxFields(nil, blobFields(ns, data[:v2DataLen], 0, 0, nil))), nsLen == share.NamespaceIDSize)
 	}
 	for _, shareVersion := range []uint64{0, 1, 2} {
 		for _, signerLen := range []int{0, 1, share.SignerSize - 1, share.SignerSize, share.SignerSize + 1} {
 			signer := bytes.Repeat([]byte{9}, signerLen)
 			check(fmt.Sprintf("share version %d signer length %d", shareVersion, signerLen),
-				encodeFields(blobTxFields(nil, blobFields(nsID, data[:v2DataLen], shareVersion, 0, signer))))
+				encodeFields(blobTxFields(nil, blobFields(nsID, data[:v2DataLen], shareVersion, 0, signer))),
+				shareVersion == 0 && signerLen == 0 || shareVersion != 0 && signerLen == share.SignerSize)
 		}
-		for _, dataLen := range []int{1, v2DataLen - 1, v2DataLen, v2DataLen + 1} {
+		var signer []byte
+		if shareVersion != 0 {
+			signer = bytes.Repeat([]byte{9}, share.SignerSize)
+		}
+		for _, dataLen := range []int{0, 1, v2DataLen - 1, v2DataLen, v2DataLen + 1} {
 			check(fmt.Sprintf("share version %d data length %d", shareVersion, dataLen),
-				encodeFields(blobTxFields(nil, blobFields(nsID, data[:dataLen], shareVersion, 0, bytes.Repeat([]byte{9}, share.SignerSize)))))
+				encodeFields(blobTxFields(nil, blobFields(nsID, data[:dataLen], shareVersion, 0, signer))),
+				dataLen > 0 && (shareVersion != 2 || dataLen == v2DataLen))
 		}
 	}
-	require.Positive(t, accepted)
 }
 
 func TestUnmarshalBlobTxNoCopyIntegerLimits(t *testing.T) {
 	ns := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, 10)).ID()
 	signer := bytes.Repeat([]byte{9}, share.SignerSize)
 	values := []uint64{
-		0, 1, 2, 3, 127, 128, 255, 256,
+		0, 1, 2, 3, 127, 128, 255, 256, 16383, 16384,
 		math.MaxUint32 - 1, math.MaxUint32, math.MaxUint32 + 1, 1<<32 | 1, 1<<32 | 2,
 		math.MaxInt64, 1 << 63, math.MaxUint64,
 	}
@@ -128,22 +131,67 @@ func TestUnmarshalBlobTxNoCopyIntegerLimits(t *testing.T) {
 				requireSameAsUnmarshalBlobTx(t, encodeFields(blobTxFields(nil, tc.fields)))
 			})
 		}
-		// Length prefixes that claim v bytes.
-		for _, field := range []struct {
-			name string
-			num  protowire.Number
-		}{{"tx length", 1}, {"blob length", 2}} {
-			t.Run(fmt.Sprintf("%s %d", field.name, v), func(t *testing.T) {
-				b := protowire.AppendTag(nil, field.num, protowire.BytesType)
-				b = append(append(b, varint...), "data"...)
-				requireSameAsUnmarshalBlobTx(t, b)
-			})
+	}
+}
+
+// Reach each length prefix with a valid preceding message, including fields
+// inside a blob. Rebuild the enclosing blob length after changing its contents.
+func TestUnmarshalBlobTxNoCopyLengthPrefixLimits(t *testing.T) {
+	ns := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, 10)).ID()
+	blob := blobFields(ns, []byte("data"), 1, 0, bytes.Repeat([]byte{9}, share.SignerSize))
+	wrapper := blobTxFields([]byte("inner tx"), blob)
+	type lengthPrefix struct {
+		name string
+		b    []byte
+	}
+	values := []uint64{
+		0, 1, 2, 3, 127, 128, 255, 256, 16383, 16384,
+		math.MaxUint32 - 1, math.MaxUint32, math.MaxUint32 + 1, 1<<32 | 1, 1<<32 | 2,
+		math.MaxInt64, 1 << 63, math.MaxUint64,
+	}
+	prefixes := make([]lengthPrefix, 0, len(values)+3)
+	prefixes = append(prefixes,
+		lengthPrefix{"truncated", []byte{0x80}},
+		lengthPrefix{"overflow", append(bytes.Repeat([]byte{0xff}, 9), 2)},
+		lengthPrefix{"unterminated", bytes.Repeat([]byte{0x80}, 10)},
+	)
+	for _, v := range values {
+		prefixes = append(prefixes, lengthPrefix{fmt.Sprint(v), protowire.AppendVarint(nil, v)})
+	}
+	for _, message := range []struct {
+		name   string
+		fields []rawField
+		wrap   bool
+	}{{"wrapper", wrapper, false}, {"blob", blob, true}} {
+		for i, field := range message.fields {
+			num, typ, _ := protowire.ConsumeTag(field.tag)
+			if typ != protowire.BytesType {
+				continue
+			}
+			payload, n := protowire.ConsumeBytes(field.value)
+			require.Positive(t, n)
+			for _, prefix := range prefixes {
+				t.Run(fmt.Sprintf("%s field %d/%s", message.name, num, prefix.name), func(t *testing.T) {
+					fields := slices.Clone(message.fields)
+					fields[i].value = append(bytes.Clone(prefix.b), payload...)
+					if prefix.name == "truncated" {
+						// End this message in the middle of the length varint.
+						fields = fields[:i+1]
+						fields[i].value = bytes.Clone(prefix.b)
+					}
+					if message.wrap {
+						fields = blobTxFields([]byte("inner tx"), fields)
+					}
+					requireSameAsUnmarshalBlobTx(t, encodeFields(fields))
+				})
+			}
 		}
 	}
 }
 
 // TestUnmarshalBlobTxNoCopyFieldMutations applies every single field
-// mutation, and every pair of them, to valid BlobTxs.
+// mutation, and every pair of them, to BlobTxs. An explicit zero namespace
+// version is non-canonical but lets us mutate field 4, which valid blobs omit.
 func TestUnmarshalBlobTxNoCopyFieldMutations(t *testing.T) {
 	ns0 := share.MustNewV0Namespace(bytes.Repeat([]byte{1}, 10)).ID()
 	ns1 := share.MustNewV0Namespace(bytes.Repeat([]byte{2}, 10)).ID()
@@ -153,16 +201,21 @@ func TestUnmarshalBlobTxNoCopyFieldMutations(t *testing.T) {
 		name   string
 		fields []rawField
 		pairs  bool
+		valid  bool
 	}{
 		{"tx with v0 and v1 blobs", blobTxFields([]byte("inner tx"),
 			blobFields(ns0, []byte("blob zero"), 0, 0, nil),
-			blobFields(ns1, []byte("blob one"), 1, 0, signer)), true},
-		{"v2 blob without tx", blobTxFields(nil, blobFields(ns0, v2Data, 2, 0, signer)), false},
+			blobFields(ns1, []byte("blob one"), 1, 0, signer)), true, true},
+		{"v2 blob without tx", blobTxFields(nil, blobFields(ns0, v2Data, 2, 0, signer)), false, true},
+		{"explicit zero namespace version", blobTxFields([]byte("inner tx"), []rawField{
+			bytesField(1, ns0), bytesField(2, []byte("data")), varintField(3, 1),
+			varintField(4, 0), bytesField(5, signer),
+		}), true, false},
 	}
 	for _, base := range bases {
 		t.Run(base.name, func(t *testing.T) {
 			_, _, err := tx.UnmarshalBlobTxNoCopy(encodeFields(base.fields))
-			require.NoError(t, err)
+			require.Equal(t, base.valid, err == nil)
 			mutations := blobTxMutations(base.fields)
 			accepted := 0
 			apply := func(ms ...mutation) {
@@ -196,7 +249,8 @@ func TestUnmarshalBlobTxNoCopyFieldMutations(t *testing.T) {
 					}
 				}
 			}
-			// Some mutations keep the tx valid, such as swapping two blobs.
+			// Some mutations produce valid txs, such as swapping two blobs
+			// or dropping the explicit zero namespace version.
 			require.Positive(t, accepted)
 		})
 	}
@@ -230,9 +284,10 @@ func TestUnmarshalBlobTxNoCopyNestedMutations(t *testing.T) {
 // fuzz input and then mutates it, so that most inputs get past the first
 // few bytes of the decoder.
 func FuzzUnmarshalBlobTxNoCopyStructured(f *testing.F) {
+	f.Add([]byte{})
 	// Each seed is long enough to make every generation and mutation
 	// decision: the reader returns zeros once the input runs out, which
-	// would give every short seed the same one-blob, unmutated tx.
+	// would give every short seed the same one-blob tx and mutation.
 	for i := range 64 {
 		seed := make([]byte, 128)
 		rng := rand.New(rand.NewPCG(uint64(i), 0))
@@ -249,11 +304,68 @@ func FuzzUnmarshalBlobTxNoCopyStructured(f *testing.F) {
 		require.True(t, isBlob)
 		require.NotNil(t, got)
 		requireSameAsUnmarshalBlobTx(t, b)
-		for range r.intn(4) {
+		requireBlobTxAliasesFields(t, b, got)
+		for range 1 + r.intn(3) {
 			b = mutateBytes(b, r)
 			requireSameAsUnmarshalBlobTx(t, b)
 		}
 	})
+}
+
+func TestUnmarshalBlobTxNoCopyAliasesRepeatedContents(t *testing.T) {
+	blob := v1Blob(t, 100)
+	b := marshalBlobTx(t, blob.Data(), blob, blob)
+	got, isBlob, err := tx.UnmarshalBlobTxNoCopy(b)
+	require.NoError(t, err)
+	require.True(t, isBlob)
+	requireSameAsUnmarshalBlobTx(t, b)
+	requireBlobTxAliasesFields(t, b, got)
+}
+
+// Compare addresses at the actual wire offsets, rather than searching for
+// matching contents: equal byte sequences in different blobs must not hide a
+// decoder returning the wrong slice. Checking capacity also catches appends
+// that could overwrite the next field.
+func requireBlobTxAliasesFields(t *testing.T, b []byte, got *tx.BlobTx) {
+	t.Helper()
+	check := func(wire, decoded []byte) {
+		t.Helper()
+		require.Len(t, decoded, len(wire))
+		require.NotEmpty(t, wire)
+		require.Same(t, &wire[0], &decoded[0])
+		require.Equal(t, len(decoded), cap(decoded))
+	}
+	fields, ok := splitFields(b)
+	require.True(t, ok)
+	blobIndex := 0
+	for _, field := range fields {
+		num, _, _ := protowire.ConsumeTag(field.tag)
+		payload, n := protowire.ConsumeBytes(field.value)
+		require.Positive(t, n)
+		switch num {
+		case 1:
+			check(payload, got.Tx)
+		case 2:
+			require.Less(t, blobIndex, len(got.Blobs))
+			blob := got.Blobs[blobIndex]
+			blobIndex++
+			blobFields, ok := splitFields(payload)
+			require.True(t, ok)
+			for _, blobField := range blobFields {
+				num, _, _ := protowire.ConsumeTag(blobField.tag)
+				if num == 2 || num == 5 {
+					value, n := protowire.ConsumeBytes(blobField.value)
+					require.Positive(t, n)
+					if num == 2 {
+						check(value, blob.Data())
+					} else {
+						check(value, blob.Signer())
+					}
+				}
+			}
+		}
+	}
+	require.Len(t, got.Blobs, blobIndex)
 }
 
 // rawField is one encoded protobuf field: its tag and the bytes after it.
