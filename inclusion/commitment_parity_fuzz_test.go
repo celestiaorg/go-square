@@ -60,7 +60,7 @@ func fuzzSpecBlobs(t *testing.T, spec, data []byte) []*share.Blob {
 // worker count.
 func FuzzCommitmentParity(f *testing.F) {
 	spec := func(sizes ...uint16) []byte {
-		var out []byte
+		out := make([]byte, 0, 3*len(sizes))
 		for i, size := range sizes {
 			out = append(out, byte(i*5), byte(size), byte(size>>8))
 		}
