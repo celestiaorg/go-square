@@ -17,7 +17,8 @@ failed=0
 packages=$(go list -mod=readonly "${1:-./...}")
 for package in $packages; do
   targets=$(go test -mod=readonly "$package" -list '^Fuzz')
-  dir=./$(realpath --relative-to="$PWD" "$(go list -mod=readonly -f '{{.Dir}}' "$package")")
+  abs=$(go list -mod=readonly -f '{{.Dir}}' "$package")
+  dir=".${abs#"$PWD"}"
   while IFS= read -r target; do
     case "$target" in
       Fuzz*)
