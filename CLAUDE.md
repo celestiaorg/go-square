@@ -56,6 +56,7 @@ Transactions/blobs → `Builder` splits into compact/sparse shares → shares as
   - `[low]`: Focused review for straightforward docs, tests, or tooling changes with low risk.
 - Use the higher level when unsure and reassess if scope changes.
 - Include the title's review tag in the description with a brief reason, e.g. `Review level: [low] — documentation only.`
+- When you open a PR, assign it to the engineer you are working for (their GitHub login, e.g. from the GitHub `get_me` tool).
 
 ### Security PRs
 
