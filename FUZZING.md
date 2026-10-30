@@ -15,14 +15,21 @@ go test -mod=readonly ./share -run '^$' -fuzz '^FuzzParseShares$' -fuzztime 5m
 ```
 
 `scripts/fuzz.sh` discovers targets with `go test -list`, runs them sequentially,
-and stops on the first failure. Each target defaults to 30 seconds and two
-workers (`FUZZ_PARALLEL` overrides the worker count).
+and keeps going after a failure, exiting non-zero if any target failed. When
+`FUZZ_LOG_DIR` is set, each target's output goes to `FUZZ_LOG_DIR/<target>.log`
+instead of stdout and `FUZZ_LOG_DIR/failed.txt` lists the failing targets. Each
+target defaults to 30 seconds and two workers (`FUZZ_PARALLEL` overrides the
+worker count).
 
 The [nightly workflow](.github/workflows/fuzz.yml) runs at 03:23 UTC and supports
 manual dispatch. Separate square, share, inclusion, and transaction jobs run every
 target in their package for five minutes each. The jobs restore the previous
-mutation corpus from the Go fuzz cache and upload `testdata/fuzz` inputs on
-failure. Normal PR CI executes all committed seeds via `go test ./...`.
+mutation corpus from the Go fuzz cache. Crash output and inputs may describe an
+exploitable bug, so the jobs keep them out of public logs and artifacts: on
+`main`, a failing target files (or comments on) a PROTOCO Linear issue that holds
+the output, the complete crashing input, and the run URL. This needs the
+`LINEAR_API_KEY` repository secret; `FUZZ_LINEAR_ASSIGNEE_ID` optionally overrides
+the assignee. Normal PR CI executes all committed seeds via `go test ./...`.
 Add new packages to the workflow matrix when they gain fuzz targets.
 
 ## Coverage inventory
@@ -64,14 +71,15 @@ can extend this to many blobs and interleaved builder append/revert operations.
 
 ## Crash triage and regression inputs
 
-1. Download the failing job's `fuzz-failures-*` artifact and copy its files to the
+1. Download the complete corpus file from the Linear issue and save it in the
    same package's `testdata/fuzz/<target>/` directory.
 2. Reproduce with `go test ./path/to/package -run 'FuzzTarget/inputHash'`.
    Go's failure output includes this exact command and minimizes the input when
    the fuzz budget allows.
-3. File a bug linked to PROTOCO-3328 with the target, commit SHA, Go version,
-   workflow URL, reproducer, and stack trace. Distinguish a harness assertion
-   error from a production crash before filing. Use the project's private
+3. Link the nightly issue to PROTOCO-3328 (or file one by hand for a local crash)
+   with the target, commit SHA, Go version, workflow URL, reproducer, and stack
+   trace. Keep crash details out of public PRs and issues. Distinguish a harness
+   assertion error from a production crash before filing. Use the project's private
    security reporting process for sensitive findings.
 4. Commit the minimized input with each fix (and a focused regression test when
    needed). `go test ./...` must pass with the input before closing the bug.
