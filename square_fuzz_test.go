@@ -28,9 +28,11 @@ func FuzzConstruct(f *testing.F) {
 			t.Skip()
 		}
 		txs := make([]square.ClassifiedTx, 0, 2)
+		validBlobNamespaces := true
 		for _, raw := range [][]byte{a, b} {
 			if len(raw) > 0 {
 				txs = append(txs, square.NewClassifiedTx(raw))
+				validBlobNamespaces = validBlobNamespaces && hasValidBlobNamespaces(raw)
 			}
 		}
 		maxSize := 1 << (size % 5)
@@ -38,7 +40,11 @@ func FuzzConstruct(f *testing.F) {
 		if err != nil {
 			return // malformed blobs, ordering, capacity, or threshold
 		}
-		assertFuzzSquare(t, result, maxSize)
+		// Construct does not validate blob namespaces; callers reject reserved
+		// ones beforehand, so the square layout only holds for valid namespaces.
+		if validBlobNamespaces {
+			assertFuzzSquare(t, result, maxSize)
+		}
 		again, err := square.Construct(txs, maxSize, int(threshold))
 		require.NoError(t, err)
 		require.True(t, result.Equals(again), "construction must be deterministic")
@@ -140,4 +146,19 @@ func assertFuzzSquare(t *testing.T, result square.Square, maxSize int) {
 			require.True(t, result[i-1].Namespace().IsLessOrEqualThan(result[i].Namespace()))
 		}
 	}
+}
+
+// hasValidBlobNamespaces reports whether every blob in raw, if raw is a blob
+// tx, has a namespace that callers of Construct would accept.
+func hasValidBlobNamespaces(raw []byte) bool {
+	blobTx, isBlobTx, err := tx.UnmarshalBlobTx(raw)
+	if !isBlobTx || err != nil {
+		return true
+	}
+	for _, blob := range blobTx.Blobs {
+		if blob.Namespace().ValidateForBlob() != nil {
+			return false
+		}
+	}
+	return true
 }
