@@ -183,6 +183,7 @@ func TestBuilderParitySeeds(t *testing.T) {
 //     and otherwise reports exactly whether the append succeeds,
 //   - a rejected append leaves Export unchanged,
 //   - a revert right after a successful append restores the previous Export,
+//     and a second revert fails without changing it,
 //   - the final Export equals Construct over the kept transactions.
 //
 // PrepareProposal relies on the first property to filter transactions, and on
@@ -212,6 +213,9 @@ func checkBuilderParity(t *testing.T, ops, raw []byte, size, threshold uint8) (k
 			require.NoError(t, revertFuzzTx(b, category), "tx %d", i)
 			require.Equal(t, before, exportBytes(t, b), "tx %d: revert did not restore the square", i)
 			require.Equal(t, beforeSize, b.CurrentSize(), "tx %d: revert did not restore the size", i)
+			require.Error(t, revertFuzzTx(b, category), "tx %d: a second revert succeeded", i)
+			require.Equal(t, before, exportBytes(t, b), "tx %d: a failed revert changed the square", i)
+			require.Equal(t, beforeSize, b.CurrentSize(), "tx %d: a failed revert changed the size", i)
 			reverted[ft.kind]++
 			continue
 		}

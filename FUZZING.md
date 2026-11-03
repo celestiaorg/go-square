@@ -38,7 +38,7 @@ This repository inventory supplies the go-square portion of
 [PROTOCO-3321](https://linear.app/celestia/issue/PROTOCO-3321), whose cross-repository
 inventory is still pending. It tracks the coverage added for
 [PROTOCO-3328](https://linear.app/celestia/issue/PROTOCO-3328).
-There are 13 targets across four packages. Coverage here means a target exercises
+There are 20 targets across four packages. Coverage here means a target exercises
 an entry point; it does not imply exhaustive branch coverage or a completed AI scan.
 
 | Package / entry point | Input source | Fuzz targets | Properties | Last AI scan |
@@ -47,10 +47,15 @@ an entry point; it does not imply exhaustive branch coverage or a completed AI s
 | `share.CompactShareSplitter`, `ParseTxs`, share counter | Transaction payloads | `FuzzTxRoundTrip`, `FuzzSharesNeeded` | Round-trip, continuation suffixes, incremental export, capacity accounting and revert | Not recorded |
 | `share.Blob.ToShares`, `ParseBlobs`, `ParseShares` | Blob payloads and signers | `FuzzBlobRoundTrip` | v0/v1 round-trip and share counts | Not recorded |
 | `share.NewInfoByte`, `Sequence.validSequenceLen` | Share metadata | `FuzzNewInfoByte`, `FuzzValidSequenceLen` | Supported info bytes; accepted non-padding sequences have readable declared data | Not recorded |
+| `share.UnmarshalBlob`, `NewBlobFromProto`, `Blob.UnmarshalJSON` | Untrusted protobuf and JSON blobs | `FuzzUnmarshalBlob`, `FuzzNewBlobFromProto`, `FuzzUnmarshalJSON` | No panic; accepted blobs round-trip through protobuf and JSON | Not recorded |
 | `square.Construct` | Ordered proposal transactions, including malformed BlobTx envelopes | `FuzzConstruct` | Reject invalid input without panicking; successful squares have bounded power-of-two dimensions, ordered namespaces, deterministic bytes | Not recorded |
 | `square.Construct`, `BlobShareRange`, `Square.WrappedPFBs` | Valid transactions, v0/v1 PFB blobs, v2 Fibre system blobs | `FuzzConstructBlobRoundTrip` | Recover original transactions/blobs/signers; wrapper share indexes identify the PFB blob | Not recorded |
+| `square.Builder` `Fits`, `AppendTx`, `AppendBlobTx`, `AppendFibreTx`, `RevertLastTx`, `RevertLastBlobTx`, `RevertLastPayForFibreTx`, `Export` | Interleaved append/revert sequences of normal, blob, Fibre and raw transactions | `FuzzBuilderParity` | `Fits` agrees with append; rejected appends and reverts restore `Export` and `CurrentSize`; a repeated revert fails without changing state; final square equals `Construct` | Not recorded |
+| `square.NewClassifiedTx`, `Construct` with pre-decoded blob txs | Mutated proposal batches | `FuzzClassifiedTxParity` | Pre-decoded and raw classification build the same square, share ranges and errors | Not recorded |
 | `inclusion.GenerateSubtreeRoots`, `SubTreeWidth`; NMT `VerifyInclusion`, `VerifySubtreeRootInclusion` | v0/v1/v2 blob shares and untrusted proof fields | `FuzzCommitmentProofRoundTrip`, `FuzzVerifySubtreeRootInclusion` | Generated subtrees verify in a power-of-two NMT row; changed row digests fail; malformed proof ranges/nodes/roots do not panic | Not recorded |
+| `inclusion.CreateCommitment`, `CreateCommitments`, `CreateParallelCommitments` | Blob sets, thresholds and worker counts | `FuzzCommitmentParity` | All three agree on commitments and errors | Not recorded |
 | `tx.HasBlobTxTypeID`, `UnmarshalBlobTxNoCopy` | Untrusted protobuf envelopes | `FuzzHasBlobTxTypeID`, `FuzzUnmarshalBlobTxNoCopy`, `FuzzUnmarshalBlobTxNoCopyStructured` | Envelope verdict and canonical decode agree with reference protobuf decoder | Not recorded |
+| `tx.UnmarshalIndexWrapper`, `MarshalIndexWrapper` | Proposer-supplied block transactions | `FuzzUnmarshalIndexWrapper` | Arbitrary bytes never panic; verdict, fields and unknown fields agree with an independent protowire decoder; decoded size bounded by input; never also a BlobTx; accepted values re-marshal to an equal value with stable bytes | Not recorded |
 
 ## Bounds and verification scope
 
@@ -66,8 +71,8 @@ verifier. The inclusion targets exercise the pinned NMT dependency using the
 outer namespace prefix and power-of-two tree required by Celestia's subtree
 proof API. They do not cover celestia-app's or celestia-node's proof assembly,
 verification wrappers, or data availability header checks. The structured square
-target covers one PFB blob and an optional Fibre transaction; additional targets
-can extend this to many blobs and interleaved builder append/revert operations.
+target covers one PFB blob and an optional Fibre transaction; `FuzzBuilderParity`
+covers many blobs and interleaved builder append/revert operations.
 
 ## Crash triage and regression inputs
 
