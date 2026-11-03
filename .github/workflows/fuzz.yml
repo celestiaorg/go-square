@@ -43,12 +43,18 @@ jobs:
         env:
           FUZZ_PACKAGE: ${{ matrix.package }}
           FUZZTIME: 5m
+          # Crash output may describe an exploitable bug, so it stays out of
+          # public logs and artifacts and is sent only to Linear.
+          FUZZ_LOG_DIR: ${{ runner.temp }}/fuzz
         run: make fuzz
-      - name: Upload failing inputs
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: fuzz-failures-${{ matrix.name }}-${{ github.run_id }}
-          path: '**/testdata/fuzz/**'
-          if-no-files-found: ignore
-          retention-days: 30
+      - name: File Linear issues for failing targets
+        if: ${{ failure() && github.ref == 'refs/heads/main' }}
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+          LINEAR_TEAM_KEY: PROTOCO
+          LINEAR_ASSIGNEE_ID: ${{ vars.FUZZ_LINEAR_ASSIGNEE_ID || 'e9929f5b-e156-4046-95df-aeea6faa9a58' }}
+          FUZZ_LOG_DIR: ${{ runner.temp }}/fuzz
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          COMMIT_SHA: ${{ github.sha }}
+          TITLE_PREFIX: Nightly go-square fuzz failure
+        run: python3 .github/scripts/report-fuzz-failures.py
