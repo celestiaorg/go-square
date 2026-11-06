@@ -34,7 +34,8 @@ func fuzzSpecBlobs(t *testing.T, spec, data []byte) []*share.Blob {
 				payload[j] = byte(i + j)
 			}
 		}
-		ns := share.MustNewV0Namespace([]byte{sel >> 2})
+		// The leading 1 keeps the namespace out of the primary reserved range.
+		ns := share.MustNewV0Namespace([]byte{1, sel >> 2})
 		signer := bytes.Repeat([]byte{sel}, share.SignerSize)
 		var blob *share.Blob
 		var err error

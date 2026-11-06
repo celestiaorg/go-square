@@ -120,3 +120,31 @@ func newBlob(t *testing.T) *share.Blob {
 	require.NoError(t, err)
 	return blob
 }
+
+func TestUnmarshalBlobTxRejectsReservedNamespace(t *testing.T) {
+	for _, ns := range []share.Namespace{share.TxNamespace, share.PayForBlobNamespace, share.PayForFibreNamespace, share.PrimaryReservedPaddingNamespace} {
+		t.Run(ns.String(), func(t *testing.T) {
+			// Encode the BlobTx by hand: share.NewBlob refuses reserved namespaces.
+			blobTx, err := proto.Marshal(&v4.BlobTx{
+				Tx: []byte("tx"),
+				Blobs: []*v4.BlobProto{{
+					NamespaceId:      ns.ID(),
+					NamespaceVersion: uint32(ns.Version()),
+					Data:             []byte{1, 2, 3},
+				}},
+				TypeId: tx.ProtoBlobTxTypeID,
+			})
+			require.NoError(t, err)
+
+			for name, unmarshal := range map[string]func([]byte) (*tx.BlobTx, bool, error){
+				"UnmarshalBlobTx":       tx.UnmarshalBlobTx,
+				"UnmarshalBlobTxNoCopy": tx.UnmarshalBlobTxNoCopy,
+			} {
+				decoded, isBlobTx, err := unmarshal(blobTx)
+				require.ErrorContains(t, err, "invalid blob namespace", name)
+				require.True(t, isBlobTx, name)
+				require.Nil(t, decoded, name)
+			}
+		})
+	}
+}
