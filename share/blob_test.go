@@ -439,3 +439,42 @@ func makeV2Data(fibreBlobVersion uint32, commitment []byte) []byte {
 	copy(data[FibreBlobVersionSize:], commitment)
 	return data
 }
+
+// TestNewBlobRejectsReservedNamespaces verifies that blobs can not be created
+// in primary reserved namespaces. Secondary reserved namespaces are already
+// rejected because they use namespace version 255. Blobs in TxNamespace, PayForBlobNamespace or
+// PayForFibreNamespace would otherwise be split into shares that carry
+// compact-share reserved bytes, shifting the signer and data.
+func TestNewBlobRejectsReservedNamespaces(t *testing.T) {
+	signer := bytes.Repeat([]byte{0xAA}, SignerSize)
+	commitment := bytes.Repeat([]byte{0xBB}, FibreCommitmentSize)
+	data := []byte{1, 2, 3}
+
+	reserved := []Namespace{
+		TxNamespace,
+		IntermediateStateRootsNamespace,
+		PayForBlobNamespace,
+		PayForFibreNamespace,
+		PrimaryReservedPaddingNamespace,
+		MaxPrimaryReservedNamespace,
+	}
+	for _, ns := range reserved {
+		t.Run(ns.String(), func(t *testing.T) {
+			_, err := NewV0Blob(ns, data)
+			require.ErrorContains(t, err, "invalid blob namespace")
+
+			_, err = NewV1Blob(ns, data, signer)
+			require.ErrorContains(t, err, "invalid blob namespace")
+
+			_, err = NewV2Blob(ns, 1, commitment, signer)
+			require.ErrorContains(t, err, "invalid blob namespace")
+
+			_, err = NewBlobFromProto(&v4.BlobProto{
+				NamespaceId:      ns.ID(),
+				NamespaceVersion: uint32(ns.Version()),
+				Data:             data,
+			})
+			require.ErrorContains(t, err, "invalid blob namespace")
+		})
+	}
+}

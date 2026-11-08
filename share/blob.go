@@ -35,6 +35,12 @@ func NewBlob(ns Namespace, data []byte, shareVersion uint8, signer []byte) (*Blo
 	if ns.Version() != NamespaceVersionZero {
 		return nil, fmt.Errorf("namespace version must be %d got %d", NamespaceVersionZero, ns.Version())
 	}
+	// Reserved namespaces (e.g. TxNamespace, PayForBlobNamespace) are written
+	// as compact shares, so a blob in one of them would not be laid out as the
+	// sparse shares its share count and commitment assume.
+	if err := ns.ValidateForBlob(); err != nil {
+		return nil, fmt.Errorf("invalid blob namespace: %w", err)
+	}
 	switch shareVersion {
 	case ShareVersionZero:
 		if signer != nil {
