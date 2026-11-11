@@ -16,12 +16,13 @@ fi
 # fuzztime_race reports whether log $1 shows only the Go toolchain race at the
 # -fuzztime deadline: the fuzz coordinator sees its timeout context finish
 # before the derived worker context is cancelled, and reports the deadline
-# itself as the failure. Any crasher, panic or other error still fails.
+# itself as the failure. Every log line must be fuzz progress or part of that
+# exact failure; any other line, including crash minimization, still fails.
 fuzztime_race() {
   local log=$1 target=$2
-  ! grep -qE 'Failing input written to|^panic:|^\s+--- FAIL' "$log" &&
-    grep -A1 -E "^--- FAIL: ${target} \(" "$log" |
-      tail -n1 | grep -qxE '\s+context deadline exceeded'
+  grep -qxE '\s+context deadline exceeded' "$log" &&
+    ! grep -vxE "fuzz: elapsed: .*|warning: starting with empty corpus|--- FAIL: ${target} \([0-9.]+s\)|\s+context deadline exceeded|FAIL|exit status [0-9]+|FAIL\s+\S+\s+[0-9.]+s" \
+      "$log" | grep -q .
 }
 
 log_dir=${FUZZ_LOG_DIR:-}
