@@ -6,3 +6,7 @@ coverage:
         target: auto
         # Allow small coverage variations from randomized tests.
         threshold: 0.5%
+
+# Do not post a coverage comment on pull requests. Coverage still
+# shows up as commit statuses.
+comment: false
