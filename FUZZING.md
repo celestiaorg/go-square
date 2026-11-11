@@ -19,7 +19,9 @@ and keeps going after a failure, exiting non-zero if any target failed. When
 `FUZZ_LOG_DIR` is set, each target's output goes to `FUZZ_LOG_DIR/<target>.log`
 instead of stdout and `FUZZ_LOG_DIR/failed.txt` lists the failing targets. Each
 target defaults to 30 seconds and two workers (`FUZZ_PARALLEL` overrides the
-worker count).
+worker count). A target that fails only with `context deadline exceeded` at
+the `-fuzztime` limit, with no failing input, passes: that is a race in Go's fuzz
+coordinator, not a bug in go-square. `scripts/fuzz_test.sh` tests this logic.
 
 The [nightly workflow](.github/workflows/fuzz.yml) runs at 03:23 UTC and supports
 manual dispatch. Separate square, share, inclusion, and transaction jobs run every
