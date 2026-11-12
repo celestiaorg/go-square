@@ -13,6 +13,24 @@ if [ -n "${FUZZ_LOG_DIR:-}" ]; then
   : >"$FUZZ_LOG_DIR/failed.txt"
 fi
 
+# fuzztime_race reports whether log $1 shows only the Go toolchain race at the
+# -fuzztime deadline: the fuzz coordinator sees its timeout context finish
+# before the derived worker context is cancelled, and reports the deadline
+# itself as the failure. Every log line must be fuzz progress or part of that
+# exact failure; any other line, including crash minimization, still fails.
+fuzztime_race() {
+  local log=$1 target=$2
+  grep -qxE '\s+context deadline exceeded' "$log" &&
+    ! grep -vxE "fuzz: elapsed: .*|warning: starting with empty corpus|--- FAIL: ${target} \([0-9.]+s\)|\s+context deadline exceeded|FAIL|exit status [0-9]+|FAIL\s+\S+\s+[0-9.]+s" \
+      "$log" | grep -q .
+}
+
+log_dir=${FUZZ_LOG_DIR:-}
+if [ -z "$log_dir" ]; then
+  log_dir=$(mktemp -d)
+  trap 'rm -rf "$log_dir"' EXIT
+fi
+
 failed=0
 packages=$(go list -mod=readonly "${1:-./...}")
 for package in $packages; do
@@ -25,10 +43,19 @@ for package in $packages; do
         echo "Fuzzing $package/$target for ${FUZZTIME:-30s}"
         args=(-mod=readonly "$dir" -run '^$' -fuzz "^${target}$"
           -fuzztime "${FUZZTIME:-30s}" -parallel "${FUZZ_PARALLEL:-2}" -timeout 10m)
+        log="$log_dir/$target.log"
+        status=0
         if [ -z "${FUZZ_LOG_DIR:-}" ]; then
-          go test "${args[@]}" || failed=1
-        elif go test "${args[@]}" >"$FUZZ_LOG_DIR/$target.log" 2>&1; then
-          echo "PASS $target"
+          go test "${args[@]}" 2>&1 | tee "$log" || status=$?
+        else
+          go test "${args[@]}" >"$log" 2>&1 || status=$?
+        fi
+        if [ "$status" -eq 0 ]; then
+          [ -z "${FUZZ_LOG_DIR:-}" ] || echo "PASS $target"
+        elif fuzztime_race "$log" "$target"; then
+          echo "PASS $target (ignored Go fuzz deadline race; no failing input)"
+        elif [ -z "${FUZZ_LOG_DIR:-}" ]; then
+          failed=1
         else
           echo "FAIL $target (output withheld; see the Linear issue)"
           # Every go-square package feeds celestia-app consensus: priority 1.
