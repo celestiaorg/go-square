@@ -27,9 +27,13 @@ jobs:
             package: ./tx
     steps:
       - uses: actions/checkout@v7
+      # Fuzz on the newest Go release, not the go.mod version: under Go 1.26 a
+      # fuzz target that reaches the end of its -fuzztime budget fails with
+      # "context deadline exceeded" (https://go.dev/issue/75804). See "Go
+      # version" in README.md.
       - uses: actions/setup-go@v7
         with:
-          go-version-file: ./go.mod
+          go-version: '1.27.x'
       - name: Locate fuzz cache
         id: cache
         run: echo "path=$(go env GOCACHE)/fuzz" >> "$GITHUB_OUTPUT"
