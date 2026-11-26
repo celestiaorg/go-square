@@ -2,7 +2,6 @@ package inclusion
 
 import (
 	"fmt"
-	"math"
 	"math/bits"
 
 	"golang.org/x/exp/constraints"
@@ -91,7 +90,35 @@ func RoundDownPowerOfTwo[I constraints.Integer](input I) (I, error) {
 // BlobMinSquareSize returns the minimum square size that can contain shareCount
 // number of shares.
 func BlobMinSquareSize(shareCount int) (int, error) {
-	return RoundUpPowerOfTwo(int(math.Ceil(math.Sqrt(float64(shareCount)))))
+	return RoundUpPowerOfTwo(ceilSqrt(shareCount))
+}
+
+// ceilSqrt returns the smallest r with r*r >= n, or 0 if n is not positive. It
+// uses integer arithmetic so the result is exact for every int.
+func ceilSqrt(n int) int {
+	if n <= 0 {
+		return 0
+	}
+	x := uint64(n)
+	// Compute r = floor(sqrt(x)) one bit at a time.
+	var r uint64
+	bit := uint64(1) << 62
+	for bit > x {
+		bit >>= 2
+	}
+	for bit != 0 {
+		if x >= r+bit {
+			x -= r + bit
+			r = r>>1 + bit
+		} else {
+			r >>= 1
+		}
+		bit >>= 2
+	}
+	if r*r < uint64(n) {
+		r++
+	}
+	return int(r)
 }
 
 // SubTreeWidth returns the maximum number of leaves per subtree in the share

@@ -403,6 +403,99 @@ func TestBlobMinSquareSize(t *testing.T) {
 	}
 }
 
+// oldBlobMinSquareSize is the float64 formula that BlobMinSquareSize used
+// before it switched to integer arithmetic. It is correct for every shareCount
+// up to 2^52, where float64 still holds the result of the square root exactly
+// enough. It is kept here only as a reference.
+func oldBlobMinSquareSize(shareCount int) (int, error) {
+	return inclusion.RoundUpPowerOfTwo(int(math.Ceil(math.Sqrt(float64(shareCount)))))
+}
+
+// TestBlobMinSquareSizeMatchesFloatFormula checks that BlobMinSquareSize gives
+// the same result as the old float64 formula for every input that the old
+// formula handled correctly.
+func TestBlobMinSquareSizeMatchesFloatFormula(t *testing.T) {
+	check := func(n int) {
+		want, wantErr := oldBlobMinSquareSize(n)
+		got, gotErr := inclusion.BlobMinSquareSize(n)
+		if got != want || gotErr != nil || wantErr != nil {
+			t.Fatalf("BlobMinSquareSize(%d) = %d, %v; old formula = %d, %v", n, got, gotErr, want, wantErr)
+		}
+	}
+
+	// Negative inputs.
+	for _, n := range []int{math.MinInt, math.MinInt + 1, -1 << 40, -17, -2, -1} {
+		check(n)
+	}
+
+	// Every input in [0, 2^20].
+	for n := 0; n <= 1<<20; n++ {
+		check(n)
+	}
+
+	// Inputs around perfect squares up to 2^52: every k up to 2^16, then a
+	// sample of larger k. A prime step keeps the sample off powers of two,
+	// and the last k is always included.
+	checkSquare := func(k int64) {
+		sq := k * k
+		check(int(sq - 1))
+		check(int(sq))
+		if sq+1 <= 1<<52 {
+			check(int(sq + 1))
+		}
+	}
+	for k := int64(1 << 10); k <= 1<<16; k++ {
+		checkSquare(k)
+	}
+	for k := int64(1<<16) + 1; k < 1<<26; k += 1021 {
+		checkSquare(k)
+	}
+	for e := 17; e <= 26; e++ {
+		for d := int64(-2); d <= 2; d++ {
+			if k := int64(1)<<e + d; k <= 1<<26 {
+				checkSquare(k)
+			}
+		}
+	}
+
+	// Inputs around every power of two up to 2^52.
+	for e := 0; e <= 52; e++ {
+		p := int64(1) << e
+		for d := int64(-2); d <= 2; d++ {
+			if n := p + d; n >= 0 && n <= 1<<52 {
+				check(int(n))
+			}
+		}
+	}
+}
+
+// TestBlobMinSquareSizeLargeShareCount checks inputs above 2^52, where the old
+// float64 formula returned a square too small to hold the shares.
+func TestBlobMinSquareSizeLargeShareCount(t *testing.T) {
+	if math.MaxInt < math.MaxInt64 {
+		t.Skip("needs a 64-bit int")
+	}
+	testCases := []struct {
+		shareCount int64
+		want       int64
+	}{
+		{shareCount: 1 << 52, want: 1 << 26},
+		{shareCount: 1<<52 + 1, want: 1 << 27},
+		{shareCount: 1<<54 + 1, want: 1 << 28},
+		{shareCount: (1<<27+1)*(1<<27+1) - 1, want: 1 << 28},
+		{shareCount: 1 << 62, want: 1 << 31},
+		{shareCount: 1<<62 + 1, want: 1 << 32},
+		{shareCount: math.MaxInt64, want: 1 << 32},
+	}
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("shareCount %d", tc.shareCount), func(t *testing.T) {
+			got, err := inclusion.BlobMinSquareSize(int(tc.shareCount))
+			require.NoError(t, err)
+			assert.Equal(t, int(tc.want), got)
+		})
+	}
+}
+
 func TestSubTreeWidth(t *testing.T) {
 	type testCase struct {
 		shareCount int

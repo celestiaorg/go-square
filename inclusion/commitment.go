@@ -233,11 +233,15 @@ func CreateCommitments(blobs []*sh.Blob, merkleRootFn MerkleRootFn, subtreeRootT
 
 // MerkleMountainRangeSizes returns the sizes (number of leaf nodes) of the
 // trees in a merkle mountain range constructed for a given totalSize and
-// maxTreeSize.
+// maxTreeSize. It returns an error if totalSize is positive and maxTreeSize is
+// zero.
 //
 // https://docs.grin.mw/wiki/chain-state/merkle-mountain-range/
 // https://github.com/opentimestamps/opentimestamps-server/blob/master/doc/merkle-mountain-range.md
 func MerkleMountainRangeSizes(totalSize, maxTreeSize uint64) ([]uint64, error) {
+	if totalSize != 0 && maxTreeSize == 0 {
+		return nil, fmt.Errorf("maxTreeSize must be positive when totalSize is %d", totalSize)
+	}
 	var treeSizes []uint64
 
 	for totalSize != 0 {
