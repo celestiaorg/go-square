@@ -166,11 +166,9 @@ func checkSquareLayout(t *testing.T, ops, raw []byte, size, threshold uint8) (ch
 			require.NoError(t, err)
 			require.Equal(t, int(iw.ShareIndexes[j]), start)
 			require.Equal(t, share.SparseSharesNeeded(uint32(len(blob.Data())), blob.HasSigner()), length)
-			if checkedBlobs == 0 {
-				r, err := square.BlobShareRange(txs, pfbIndex, j, maxSize, thr)
-				require.NoError(t, err)
-				require.Equal(t, share.NewRange(start, start+length), r)
-			}
+			r, err := square.BlobShareRange(txs, pfbIndex, j, maxSize, thr)
+			require.NoError(t, err)
+			require.Equal(t, share.NewRange(start, start+length), r)
 			if checkBlobInSquare(t, sq, width, thr, blob, start, length) > 1 {
 				wideSubtrees++
 			}
