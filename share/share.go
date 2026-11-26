@@ -206,6 +206,16 @@ func (s *Share) rawDataStartIndexUsingReserved() (int, error) {
 		if err != nil {
 			return 0, err
 		}
+		// A unit cannot start inside the header that the compact share
+		// splitter writes: namespace, info byte, sequence length (start
+		// share only), and reserved bytes.
+		headerEnd := NamespaceSize + ShareInfoBytes + ShareReservedBytes
+		if isStart {
+			headerEnd += SequenceLenBytes
+		}
+		if reservedBytes != 0 && int(reservedBytes) < headerEnd {
+			return 0, fmt.Errorf("reserved bytes %d point inside the share header, which ends at %d", reservedBytes, headerEnd)
+		}
 		return int(reservedBytes), nil
 	}
 	return index, nil

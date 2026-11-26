@@ -266,3 +266,71 @@ func TestParseTxsFirstShareWithoutUnitStart(t *testing.T) {
 		})
 	}
 }
+
+// TestRawDataUsingReservedOffsetInHeader checks that a reserved-bytes offset
+// that points into the share header is rejected, while zero and offsets at or
+// after the end of the header are accepted.
+func TestRawDataUsingReservedOffsetInHeader(t *testing.T) {
+	const (
+		startHeaderEnd        = NamespaceSize + ShareInfoBytes + SequenceLenBytes + ShareReservedBytes
+		continuationHeaderEnd = NamespaceSize + ShareInfoBytes + ShareReservedBytes
+	)
+	newCompactShare := func(t *testing.T, ns Namespace, isStart bool, reserved uint32) Share {
+		t.Helper()
+		raw := make([]byte, ShareSize)
+		copy(raw, ns.Bytes())
+		infoByte, err := NewInfoByte(ShareVersionZero, isStart)
+		require.NoError(t, err)
+		raw[NamespaceSize] = byte(infoByte)
+		reservedIndex := NamespaceSize + ShareInfoBytes
+		if isStart {
+			raw[reservedIndex+SequenceLenBytes-1] = 10 // sequence length
+			reservedIndex += SequenceLenBytes
+		}
+		reservedBytes, err := NewReservedBytes(reserved)
+		require.NoError(t, err)
+		copy(raw[reservedIndex:], reservedBytes)
+		s, err := NewShare(raw)
+		require.NoError(t, err)
+		return s
+	}
+
+	testCases := []struct {
+		name     string
+		isStart  bool
+		reserved uint32
+		wantErr  bool
+	}{
+		{"start share, no unit starts", true, 0, false},
+		{"start share, offset at info byte", true, NamespaceSize, true},
+		{"start share, offset at sequence length", true, NamespaceSize + ShareInfoBytes, true},
+		{"start share, offset at last reserved byte", true, startHeaderEnd - 1, true},
+		{"start share, offset at end of header", true, startHeaderEnd, false},
+		{"start share, offset at last byte", true, ShareSize - 1, false},
+		{"continuation share, no unit starts", false, 0, false},
+		{"continuation share, offset at info byte", false, NamespaceSize, true},
+		{"continuation share, offset at last reserved byte", false, continuationHeaderEnd - 1, true},
+		{"continuation share, offset at end of header", false, continuationHeaderEnd, false},
+		{"continuation share, offset at last byte", false, ShareSize - 1, false},
+	}
+	for _, ns := range []Namespace{TxNamespace, PayForBlobNamespace, PayForFibreNamespace} {
+		for _, tc := range testCases {
+			t.Run(fmt.Sprintf("%x/%s", ns.Bytes()[NamespaceSize-1], tc.name), func(t *testing.T) {
+				s := newCompactShare(t, ns, tc.isStart, tc.reserved)
+				raw, err := s.RawDataUsingReserved()
+				if tc.wantErr {
+					require.Error(t, err)
+					_, err = ParseTxs([]Share{s})
+					require.Error(t, err)
+					return
+				}
+				require.NoError(t, err)
+				if tc.reserved == 0 {
+					assert.Empty(t, raw)
+				} else {
+					assert.Equal(t, s.ToBytes()[tc.reserved:], raw)
+				}
+			})
+		}
+	}
+}
