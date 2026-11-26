@@ -40,7 +40,7 @@ This repository inventory supplies the go-square portion of
 [PROTOCO-3321](https://linear.app/celestia/issue/PROTOCO-3321), whose cross-repository
 inventory is still pending. It tracks the coverage added for
 [PROTOCO-3328](https://linear.app/celestia/issue/PROTOCO-3328).
-There are 20 targets across four packages. Coverage here means a target exercises
+There are 28 targets across four packages. Coverage here means a target exercises
 an entry point; it does not imply exhaustive branch coverage or a completed AI scan.
 
 | Package / entry point | Input source | Fuzz targets | Properties | Last AI scan |
@@ -56,6 +56,12 @@ an entry point; it does not imply exhaustive branch coverage or a completed AI s
 | `square.NewClassifiedTx`, `Construct` with pre-decoded blob txs | Mutated proposal batches | `FuzzClassifiedTxParity` | Pre-decoded and raw classification build the same square, share ranges and errors | Not recorded |
 | `inclusion.GenerateSubtreeRoots`, `SubTreeWidth`; NMT `VerifyInclusion`, `VerifySubtreeRootInclusion` | v0/v1/v2 blob shares and untrusted proof fields | `FuzzCommitmentProofRoundTrip`, `FuzzVerifySubtreeRootInclusion` | Generated subtrees verify in a power-of-two NMT row; changed row digests fail; malformed proof ranges/nodes/roots do not panic | Not recorded |
 | `inclusion.CreateCommitment`, `CreateCommitments`, `CreateParallelCommitments` | Blob sets, thresholds and worker counts | `FuzzCommitmentParity` | All three agree on commitments and errors | Not recorded |
+| `share.NewNamespace`, `NewNamespaceFromBytes`, `NewV0Namespace`, `Namespace.UnmarshalJSON`, `ValidateForData`, `ValidateForBlob`, `IsReserved…`, comparison helpers, `AddInt` | User and network namespaces | `FuzzNamespace` | Acceptance matches an independent statement of the namespace rules; classification and ordering agree with byte comparison; JSON round-trip; `AddInt` agrees with big-integer arithmetic and fails exactly on overflow; inputs are not modified | Not recorded |
+| `share.GetShareRangeForNamespace`, `Range` | Shares of a data square | `FuzzGetShareRangeForNamespace` | Sorted shares give the same range as a linear scan; unsorted shares give an in-bounds range | Not recorded |
+| `share.NamespacePaddingShares` | Padding namespaces and share versions | `FuzzNamespacePaddingShares` | Padding is zero, keeps namespace and version, is padding to `ParseShares`, and yields no transactions or blobs | Not recorded |
+| `share.CompactSharesNeeded`, `SparseSharesNeeded`, `AvailableBytesFrom…Shares` | Sequence lengths and share counts | `FuzzShareCountArithmetic` | Agree with ceiling division for every uint32 length; the capacity helpers are exact inverses of the counters | Not recorded |
+| `inclusion.SubTreeWidth`, `BlobMinSquareSize`, `NextShareIndex`, `RoundUpByMultipleOf`, `BlobSharesUsedNonInteractiveDefaults`, `MerkleMountainRangeSizes`, `RoundUpPowerOfTwo`, `RoundDownPowerOfTwo` | Share counts, thresholds and cursors | `FuzzBlobLayoutArithmetic`, `FuzzMerkleMountainRangeSizes`, `FuzzRoundPowerOfTwo` | Agree with integer reference implementations; no panic for any int share count, threshold or cursor; power-of-two helpers report overflow of the result type | Not recorded |
+| `square.Construct`, `Builder.FindTxShareRange`, `TxShareRange`, `FindBlobStartingIndex`, `BlobShareLength`, `BlobShareRange`, `GetWrappedPFB`, `Square.WrappedPFBs` | Interleaved normal, blob, Fibre and raw transactions | `FuzzSquareLayout` | Every tx range matches the tx's byte offsets in its compact sequence; every PFB blob range matches its wrapped share index and holds that blob; blobs start where the non-interactive default rules place them with namespace padding between; each commitment subtree is row-aligned and has the root generated from the blob alone | Not recorded |
 | `tx.HasBlobTxTypeID`, `UnmarshalBlobTxNoCopy` | Untrusted protobuf envelopes | `FuzzHasBlobTxTypeID`, `FuzzUnmarshalBlobTxNoCopy`, `FuzzUnmarshalBlobTxNoCopyStructured` | Envelope verdict and canonical decode agree with reference protobuf decoder | Not recorded |
 | `tx.UnmarshalIndexWrapper`, `MarshalIndexWrapper` | Proposer-supplied block transactions | `FuzzUnmarshalIndexWrapper` | Arbitrary bytes never panic; verdict, fields and unknown fields agree with an independent protowire decoder; decoded size bounded by input; never also a BlobTx; accepted values re-marshal to an equal value with stable bytes | Not recorded |
 
@@ -74,7 +80,10 @@ outer namespace prefix and power-of-two tree required by Celestia's subtree
 proof API. They do not cover celestia-app's or celestia-node's proof assembly,
 verification wrappers, or data availability header checks. The structured square
 target covers one PFB blob and an optional Fibre transaction; `FuzzBuilderParity`
-covers many blobs and interleaved builder append/revert operations.
+covers many blobs and interleaved builder append/revert operations. The arithmetic
+targets check share counts below 2^32, the most a uint32 blob length can
+produces, and mountain ranges with power-of-two tree sizes, as `SubTreeWidth`
+returns.
 
 ## Crash triage and regression inputs
 
