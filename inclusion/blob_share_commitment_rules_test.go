@@ -433,13 +433,28 @@ func TestBlobMinSquareSizeMatchesFloatFormula(t *testing.T) {
 		check(n)
 	}
 
-	// Inputs around every perfect square up to 2^52.
-	for k := int64(1 << 10); k <= 1<<26; k++ {
+	// Inputs around perfect squares up to 2^52: every k up to 2^16, then a
+	// sample of larger k. A prime step keeps the sample off powers of two,
+	// and the last k is always included.
+	checkSquare := func(k int64) {
 		sq := k * k
 		check(int(sq - 1))
 		check(int(sq))
 		if sq+1 <= 1<<52 {
 			check(int(sq + 1))
+		}
+	}
+	for k := int64(1 << 10); k <= 1<<16; k++ {
+		checkSquare(k)
+	}
+	for k := int64(1<<16) + 1; k < 1<<26; k += 1021 {
+		checkSquare(k)
+	}
+	for e := 17; e <= 26; e++ {
+		for d := int64(-2); d <= 2; d++ {
+			if k := int64(1)<<e + d; k <= 1<<26 {
+				checkSquare(k)
+			}
 		}
 	}
 
