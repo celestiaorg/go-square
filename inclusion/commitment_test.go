@@ -62,6 +62,32 @@ func TestMerkleMountainRangeSizes(t *testing.T) {
 	}
 }
 
+// TestMerkleMountainRangeSizesZeroMaxTreeSize checks that a zero maxTreeSize
+// returns an error instead of looping forever.
+func TestMerkleMountainRangeSizesZeroMaxTreeSize(t *testing.T) {
+	type result struct {
+		sizes []uint64
+		err   error
+	}
+	done := make(chan result, 1)
+	go func() {
+		sizes, err := inclusion.MerkleMountainRangeSizes(1, 0)
+		done <- result{sizes, err}
+	}()
+	select {
+	case r := <-done:
+		require.Error(t, r.err)
+		assert.Nil(t, r.sizes)
+	case <-time.After(2 * time.Second):
+		t.Fatal("MerkleMountainRangeSizes(1, 0) did not return")
+	}
+
+	// An empty range needs no trees, so a zero maxTreeSize is still accepted.
+	sizes, err := inclusion.MerkleMountainRangeSizes(0, 0)
+	require.NoError(t, err)
+	assert.Empty(t, sizes)
+}
+
 // TestCreateCommitment will fail if a change is made to share encoding or how
 // the commitment is calculated. If this is the case, the expected commitment
 // bytes will need to be updated.
