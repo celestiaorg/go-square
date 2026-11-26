@@ -2,6 +2,7 @@ package square_test
 
 import (
 	"bytes"
+	"math"
 	"testing"
 
 	"github.com/celestiaorg/go-square/v4"
@@ -416,6 +417,27 @@ func TestSize(t *testing.T) {
 		require.NoError(t, err, i)
 		assert.Equal(t, tt.expect, res, i)
 		assert.True(t, square.IsPowerOfTwo(res))
+	}
+}
+
+// TestSizeLargeShareCount checks that Size returns a square that holds the
+// shares for inputs above 2^52, where a float64 square root is not exact.
+func TestSizeLargeShareCount(t *testing.T) {
+	if math.MaxInt < math.MaxInt64 {
+		t.Skip("needs a 64-bit int")
+	}
+	tests := []struct {
+		input  int64
+		expect int64
+	}{
+		{input: 1 << 52, expect: 1 << 26},
+		{input: 1<<52 + 1, expect: 1 << 27},
+		{input: 1<<62 + 1, expect: 1 << 32},
+	}
+	for _, tt := range tests {
+		res, err := square.Size(int(tt.input))
+		require.NoError(t, err, tt.input)
+		assert.Equal(t, int(tt.expect), res, tt.input)
 	}
 }
 

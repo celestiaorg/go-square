@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"fmt"
-	"math"
 
 	"github.com/celestiaorg/go-square/v4/inclusion"
 	"github.com/celestiaorg/go-square/v4/share"
@@ -178,7 +177,7 @@ func (s Square) Size() (int, error) {
 // avoid breaking the api. In future versions there will not be a copy of this
 // code here.
 func Size(length int) (int, error) {
-	return RoundUpPowerOfTwo(int(math.Ceil(math.Sqrt(float64(length)))))
+	return inclusion.BlobMinSquareSize(length)
 }
 
 // Deprecated: Use inclusion.RoundUpPowerOfTwo directly.
